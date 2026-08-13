@@ -1,0 +1,66 @@
+local Player=game:GetService("Players").LocalPlayer
+local RunService=game:GetService("RunService")
+local UIS=game:GetService("UserInputService")
+local TweenService=game:GetService("TweenService")
+local NN={Weights={Aggression=0.5,Caution=0.3,Exploration=0.6,ReactionTime=0.4,Accuracy=0.3},Memory={Positions={},EnemyPatterns={},DeathLocations={}},State={Mode="exploring",Target=nil,Confidence=0.5},Learning={Iterations=0,SuccessRate=0,Adaptations=0}}
+local S={DetectionRadius=120,MoveSpeed=22,MemorySize=100,LearningRate=0.1}
+local SG=Instance.new("ScreenGui")
+SG.Parent=game:GetService("CoreGui")
+SG.Name="NeuralBot"
+SG.ResetOnSpawn=false
+local TB=Instance.new("ImageButton")
+TB.Size=UDim2.new(0,80,0,80)
+TB.Position=UDim2.new(0.5,-40,0.8,0)
+TB.BackgroundColor3=Color3.fromRGB(25,25,35)
+TB.BackgroundTransparency=0.15
+TB.Image="rbxassetid://6031090933"
+TB.Parent=SG
+local SF=Instance.new("Frame")
+SF.Size=UDim2.new(0,80,0,30)
+SF.Position=UDim2.new(0,0,1,-30)
+SF.BackgroundColor3=Color3.fromRGB(0,0,0)
+SF.BackgroundTransparency=0.5
+SF.Parent=TB
+local SL=Instance.new("TextLabel")
+SL.Size=UDim2.new(1,0,1,0)
+SL.BackgroundTransparency=1
+SL.Text="🧠 OFF"
+SL.TextColor3=Color3.fromRGB(255,0,0)
+SL.TextScaled=true
+SL.Font=Enum.Font.GothamBold
+SL.Parent=SF
+local NI=Instance.new("Frame")
+NI.Size=UDim2.new(0,10,0,10)
+NI.Position=UDim2.new(0,5,0.3,0)
+NI.BackgroundColor3=Color3.fromRGB(255,0,0)
+NI.BackgroundTransparency=0.3
+NI.Parent=TB
+local drag,ds,sp=false
+TB.InputBegan:Connect(function(i)if i.UserInputType==Enum.UserInputType.Touch then drag=true ds=i.Position sp=TB.Position end end)
+UIS.InputChanged:Connect(function(i)if drag and i.UserInputType==Enum.UserInputType.Touch then local d=i.Position-ds TB.Position=UDim2.new(sp.X.Scale,sp.X.Offset+d.X,sp.Y.Scale,sp.Y.Offset+d.Y)end end)
+UIS.InputEnded:Connect(function(i)if i.UserInputType==Enum.UserInputType.Touch then drag=false end end)
+function Act(v)return 1/(1+math.exp(-v))end
+function Decide(i)local d=0 for k,w in pairs(NN.Weights)do if i[k]then d=d+(i[k]*w)end end return Act(d)end
+function Learn(s,f)NN.Learning.Iterations=NN.Learning.Iterations+1 local lr=S.LearningRate*(1+NN.Learning.Adaptations/100)if s then for k,w in pairs(NN.Weights)do NN.Weights[k]=math.min(1,w+(lr*(f[k]or 0.01)))end NN.Learning.SuccessRate=(NN.Learning.SuccessRate*0.9)+0.1 else for k,w in pairs(NN.Weights)do NN.Weights[k]=math.max(0,w-(lr*0.1))end NN.Learning.SuccessRate=NN.Learning.SuccessRate*0.95 end if NN.Learning.Iterations%10==0 then NN.Learning.Adaptations=NN.Learning.Adaptations+1 end end
+function Move(d,s)local c=Player.Character if not c then return end local r=c:FindFirstChild("HumanoidRootPart")if not r then return end for _,v in pairs(r:GetChildren())do if v:IsA("BodyVelocity")or v:IsA("BodyForce")then v:Destroy()end end if d.Magnitude<0.1 then return end s=s or S.MoveSpeed local bv=Instance.new("BodyVelocity")bv.MaxForce=Vector3.new(4000,4000,4000)bv.Velocity=d.Unit*s bv.Parent=r local bf=Instance.new("BodyForce")bf.Force=Vector3.new(0,c:GetMass()*workspace.Gravity,0)bf.Parent=r game:GetService("Debris"):AddItem(bv,0.3)game:GetService("Debris"):AddItem(bf,0.3)if d.Magnitude>0.5 then local lp=r.Position+d.Unit*10 r.CFrame=r.CFrame:Lerp(CFrame.lookAt(r.Position,lp),0.15)end end
+function Stop()local c=Player.Character if not c then return end local r=c:FindFirstChild("HumanoidRootPart")if not r then return end for _,v in pairs(r:GetChildren())do if v:IsA("BodyVelocity")or v:IsA("BodyForce")then v:Destroy()end end end
+function Jump()local c=Player.Character if not c then return end local h=c:FindFirstChild("Humanoid")if h then h:Jump()end end
+function AddPos(p)table.insert(NN.Memory.Positions,p)if #NN.Memory.Positions>S.MemorySize then table.remove(NN.Memory.Positions,1)end end
+function IsVisited(p,r)r=r or 15 for _,m in pairs(NN.Memory.Positions)do if(p-m).Magnitude<r then return true end end return false end
+function AddDeath(p)table.insert(NN.Memory.DeathLocations,p)if #NN.Memory.DeathLocations>20 then table.remove(NN.Memory.DeathLocations,1)end end
+function IsDangerous(p,r)r=r or 25 for _,d in pairs(NN.Memory.DeathLocations)do if(p-d).Magnitude<r then return true end end return false end
+function GetUnvisited()local c=Player.Character if not c then return end local r=c:FindFirstChild("HumanoidRootPart")if not r then return end for i=1,30 do local a=math.random()*2*math.pi local d=math.random(30,180)local x=r.Position.X+math.cos(a)*d local z=r.Position.Z+math.sin(a)*d local np=Vector3.new(x,r.Position.Y,z)if not IsVisited(np,20)and not IsDangerous(np,30)then return np end end return nil end
+function GetClosest()local c,n=nil,math.huge local ch=Player.Character if not ch then return end local r=ch:FindFirstChild("HumanoidRootPart")if not r then return end for _,p in pairs(game:GetService("Players"):GetPlayers())do if p~=Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart")then local d=(r.Position-p.Character.HumanoidRootPart.Position).Magnitude if d<n and d<S.DetectionRadius then n=d c=p end end end return c,n end
+function Predict(enemy)if not enemy or not enemy.Character then return end local r=enemy.Character:FindFirstChild("HumanoidRootPart")if not r then return end local pk=tostring(enemy.UserId)if not NN.Memory.EnemyPatterns[pk]then NN.Memory.EnemyPatterns[pk]={Positions={},LastPosition=nil,Speed=0,Direction=Vector3.new()}end local p=NN.Memory.EnemyPatterns[pk]if p.LastPosition then local v=(r.Position-p.LastPosition)/0.1 p.Direction=v.Unit p.Speed=v.Magnitude end p.LastPosition=r.Position return r.Position+(p.Direction*p.Speed*0.5)end
+function AimShoot(target)if not target or not target.Character then return end local c=Player.Character if not c then return end local r=c:FindFirstChild("HumanoidRootPart")local tr=target.Character:FindFirstChild("HumanoidRootPart")if not r or not tr then return end local pp=Predict(target)or tr.Position local d=(pp-r.Position).Unit local tc=CFrame.lookAt(r.Position,r.Position+d)r.CFrame=r.CFrame:Lerp(tc,0.3)local acc=NN.Weights.Accuracy local sp=(1-acc)*0.05 local rc=RaycastParams.new()rc.FilterType=Enum.RaycastFilterType.Blacklist rc.FilterDescendantsInstances={c}local ro=r.Position+Vector3.new(0,1.5,0)local rd=d+Vector3.new((math.random()-0.5)*sp,(math.random()-0.5)*sp,(math.random()-0.5)*sp)local ray=workspace:Raycast(ro,rd*200,rc)local hit=false if ray and ray.Instance and ray.Instance:IsDescendantOf(target.Character)then hit=true Learn(true,{Accuracy=0.15})else Learn(false,{Accuracy=-0.05})end local b=Instance.new("Part")b.Size=Vector3.new(0.3,0.3,1)b.BrickColor=BrickColor.new(hit and"Bright green"or"Bright yellow")b.Material=Enum.Material.Neon b.CFrame=CFrame.new(ro)*CFrame.new(0,0,-1)b.Velocity=rd*250 b.CanCollide=false b.Lifetime=0.3 b.Parent=workspace game:GetService("Debris"):AddItem(b,0.3)local t=c:FindFirstChildOfClass("Tool")if t then t:Activate()task.wait(0.05)t:Deactivate()end return hit end
+local BL,nil
+local BA=false
+local FC=0
+function Process()local c=Player.Character if not c then return end local r=c:FindFirstChild("HumanoidRootPart")if not r then return end local h=c:FindFirstChild("Humanoid")if not h then return end FC=FC+1 if FC%20==0 then AddPos(r.Position)end local e,d=GetClosest()local i={Aggression=NN.Weights.Aggression,Caution=1/(d+1),Exploration=#NN.Memory.Positions/S.MemorySize,ReactionTime=1/(NN.Weights.ReactionTime+0.1),Accuracy=NN.Weights.Accuracy}local dec=Decide(i)if e and d<S.DetectionRadius then if d<40 and dec>0.6 then NN.State.Mode="chasing"elseif d<20 then NN.State.Mode="fleeing"else NN.State.Mode="approaching"end else NN.State.Mode="exploring"end if NN.State.Mode=="exploring"then if not NN.State.Target or IsVisited(NN.State.Target,15)or IsDangerous(NN.State.Target,25)then NN.State.Target=GetUnvisited()if not NN.State.Target then local a=math.random()*2*math.pi local dist=math.random(30,80)NN.State.Target=r.Position+Vector3.new(math.cos(a)*dist,0,math.sin(a)*dist)end end if NN.State.Target then local dir=NN.State.Target-r.Position if dir.Magnitude>5 then Move(dir)else AddPos(NN.State.Target)NN.State.Target=nil end end elseif NN.State.Mode=="chasing"or NN.State.Mode=="approaching"then if e and e.Character then local tr=e.Character:FindFirstChild("HumanoidRootPart")if tr then local dir=tr.Position-r.Position local ro=Vector3.new((math.random()-0.5)*2,0,(math.random()-0.5)*2)*(1-dec)Move(dir+ro)if dir.Magnitude<50 and FC%15==0 then AimShoot(e)end if dir.Magnitude<15 and dec>0.7 and FC%30==0 then Jump()end end end elseif NN.State.Mode=="fleeing"then if e and e.Character then local tr=e.Character:FindFirstChild("HumanoidRootPart")if tr then local dir=(r.Position-tr.Position).Unit Move(dir*0.5)end end end if FC%10==0 then NI.BackgroundColor3=NN.State.Confidence>0.7 and Color3.fromRGB(0,255,0)or Color3.fromRGB(255,255,0)NI.BackgroundTransparency=1-NN.State.Confidence end end
+function HandleDeath()local c=Player.Character if c and c:FindFirstChild("HumanoidRootPart")then AddDeath(c.HumanoidRootPart.Position)end NN.Learning.LastDeath=tick()NN.State.Confidence=math.max(0.1,NN.State.Confidence-0.3)Learn(false,{Aggression=-0.2,Caution=0.3,Exploration=0.1})end
+Player.CharacterAdded:Connect(function()task.wait(2)Stop()HandleDeath()end)
+TB.MouseButton1Click:Connect(function()BA=not BA if BA then local c=Player.Character if c then local h=c:FindFirstChild("Humanoid")if h then h.WalkSpeed=0 h.JumpPower=60 h.AutoRotate=false end end NN.State.Target=nil NN.State.Confidence=0.5 NN.Memory.Positions={}SL.Text="🧠 ON"SL.TextColor3=Color3.fromRGB(0,255,0)NI.BackgroundColor3=Color3.fromRGB(0,255,0)BL=RunService.Heartbeat:Connect(function()if BA then Process()end end)else if BL then BL:Disconnect()BL=nil end Stop()SL.Text="🧠 OFF"SL.TextColor3=Color3.fromRGB(255,0,0)NI.BackgroundColor3=Color3.fromRGB(255,0,0)end end)
+task.spawn(function()while task.wait(15)do if BA then for k,w in pairs(NN.Weights)do local m=(math.random()-0.5)*0.02 NN.Weights[k]=math.max(0,math.min(1,w+m))end S.DetectionRadius=math.min(200,S.DetectionRadius+0.1)S.MoveSpeed=math.min(35,S.MoveSpeed+0.05)local avg=0 for _,w in pairs(NN.Weights)do avg=avg+w end avg=avg/5 SL.Text="🧠 "..math.floor(avg*100).."%"end end end)
+_G.GetNeuralState=function()print("=== НЕЙРОСЕТЬ ===")print("Веса:")for k,v in pairs(NN.Weights)do print("  "..k..": "..math.floor(v*100).."%")end print("Режим: "..NN.State.Mode)print("Уверенность: "..math.floor(NN.State.Confidence*100).."%")print("Адаптаций: "..NN.Learning.Adaptations)print("Точек памяти: "..#NN.Memory.Positions)end
+game:GetService("StarterGui"):SetCore("SendNotification",{Title="🧠 Нейросеть v4.0",Text="Бот с нейросетью! Обучается в реальном времени.",Duration=5})
+print("✅ Нейросетевой бот загружен! Введите _G.GetNeuralState()")
