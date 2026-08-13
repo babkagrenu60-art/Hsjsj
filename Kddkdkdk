@@ -1,0 +1,371 @@
+-- MM2 BOT AI с принудительным движением (Delta Mobile)
+local Player = game:GetService("Players").LocalPlayer
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Camera = workspace.CurrentCamera
+
+-- Настройки
+local SETTINGS = {
+    DetectionRadius = 120,
+    ShootCooldown = 1.2,
+    MemorySize = 30,
+    MoveSpeed = 25, -- Сила движения
+    RotationSpeed = 5
+}
+
+-- Нейросеть (имитация)
+local Brain = {
+    Aggression = 0.5,
+    Deaths = 0,
+    Memory = {},
+    CurrentTarget = nil,
+    LastPosition = nil,
+    StuckCounter = 0
+}
+
+-- Создаём кнопку
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.Name = "BotAIMenu"
+ScreenGui.ResetOnSpawn = false
+
+local ToggleButton = Instance.new("ImageButton")
+ToggleButton.Size = UDim2.new(0, 80, 0, 80)
+ToggleButton.Position = UDim2.new(0.5, -40, 0.8, 0)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+ToggleButton.BackgroundTransparency = 0.2
+ToggleButton.Image = "rbxassetid://6031090933"
+ToggleButton.Parent = ScreenGui
+
+-- Перетаскивание
+local dragging = false
+local dragStart, startPos
+
+ToggleButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = ToggleButton.Position
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.Touch then
+        local delta = input.Position - dragStart
+        ToggleButton.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+-- Статус
+local BotActive = false
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(0, 100, 0, 30)
+statusLabel.Position = UDim2.new(0, -10, 1, -40)
+statusLabel.BackgroundTransparency = 1
+statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+statusLabel.Text = "🔴 OFF"
+statusLabel.TextScaled = true
+statusLabel.Parent = ToggleButton
+
+-- Функции навигации
+local function addToMemory(position)
+    table.insert(Brain.Memory, position)
+    if #Brain.Memory > SETTINGS.MemorySize then
+        table.remove(Brain.Memory, 1)
+    end
+end
+
+local function isVisited(position, radius)
+    radius = radius or 15
+    for _, memPos in ipairs(Brain.Memory) do
+        if (position - memPos).Magnitude < radius then
+            return true
+        end
+    end
+    return false
+end
+
+local function getRandomUnvisitedPosition()
+    local char = Player.Character
+    if not char then return nil end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    
+    local attempts = 0
+    while attempts < 30 do
+        attempts = attempts + 1
+        local angle = math.random() * 2 * math.pi
+        local distance = math.random(30, 150)
+        local x = root.Position.X + math.cos(angle) * distance
+        local z = root.Position.Z + math.sin(angle) * distance
+        local y = root.Position.Y
+        
+        local newPos = Vector3.new(x, y, z)
+        
+        if not isVisited(newPos, 20) then
+            return newPos
+        end
+    end
+    
+    return nil
+end
+
+-- Принудительное движение через BodyVelocity
+local function moveCharacter(direction)
+    local char = Player.Character
+    if not char then return end
+    
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    -- Удаляем старые BodyVelocity
+    for _, v in ipairs(root:GetChildren()) do
+        if v:IsA("BodyVelocity") then
+            v:Destroy()
+        end
+    end
+    
+    -- Создаём новое движение
+    local bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
+    bodyVelocity.Velocity = direction * SETTINGS.MoveSpeed
+    bodyVelocity.Parent = root
+    
+    -- Автоудаление через 0.5 секунды
+    game:GetService("Debris"):AddItem(bodyVelocity, 0.5)
+    
+    -- Поворачиваем персонажа
+    if direction.Magnitude > 0.1 then
+        local lookAt = root.Position + direction
+        local targetCFrame = CFrame.lookAt(root.Position, lookAt)
+        root.CFrame = root.CFrame:Lerp(targetCFrame, 0.2)
+    end
+end
+
+-- Функция остановки
+local function stopCharacter()
+    local char = Player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    for _, v in ipairs(root:GetChildren()) do
+        if v:IsA("BodyVelocity") then
+            v:Destroy()
+        end
+    end
+end
+
+-- Получение ближайшего игрока
+local function getClosestPlayer()
+    local closest = nil
+    local minDist = math.huge
+    local char = Player.Character
+    if not char then return nil end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    
+    for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
+        if plr ~= Player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local dist = (root.Position - plr.Character.HumanoidRootPart.Position).Magnitude
+            if dist < minDist and dist < SETTINGS.DetectionRadius then
+                minDist = dist
+                closest = plr
+            end
+        end
+    end
+    return closest
+end
+
+-- Стрельба
+local function aimAndShoot(target)
+    if not target or not target.Character then return end
+    local char = Player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
+    if not root or not targetRoot then return end
+    
+    local direction = (targetRoot.Position - root.Position).Unit
+    root.CFrame = CFrame.lookAt(root.Position, root.Position + direction)
+    
+    local tool = char:FindFirstChildOfClass("Tool")
+    if tool then
+        tool:Activate()
+        task.wait(0.1)
+        tool:Deactivate()
+    end
+    
+    Brain.Aggression = math.min(1, Brain.Aggression + 0.01)
+end
+
+-- Основной цикл движения
+local function moveBot()
+    local char = Player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    -- Проверка на застревание
+    if Brain.LastPosition then
+        local dist = (root.Position - Brain.LastPosition).Magnitude
+        if dist < 1 then
+            Brain.StuckCounter = Brain.StuckCounter + 1
+        else
+            Brain.StuckCounter = 0
+        end
+    end
+    Brain.LastPosition = root.Position
+    
+    -- Если застрял - прыгаем
+    if Brain.StuckCounter > 10 then
+        local humanoid = char:FindFirstChild("Humanoid")
+        if humanoid then
+            humanoid:Jump()
+            Brain.StuckCounter = 0
+        end
+    end
+    
+    -- Добавляем в память
+    if tick() % 2 < 0.1 then
+        addToMemory(root.Position)
+    end
+    
+    local target = getClosestPlayer()
+    
+    if target and target.Character then
+        local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
+        if targetRoot then
+            local dist = (root.Position - targetRoot.Position).Magnitude
+            local direction = (targetRoot.Position - root.Position).Unit
+            
+            -- Движение к врагу
+            moveCharacter(direction)
+            
+            -- Стрельба
+            if dist < 50 then
+                aimAndShoot(target)
+            end
+        end
+    else
+        -- Исследование карты
+        if not Brain.CurrentTarget or isVisited(Brain.CurrentTarget, 15) then
+            Brain.CurrentTarget = getRandomUnvisitedPosition()
+            if not Brain.CurrentTarget then
+                -- Если все места посещены - идём в случайном направлении
+                local angle = math.random() * 2 * math.pi
+                local distance = math.random(30, 100)
+                Brain.CurrentTarget = root.Position + Vector3.new(
+                    math.cos(angle) * distance,
+                    0,
+                    math.sin(angle) * distance
+                )
+            end
+        end
+        
+        if Brain.CurrentTarget then
+            local direction = (Brain.CurrentTarget - root.Position).Unit
+            local dist = (root.Position - Brain.CurrentTarget).Magnitude
+            
+            if dist > 5 then
+                moveCharacter(direction)
+            else
+                addToMemory(Brain.CurrentTarget)
+                Brain.CurrentTarget = nil
+                stopCharacter()
+            end
+        end
+    end
+end
+
+-- Обучение на ошибках
+local function learnFromDeath()
+    Brain.Deaths = Brain.Deaths + 1
+    
+    if Brain.Aggression > 0.7 then
+        Brain.Aggression = math.max(0.1, Brain.Aggression - 0.2)
+    else
+        Brain.Aggression = math.min(1, Brain.Aggression + 0.1)
+    end
+    
+    Brain.Memory = {}
+    Brain.CurrentTarget = nil
+    Brain.StuckCounter = 0
+    
+    print("🧠 Обучение: Смерть #" .. Brain.Deaths .. " | Агрессия: " .. math.floor(Brain.Aggression * 100) .. "%")
+end
+
+-- Обработка смерти
+Player.CharacterAdded:Connect(function(char)
+    task.wait(2)
+    learnFromDeath()
+end)
+
+-- Основной цикл
+local botLoop
+ToggleButton.MouseButton1Click:Connect(function()
+    BotActive = not BotActive
+    statusLabel.Text = BotActive and "🟢 ON" or "🔴 OFF"
+    statusLabel.TextColor3 = BotActive and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+    
+    if BotActive then
+        -- Настройка персонажа
+        local char = Player.Character
+        if char then
+            local hum = char:FindFirstChild("Humanoid")
+            if hum then
+                hum.WalkSpeed = 0 -- Отключаем стандартное движение
+                hum.JumpPower = 50
+            end
+        end
+        
+        Brain.Memory = {}
+        Brain.CurrentTarget = nil
+        Brain.StuckCounter = 0
+        
+        botLoop = RunService.Heartbeat:Connect(function()
+            if BotActive then
+                moveBot()
+            end
+        end)
+    else
+        if botLoop then
+            botLoop:Disconnect()
+            botLoop = nil
+        end
+        stopCharacter()
+    end
+end)
+
+-- Улучшение бота
+task.spawn(function()
+    while task.wait(30) do
+        if BotActive then
+            SETTINGS.DetectionRadius = math.min(200, SETTINGS.DetectionRadius + 0.5)
+            SETTINGS.MoveSpeed = math.min(40, SETTINGS.MoveSpeed + 0.3)
+            print("🧠 Эволюция: Радиус " .. math.floor(SETTINGS.DetectionRadius) .. " | Скорость " .. math.floor(SETTINGS.MoveSpeed))
+        end
+    end
+end)
+
+-- Уведомление
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "🧠 Neural Bot v3.0",
+    Text = "Бот с принудительным движением! Теперь точно ходит!",
+    Duration = 5
+})
+
+print("✅ MM2 Neural Bot с принудительным движением загружен!")
+print("🚀 Бот использует BodyVelocity для движения")
