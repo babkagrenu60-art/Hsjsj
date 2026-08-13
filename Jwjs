@@ -1,0 +1,569 @@
+-- ============================================================
+-- MM2 ULTIMATE SCRIPT v5.0
+-- Разработано для Murder Mystery 2
+-- Все функции объединены в одном скрипте
+-- ============================================================
+
+-- ============================================================
+-- ПОДКЛЮЧЕНИЕ СЕРВИСОВ
+-- ============================================================
+local Player = game:GetService("Players").LocalPlayer
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+local Workspace = game:GetService("Workspace")
+local Camera = Workspace.CurrentCamera
+local HttpService = game:GetService("HttpService")
+
+-- ============================================================
+-- ПЕРЕМЕННЫЕ И НАСТРОЙКИ
+-- ============================================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.Name = "MM2Ultimate"
+ScreenGui.ResetOnSpawn = false
+
+local UserSettings = {
+    -- Основные настройки
+    Aimbot = true,
+    ESP = true,
+    AutoKnife = true,
+    AutoGun = true,
+    AutoDodge = true,
+    AutoJump = true,
+    Radar = true,
+    AntiAFK = true,
+    NoFall = true,
+    ItemESP = true,
+    
+    -- Настройки Aimbot
+    AimbotFOV = 180,
+    AimbotSmoothness = 0.3,
+    AimPart = "Head", -- Head, HumanoidRootPart, Torso
+    
+    -- Настройки ESP
+    ESPColor = Color3.fromRGB(255, 0, 0),
+    ESPThickness = 2,
+    ESPDistance = 200,
+    
+    -- Настройки движения
+    WalkSpeed = 25,
+    JumpPower = 60,
+    DodgeChance = 0.7,
+}
+
+-- ============================================================
+-- СОЗДАНИЕ ГЛАВНОГО МЕНЮ (GUI)
+-- ============================================================
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 300, 0, 450)
+MainFrame.Position = UDim2.new(0.1, 0, 0.2, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+MainFrame.BackgroundTransparency = 0.1
+MainFrame.BorderSizePixel = 0
+MainFrame.Visible = false
+MainFrame.Parent = ScreenGui
+
+-- Заголовок
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+Title.BackgroundTransparency = 0.3
+Title.Text = "🔪 MM2 ULTIMATE"
+Title.TextColor3 = Color3.fromRGB(255, 200, 100)
+Title.TextScaled = true
+Title.Font = Enum.Font.GothamBold
+Title.Parent = MainFrame
+
+-- Кнопка закрытия
+local CloseButton = Instance.new("ImageButton")
+CloseButton.Size = UDim2.new(0, 30, 0, 30)
+CloseButton.Position = UDim2.new(1, -35, 0, 5)
+CloseButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+CloseButton.Image = "rbxassetid://6031090933"
+CloseButton.Parent = MainFrame
+
+-- Скролл для меню
+local ScrollingFrame = Instance.new("ScrollingFrame")
+ScrollingFrame.Size = UDim2.new(1, 0, 1, -40)
+ScrollingFrame.Position = UDim2.new(0, 0, 0, 40)
+ScrollingFrame.BackgroundTransparency = 1
+ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 600)
+ScrollingFrame.ScrollBarThickness = 5
+ScrollingFrame.Parent = MainFrame
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Padding = UDim.new(0, 5)
+UIListLayout.Parent = ScrollingFrame
+
+-- ============================================================
+-- ФУНКЦИЯ СОЗДАНИЯ ТОГГЛЕЙ
+-- ============================================================
+function CreateToggle(parent, text, settingName, defaultValue)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(1, -10, 0, 35)
+    Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+    Frame.BackgroundTransparency = 0.3
+    Frame.Parent = parent
+    
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0.7, 0, 1, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = text
+    Label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Label.TextSize = 14
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Frame
+    
+    local Toggle = Instance.new("ImageButton")
+    Toggle.Size = UDim2.new(0, 40, 0, 25)
+    Toggle.Position = UDim2.new(1, -45, 0.5, -12.5)
+    Toggle.BackgroundColor3 = defaultValue and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 50, 50)
+    Toggle.BackgroundTransparency = 0.2
+    Toggle.Image = "rbxassetid://6031090933"
+    Toggle.Parent = Frame
+    
+    local Status = Instance.new("TextLabel")
+    Status.Size = UDim2.new(1, 0, 1, 0)
+    Status.BackgroundTransparency = 1
+    Status.Text = defaultValue and "ON" or "OFF"
+    Status.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Status.TextSize = 12
+    Status.Parent = Toggle
+    
+    Toggle.MouseButton1Click:Connect(function()
+        UserSettings[settingName] = not UserSettings[settingName]
+        Toggle.BackgroundColor3 = UserSettings[settingName] and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 50, 50)
+        Status.Text = UserSettings[settingName] and "ON" or "OFF"
+    end)
+end
+
+-- ============================================================
+-- СОЗДАНИЕ ВСЕХ ТОГГЛЕЙ
+-- ============================================================
+local categories = {
+    "=== ОСНОВНЫЕ ===",
+    "Aimbot", "ESP", "AutoKnife", "AutoGun",
+    "=== ЗАЩИТА ===",
+    "AutoDodge", "AutoJump", "NoFall",
+    "=== ДОПОЛНИТЕЛЬНО ===",
+    "Radar", "AntiAFK", "ItemESP"
+}
+
+for i, item in ipairs(categories) do
+    if string.match(item, "===") then
+        local Label = Instance.new("TextLabel")
+        Label.Size = UDim2.new(1, 0, 0, 25)
+        Label.BackgroundTransparency = 1
+        Label.Text = item
+        Label.TextColor3 = Color3.fromRGB(255, 200, 100)
+        Label.TextSize = 16
+        Label.Font = Enum.Font.GothamBold
+        Label.Parent = ScrollingFrame
+    else
+        CreateToggle(ScrollingFrame, item, item, UserSettings[item])
+    end
+end
+
+-- ============================================================
+-- КНОПКА ОТКРЫТИЯ МЕНЮ (на экране)
+-- ============================================================
+local MenuButton = Instance.new("ImageButton")
+MenuButton.Size = UDim2.new(0, 60, 0, 60)
+MenuButton.Position = UDim2.new(0.02, 0, 0.02, 0)
+MenuButton.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+MenuButton.BackgroundTransparency = 0.2
+MenuButton.Image = "rbxassetid://6031090933"
+MenuButton.Parent = ScreenGui
+
+local MenuLabel = Instance.new("TextLabel")
+MenuLabel.Size = UDim2.new(1, 0, 1, 0)
+MenuLabel.BackgroundTransparency = 1
+MenuLabel.Text = "MENU"
+MenuLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+MenuLabel.TextSize = 12
+MenuLabel.Font = Enum.Font.GothamBold
+MenuLabel.Parent = MenuButton
+
+MenuButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+    MenuButton.BackgroundColor3 = MainFrame.Visible and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(30, 30, 50)
+end)
+
+CloseButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+    MenuButton.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+end)
+
+-- ============================================================
+-- ПЕРЕТАСКИВАНИЕ МЕНЮ (для телефона)
+-- ============================================================
+local draggingMain = false
+local dragStartMain, startPosMain
+
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        draggingMain = true
+        dragStartMain = input.Position
+        startPosMain = MainFrame.Position
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if draggingMain and input.UserInputType == Enum.UserInputType.Touch then
+        local delta = input.Position - dragStartMain
+        MainFrame.Position = UDim2.new(
+            startPosMain.X.Scale,
+            startPosMain.X.Offset + delta.X,
+            startPosMain.Y.Scale,
+            startPosMain.Y.Offset + delta.Y
+        )
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        draggingMain = false
+    end
+end)
+
+-- ============================================================
+-- КОРНЕВЫЕ ФУНКЦИИ ДЛЯ ИГРЫ
+-- ============================================================
+
+-- Получение всех игроков
+function GetPlayers()
+    local players = {}
+    for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
+        if plr ~= Player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            table.insert(players, plr)
+        end
+    end
+    return players
+end
+
+-- Получение всех предметов на карте (ножи, пистолеты)
+function GetItems()
+    local items = {}
+    for _, v in pairs(Workspace:GetDescendants()) do
+        if v:IsA("Tool") and v:FindFirstChild("Handle") then
+            local item = {
+                Name = v.Name,
+                Position = v.Handle.Position,
+                Tool = v
+            }
+            table.insert(items, item)
+        end
+    end
+    return items
+end
+
+-- Проверка, является ли игрок убийцей
+function IsMurderer(plr)
+    if not plr or not plr.Character then return false end
+    for _, tool in pairs(plr.Character:GetChildren()) do
+        if tool:IsA("Tool") and tool:FindFirstChild("Handle") then
+            if string.lower(tool.Name):find("knife") or string.lower(tool.Name):find("sword") then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Проверка, есть ли у игрока пистолет
+function HasGun(plr)
+    if not plr or not plr.Character then return false end
+    for _, tool in pairs(plr.Character:GetChildren()) do
+        if tool:IsA("Tool") and tool:FindFirstChild("Handle") then
+            if string.lower(tool.Name):find("gun") or string.lower(tool.Name):find("pistol") then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- ============================================================
+-- AIMBOT (автонаведение)
+-- ============================================================
+function RunAimbot()
+    if not UserSettings.Aimbot then return end
+    
+    local char = Player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    local closest = nil
+    local minDist = UserSettings.AimbotFOV
+    
+    for _, plr in pairs(GetPlayers()) do
+        if plr and plr.Character then
+            local targetPart = plr.Character:FindFirstChild(UserSettings.AimPart)
+            if not targetPart then targetPart = plr.Character:FindFirstChild("HumanoidRootPart") end
+            if targetPart then
+                local screenPos, onScreen = Camera:WorldToScreenPoint(targetPart.Position)
+                if onScreen then
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - UIS:GetMouseLocation()).Magnitude
+                    if dist < minDist then
+                        minDist = dist
+                        closest = {Player = plr, Part = targetPart}
+                    end
+                end
+            end
+        end
+    end
+    
+    if closest then
+        local targetPos = closest.Part.Position
+        local direction = (targetPos - Camera.CFrame.Position).Unit
+        local targetCFrame = CFrame.lookAt(Camera.CFrame.Position, Camera.CFrame.Position + direction)
+        
+        -- Плавное наведение
+        Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, UserSettings.AimbotSmoothness)
+    end
+end
+
+-- ============================================================
+-- ESP (подсветка игроков)
+-- ============================================================
+local ESPObjects = {}
+
+function RunESP()
+    if not UserSettings.ESP then
+        -- Удаляем старые ESP объекты
+        for _, obj in pairs(ESPObjects) do
+            if obj and obj.Parent then
+                obj:Destroy()
+            end
+        end
+        ESPObjects = {}
+        return
+    end
+    
+    -- Обновляем ESP
+    for _, plr in pairs(GetPlayers()) do
+        if plr.Character then
+            local root = plr.Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                local dist = (Camera.CFrame.Position - root.Position).Magnitude
+                if dist < UserSettings.ESPDistance then
+                    -- Проверяем, существует ли уже ESP
+                    local exists = false
+                    for _, obj in pairs(ESPObjects) do
+                        if obj and obj.Parent and obj:GetAttribute("Player") == plr.UserId then
+                            exists = true
+                            -- Обновляем позицию
+                            obj.CFrame = CFrame.new(root.Position)
+                            break
+                        end
+                    end
+                    
+                    if not exists then
+                        -- Создаём новый ESP объект
+                        local esp = Instance.new("Part")
+                        esp.Size = Vector3.new(1.5, 1.5, 1.5)
+                        esp.BrickColor = BrickColor.new(UserSettings.ESPColor)
+                        esp.Material = Enum.Material.Neon
+                        esp.Anchored = true
+                        esp.CanCollide = false
+                        esp.Transparency = 0.5
+                        esp.CFrame = CFrame.new(root.Position)
+                        esp:SetAttribute("Player", plr.UserId)
+                        esp.Parent = Workspace
+                        table.insert(ESPObjects, esp)
+                        
+                        -- Добавляем линию (ray)
+                        local line = Instance.new("Part")
+                        line.Size = Vector3.new(0.1, 0.1, dist)
+                        line.BrickColor = BrickColor.new(UserSettings.ESPColor)
+                        line.Material = Enum.Material.Neon
+                        line.Anchored = true
+                        line.CanCollide = false
+                        line.Transparency = 0.3
+                        line.CFrame = CFrame.new(
+                            (Camera.CFrame.Position + root.Position) / 2,
+                            root.Position
+                        )
+                        line:SetAttribute("Player", plr.UserId)
+                        line.Parent = Workspace
+                        table.insert(ESPObjects, line)
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- ============================================================
+-- AUTO KNIFE (автоматический удар ножом)
+-- ============================================================
+function RunAutoKnife()
+    if not UserSettings.AutoKnife then return end
+    
+    local char = Player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    -- Находим нож
+    local knife = nil
+    for _, tool in pairs(char:GetChildren()) do
+        if tool:IsA("Tool") and tool:FindFirstChild("Handle") then
+            if string.lower(tool.Name):find("knife") or string.lower(tool.Name):find("sword") then
+                knife = tool
+                break
+            end
+        end
+    end
+    
+    if not knife then return end
+    
+    -- Ищем ближайшего игрока
+    local closest = nil
+    local minDist = 15
+    
+    for _, plr in pairs(GetPlayers()) do
+        if plr.Character then
+            local targetRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+            if targetRoot then
+                local dist = (root.Position - targetRoot.Position).Magnitude
+                if dist < minDist then
+                    minDist = dist
+                    closest = plr
+                end
+            end
+        end
+    end
+    
+    if closest then
+        -- Поворачиваемся к игроку
+        local targetPos = closest.Character.HumanoidRootPart.Position
+        local dir = (targetPos - root.Position).Unit
+        root.CFrame = CFrame.lookAt(root.Position, root.Position + dir)
+        
+        -- Атакуем
+        knife:Activate()
+        task.wait(0.1)
+        knife:Deactivate()
+    end
+end
+
+-- ============================================================
+-- AUTO GUN (автоматическая стрельба)
+-- ============================================================
+function RunAutoGun()
+    if not UserSettings.AutoGun then return end
+    
+    local char = Player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    -- Находим пистолет
+    local gun = nil
+    for _, tool in pairs(char:GetChildren()) do
+        if tool:IsA("Tool") and tool:FindFirstChild("Handle") then
+            if string.lower(tool.Name):find("gun") or string.lower(tool.Name):find("pistol") then
+                gun = tool
+                break
+            end
+        end
+    end
+    
+    if not gun then return end
+    
+    -- Ищем цель
+    local target = nil
+    local minDist = 60
+    
+    for _, plr in pairs(GetPlayers()) do
+        if plr.Character and IsMurderer(plr) then
+            local targetRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+            if targetRoot then
+                local dist = (root.Position - targetRoot.Position).Magnitude
+                if dist < minDist then
+                    minDist = dist
+                    target = plr
+                end
+            end
+        end
+    end
+    
+    if target then
+        -- Наводимся
+        local targetPos = target.Character.HumanoidRootPart.Position
+        local dir = (targetPos - root.Position).Unit
+        root.CFrame = CFrame.lookAt(root.Position, root.Position + dir)
+        
+        -- Стреляем
+        gun:Activate()
+        task.wait(0.15)
+        gun:Deactivate()
+    end
+end
+
+-- ============================================================
+-- AUTO DODGE (уклонение)
+-- ============================================================
+function RunAutoDodge()
+    if not UserSettings.AutoDodge then return end
+    
+    local char = Player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    -- Проверяем, не целится ли кто-то в нас
+    for _, plr in pairs(GetPlayers()) do
+        if plr.Character and HasGun(plr) then
+            local shooterRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+            if shooterRoot then
+                local dir = (root.Position - shooterRoot.Position).Unit
+                local lookDir = shooterRoot.CFrame.LookVector
+                
+                -- Если кто-то нацелен на нас
+                if dir:Dot(lookDir) > 0.8 then
+                    if math.random() < UserSettings.DodgeChance then
+                        -- Прыгаем в сторону
+                        local humanoid = char:FindFirstChild("Humanoid")
+                        if humanoid then
+                            humanoid:Jump()
+                            -- Двигаемся вбок
+                            local sideways = Vector3.new(
+                                math.random() > 0.5 and 1 or -1,
+                                0,
+                                0
+                            )
+                            root.CFrame = root.CFrame + sideways * 5
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- ============================================================
+-- AUTO JUMP (автоматический прыжок)
+-- ============================================================
+function RunAutoJump()
+    if not UserSettings.AutoJump then return end
+    
+    local char = Player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    -- Проверяем, есть ли кто-то близко
+    for _, plr in pairs(GetPlayers()) do
+        if plr.Character then
+            local targetRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+            if targetRoot then
+                local dist = (root.Position - targetRoot.Position).Magnitude
+                if dist < 10 then
+                    local humanoid = char:FindFirstChild("Humanoid")
+                    if humanoid then
+                        humanoid:Jump(
