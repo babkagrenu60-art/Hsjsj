@@ -1,0 +1,592 @@
+-- MM2 NEURAL NETWORK BOT v4.0 (Delta Mobile)
+-- Полноценная имитация нейросети с обучением
+-- Автор: NeuralCore
+
+local Player = game:GetService("Players").LocalPlayer
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+
+-- ============================================================
+-- НЕЙРОСЕТЬ (имитация)
+-- ============================================================
+local NeuralNetwork = {
+    -- Веса нейронов (обучаются со временем)
+    Weights = {
+        Aggression = 0.5,
+        Caution = 0.3,
+        Exploration = 0.6,
+        ReactionTime = 0.4,
+        Accuracy = 0.3
+    },
+    
+    -- Слой памяти
+    Memory = {
+        Positions = {},          -- посещённые точки
+        EnemyPatterns = {},      -- паттерны врагов
+        DeathLocations = {}      -- места смертей
+    },
+    
+    -- Текущее состояние
+    State = {
+        Mode = "exploring",      -- exploring, chasing, camping, fleeing
+        Target = nil,
+        Confidence = 0.5,
+        Stress = 0
+    },
+    
+    -- Обучение
+    Learning = {
+        Iterations = 0,
+        SuccessRate = 0,
+        LastDeath = 0,
+        Adaptations = 0
+    }
+}
+
+-- ============================================================
+-- НАСТРОЙКИ
+-- ============================================================
+local SETTINGS = {
+    DetectionRadius = 120,
+    MoveSpeed = 22,
+    RotationSpeed = 3,
+    JumpCooldown = 0.5,
+    MemorySize = 100,
+    LearningRate = 0.1,
+    UpdateInterval = 0.05
+}
+
+-- ============================================================
+-- СОЗДАНИЕ КНОПКИ И ИНТЕРФЕЙСА
+-- ============================================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.Name = "NeuralBot"
+ScreenGui.ResetOnSpawn = false
+
+-- Основная кнопка
+local ToggleButton = Instance.new("ImageButton")
+ToggleButton.Size = UDim2.new(0, 80, 0, 80)
+ToggleButton.Position = UDim2.new(0.5, -40, 0.8, 0)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+ToggleButton.BackgroundTransparency = 0.15
+ToggleButton.Image = "rbxassetid://6031090933"
+ToggleButton.Parent = ScreenGui
+
+-- Рамка статуса
+local StatusFrame = Instance.new("Frame")
+StatusFrame.Size = UDim2.new(0, 80, 0, 30)
+StatusFrame.Position = UDim2.new(0, 0, 1, -30)
+StatusFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+StatusFrame.BackgroundTransparency = 0.5
+StatusFrame.Parent = ToggleButton
+
+-- Текст статуса
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, 0, 1, 0)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "🧠 OFF"
+StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+StatusLabel.TextScaled = true
+StatusLabel.Font = Enum.Font.GothamBold
+StatusLabel.Parent = StatusFrame
+
+-- Индикатор уверенности нейросети
+local NeuralIndicator = Instance.new("Frame")
+NeuralIndicator.Size = UDim2.new(0, 10, 0, 10)
+NeuralIndicator.Position = UDim2.new(0, 5, 0.3, 0)
+NeuralIndicator.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+NeuralIndicator.BackgroundTransparency = 0.3
+NeuralIndicator.Parent = ToggleButton
+
+-- ============================================================
+-- ПЕРЕТАСКИВАНИЕ КНОПКИ (для мобильных устройств)
+-- ============================================================
+local dragging = false
+local dragStart, startPos
+
+ToggleButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = ToggleButton.Position
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.Touch then
+        local delta = input.Position - dragStart
+        ToggleButton.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+-- ============================================================
+-- ЯДРО НЕЙРОСЕТИ
+-- ============================================================
+
+-- Функция активации (сигмоида)
+function NeuralCore.Activate(value)
+    return 1 / (1 + math.exp(-value))
+end
+
+-- Принятие решения на основе весов
+function NeuralCore.Decide(inputs)
+    local decision = 0
+    for key, weight in pairs(NeuralNetwork.Weights) do
+        if inputs[key] then
+            decision = decision + (inputs[key] * weight)
+        end
+    end
+    return NeuralCore.Activate(decision)
+end
+
+-- Обучение (корректировка весов)
+function NeuralCore.Learn(success, feedback)
+    NeuralNetwork.Learning.Iterations = NeuralNetwork.Learning.Iterations + 1
+    
+    local learningRate = SETTINGS.LearningRate * (1 + NeuralNetwork.Learning.Adaptations / 100)
+    
+    if success then
+        -- Усиление правильных решений
+        for key, weight in pairs(NeuralNetwork.Weights) do
+            NeuralNetwork.Weights[key] = math.min(1, weight + (learningRate * (feedback[key] or 0.01)))
+        end
+        NeuralNetwork.Learning.SuccessRate = (NeuralNetwork.Learning.SuccessRate * 0.9) + 0.1
+    else
+        -- Ослабление неправильных решений
+        for key, weight in pairs(NeuralNetwork.Weights) do
+            NeuralNetwork.Weights[key] = math.max(0, weight - (learningRate * 0.1))
+        end
+        NeuralNetwork.Learning.SuccessRate = NeuralNetwork.Learning.SuccessRate * 0.95
+    end
+    
+    -- Адаптация (каждые 10 итераций)
+    if NeuralNetwork.Learning.Iterations % 10 == 0 then
+        NeuralNetwork.Learning.Adaptations = NeuralNetwork.Learning.Adaptations + 1
+    end
+end
+
+-- ============================================================
+-- СИСТЕМА ДВИЖЕНИЯ (принудительное через BodyVelocity)
+-- ============================================================
+local MovementSystem = {}
+
+function MovementSystem.Move(direction, speed)
+    local char = Player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    -- Очищаем старые силы
+    for _, v in ipairs(root:GetChildren()) do
+        if v:IsA("BodyVelocity") or v:IsA("BodyForce") then
+            v:Destroy()
+        end
+    end
+    
+    if direction.Magnitude < 0.1 then
+        return
+    end
+    
+    speed = speed or SETTINGS.MoveSpeed
+    
+    -- Основное движение
+    local bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
+    bodyVelocity.Velocity = direction.Unit * speed
+    bodyVelocity.Parent = root
+    
+    -- Дополнительная сила для стабильности (гравитация)
+    local bodyForce = Instance.new("BodyForce")
+    bodyForce.Force = Vector3.new(0, char:GetMass() * workspace.Gravity, 0)
+    bodyForce.Parent = root
+    
+    -- Автоматическое удаление через 0.3 секунды
+    Debris:AddItem(bodyVelocity, 0.3)
+    Debris:AddItem(bodyForce, 0.3)
+    
+    -- Плавный поворот в сторону движения
+    if direction.Magnitude > 0.5 then
+        local lookPosition = root.Position + direction.Unit * 10
+        local targetCFrame = CFrame.lookAt(root.Position, lookPosition)
+        root.CFrame = root.CFrame:Lerp(targetCFrame, 0.15)
+    end
+end
+
+function MovementSystem.Stop()
+    local char = Player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    for _, v in ipairs(root:GetChildren()) do
+        if v:IsA("BodyVelocity") or v:IsA("BodyForce") then
+            v:Destroy()
+        end
+    end
+end
+
+function MovementSystem.Jump()
+    local char = Player.Character
+    if not char then return end
+    local humanoid = char:FindFirstChild("Humanoid")
+    if humanoid then
+        humanoid:Jump()
+    end
+end
+
+-- ============================================================
+-- ПАМЯТЬ И НАВИГАЦИЯ
+-- ============================================================
+local MemorySystem = {}
+
+function MemorySystem.AddPosition(position)
+    table.insert(NeuralNetwork.Memory.Positions, position)
+    if #NeuralNetwork.Memory.Positions > SETTINGS.MemorySize then
+        table.remove(NeuralNetwork.Memory.Positions, 1)
+    end
+end
+
+function MemorySystem.IsVisited(position, radius)
+    radius = radius or 15
+    for _, memPos in ipairs(NeuralNetwork.Memory.Positions) do
+        if (position - memPos).Magnitude < radius then
+            return true
+        end
+    end
+    return false
+end
+
+function MemorySystem.AddDeath(position)
+    table.insert(NeuralNetwork.Memory.DeathLocations, position)
+    if #NeuralNetwork.Memory.DeathLocations > 20 then
+        table.remove(NeuralNetwork.Memory.DeathLocations, 1)
+    end
+end
+
+function MemorySystem.IsDangerous(position, radius)
+    radius = radius or 25
+    for _, deathPos in ipairs(NeuralNetwork.Memory.DeathLocations) do
+        if (position - deathPos).Magnitude < radius then
+            return true
+        end
+    end
+    return false
+end
+
+function MemorySystem.GetUnvisitedPosition()
+    local char = Player.Character
+    if not char then return nil end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    
+    for i = 1, 30 do
+        local angle = math.random() * 2 * math.pi
+        local distance = math.random(30, 180)
+        local x = root.Position.X + math.cos(angle) * distance
+        local z = root.Position.Z + math.sin(angle) * distance
+        local y = root.Position.Y
+        
+        local newPosition = Vector3.new(x, y, z)
+        
+        if not MemorySystem.IsVisited(newPosition, 20) and 
+           not MemorySystem.IsDangerous(newPosition, 30) then
+            return newPosition
+        end
+    end
+    
+    return nil
+end
+
+-- ============================================================
+-- АНАЛИЗ ВРАГОВ
+-- ============================================================
+local EnemyAnalysis = {}
+
+function EnemyAnalysis.GetClosest()
+    local closest = nil
+    local minDist = math.huge
+    local char = Player.Character
+    if not char then return nil end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    
+    for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
+        if plr ~= Player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local dist = (root.Position - plr.Character.HumanoidRootPart.Position).Magnitude
+            if dist < minDist and dist < SETTINGS.DetectionRadius then
+                minDist = dist
+                closest = plr
+            end
+        end
+    end
+    return closest, minDist
+end
+
+function EnemyAnalysis.PredictMovement(enemy)
+    -- Предсказывает следующую позицию врага на основе его движения
+    if not enemy or not enemy.Character then return nil end
+    local root = enemy.Character:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    
+    local patternKey = tostring(enemy.UserId)
+    if not NeuralNetwork.Memory.EnemyPatterns[patternKey] then
+        NeuralNetwork.Memory.EnemyPatterns[patternKey] = {
+            Positions = {},
+            LastPosition = nil,
+            Speed = 0,
+            Direction = Vector3.new()
+        }
+    end
+    
+    local pattern = NeuralNetwork.Memory.EnemyPatterns[patternKey]
+    
+    if pattern.LastPosition then
+        local velocity = (root.Position - pattern.LastPosition) / 0.1
+        pattern.Direction = velocity.Unit
+        pattern.Speed = velocity.Magnitude
+    end
+    
+    pattern.LastPosition = root.Position
+    
+    -- Возвращаем предсказанную позицию
+    return root.Position + (pattern.Direction * pattern.Speed * 0.5)
+end
+
+-- ============================================================
+-- СТРЕЛЬБА
+-- ============================================================
+local ShootingSystem = {}
+
+function ShootingSystem.AimAndShoot(target)
+    if not target or not target.Character then return end
+    local char = Player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
+    if not root or not targetRoot then return end
+    
+    -- Расчёт с упреждением (нейросеть)
+    local predictedPosition = EnemyAnalysis.PredictMovement(target) or targetRoot.Position
+    local direction = (predictedPosition - root.Position).Unit
+    
+    -- Плавное наведение
+    local targetCFrame = CFrame.lookAt(root.Position, root.Position + direction)
+    root.CFrame = root.CFrame:Lerp(targetCFrame, 0.3)
+    
+    -- Точность влияет на разброс
+    local accuracy = NeuralNetwork.Weights.Accuracy
+    local spread = (1 - accuracy) * 0.05
+    
+    -- Проверка попадания
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    raycastParams.FilterDescendantsInstances = {char}
+    
+    local rayOrigin = root.Position + Vector3.new(0, 1.5, 0)
+    local rayDirection = direction + Vector3.new(
+        (math.random() - 0.5) * spread,
+        (math.random() - 0.5) * spread,
+        (math.random() - 0.5) * spread
+    )
+    
+    local ray = workspace:Raycast(rayOrigin, rayDirection * 200, raycastParams)
+    
+    local hitTarget = false
+    if ray and ray.Instance and ray.Instance:IsDescendantOf(target.Character) then
+        hitTarget = true
+        NeuralCore.Learn(true, { Accuracy = 0.15 })
+    else
+        NeuralCore.Learn(false, { Accuracy = -0.05 })
+    end
+    
+    -- Визуальный эффект выстрела
+    local bullet = Instance.new("Part")
+    bullet.Size = Vector3.new(0.3, 0.3, 1)
+    bullet.BrickColor = BrickColor.new(hitTarget and "Bright green" or "Bright yellow")
+    bullet.Material = Enum.Material.Neon
+    bullet.CFrame = CFrame.new(rayOrigin) * CFrame.new(0, 0, -1)
+    bullet.Velocity = rayDirection * 250
+    bullet.CanCollide = false
+    bullet.Lifetime = 0.3
+    bullet.Parent = workspace
+    Debris:AddItem(bullet, 0.3)
+    
+    -- Активация инструмента
+    local tool = char:FindFirstChildOfClass("Tool")
+    if tool then
+        tool:Activate()
+        task.wait(0.05)
+        tool:Deactivate()
+    end
+    
+    return hitTarget
+end
+
+-- ============================================================
+-- ОСНОВНОЙ ЦИКЛ БОТА
+-- ============================================================
+local BotLoop = nil
+local BotActive = false
+local frameCounter = 0
+
+function ProcessBot()
+    local char = Player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    local humanoid = char:FindFirstChild("Humanoid")
+    if not humanoid then return end
+    
+    frameCounter = frameCounter + 1
+    
+    -- Обновление памяти (каждые 20 кадров)
+    if frameCounter % 20 == 0 then
+        MemorySystem.AddPosition(root.Position)
+    end
+    
+    -- Поиск ближайшего врага
+    local enemy, distance = EnemyAnalysis.GetClosest()
+    
+    -- === НЕЙРОСЕТЬ ПРИНИМАЕТ РЕШЕНИЕ ===
+    local inputs = {
+        Aggression = NeuralNetwork.Weights.Aggression,
+        Caution = 1 / (distance + 1),
+        Exploration = #NeuralNetwork.Memory.Positions / SETTINGS.MemorySize,
+        ReactionTime = 1 / (NeuralNetwork.Weights.ReactionTime + 0.1),
+        Accuracy = NeuralNetwork.Weights.Accuracy
+    }
+    
+    local decision = NeuralCore.Decide(inputs)
+    
+    -- Определяем режим
+    if enemy and distance < SETTINGS.DetectionRadius then
+        if distance < 40 and decision > 0.6 then
+            NeuralNetwork.State.Mode = "chasing"
+        elseif distance < 20 then
+            NeuralNetwork.State.Mode = "fleeing"
+        else
+            NeuralNetwork.State.Mode = "approaching"
+        end
+    else
+        NeuralNetwork.State.Mode = "exploring"
+    end
+    
+    -- === ВЫПОЛНЯЕМ ДЕЙСТВИЯ В ЗАВИСИМОСТИ ОТ РЕЖИМА ===
+    
+    if NeuralNetwork.State.Mode == "exploring" then
+        -- Исследование карты
+        if not NeuralNetwork.State.Target or 
+           MemorySystem.IsVisited(NeuralNetwork.State.Target, 15) or
+           MemorySystem.IsDangerous(NeuralNetwork.State.Target, 25) then
+            
+            NeuralNetwork.State.Target = MemorySystem.GetUnvisitedPosition()
+            
+            if not NeuralNetwork.State.Target then
+                -- Если всё исследовано – случайное направление
+                local angle = math.random() * 2 * math.pi
+                local distance = math.random(30, 80)
+                NeuralNetwork.State.Target = root.Position + Vector3.new(
+                    math.cos(angle) * distance,
+                    0,
+                    math.sin(angle) * distance
+                )
+            end
+        end
+        
+        if NeuralNetwork.State.Target then
+            local direction = (NeuralNetwork.State.Target - root.Position)
+            if direction.Magnitude > 5 then
+                MovementSystem.Move(direction)
+            else
+                MemorySystem.AddPosition(NeuralNetwork.State.Target)
+                NeuralNetwork.State.Target = nil
+            end
+        end
+        
+    elseif NeuralNetwork.State.Mode == "chasing" or NeuralNetwork.State.Mode == "approaching" then
+        -- Преследование врага
+        if enemy and enemy.Character then
+            local targetRoot = enemy.Character:FindFirstChild("HumanoidRootPart")
+            if targetRoot then
+                local direction = (targetRoot.Position - root.Position)
+                
+                -- Добавляем элемент случайности (для непредсказуемости)
+                local randomOffset = Vector3.new(
+                    (math.random() - 0.5) * 2,
+                    0,
+                    (math.random() - 0.5) * 2
+                ) * (1 - decision)
+                
+                MovementSystem.Move(direction + randomOffset)
+                
+                -- Стрельба
+                if direction.Magnitude < 50 and frameCounter % 15 == 0 then
+                    local hit = ShootingSystem.AimAndShoot(enemy)
+                    if hit then
+                        NeuralNetwork.State.Confidence = math.min(1, NeuralNetwork.State.Confidence + 0.1)
+                    end
+                end
+                
+                -- Прыжок, если враг близко и решение агрессивное
+                if direction.Magnitude < 15 and decision > 0.7 and frameCounter % 30 == 0 then
+                    MovementSystem.Jump()
+                end
+            end
+        end
+        
+    elseif NeuralNetwork.State.Mode == "fleeing" then
+        -- Отступление
+        if enemy and enemy.Character then
+            local targetRoot = enemy.Character:FindFirstChild("HumanoidRootPart")
+            if targetRoot then
+                local direction = (root.Position - targetRoot.Position).Unit
+                MovementSystem.Move(direction * 0.5)
+            end
+        end
+    end
+    
+    -- Обновление индикатора нейросети (каждые 10 кадров)
+    if frameCounter % 10 == 0 then
+        if NeuralNetwork.State.Confidence > 0.7 then
+            NeuralIndicator.BackgroundColor3 = Color3.fromRGB(0, 255, 0)  -- зелёный
+        else
+            NeuralIndicator.BackgroundColor3 = Color3.fromRGB(255, 255, 0) -- жёлтый
+        end
+        NeuralIndicator.BackgroundTransparency = 1 - NeuralNetwork.State.Confidence
+    end
+end
+
+-- ============================================================
+-- ОБУЧЕНИЕ НА СМЕРТИ
+-- ============================================================
+function HandleDeath()
+    local char = Player.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        MemorySystem.AddDeath(char.HumanoidRootPart.Position)
+    end
+    
+    NeuralNetwork.Learning.LastDeath = tick()
+    NeuralNetwork.State.Confidence = math.max(0.1, NeuralNetwork.State.Confidence - 0.3)
+    
+    -- Адаптация нейросети
+    NeuralCore.Learn(false, {
+        Aggression = -0.2,
+        Caution = 0.3,
+        Exploration = 0.1
+    })
+    
+    print("💀 Смерть! Нейросет
