@@ -1,0 +1,270 @@
+-- MM2 / Любая игра - Беконная драма с бомбой
+-- Для Delta Executor
+-- Нажми на кнопку в левом верхнем углу
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+
+-- Функция создания GUI кнопки
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = game:GetService("CoreGui")
+
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 200, 0, 60)
+Frame.Position = UDim2.new(0, 10, 0, 10)
+Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Frame.BackgroundTransparency = 0.2
+Frame.BorderSizePixel = 0
+Frame.Active = true
+Frame.Draggable = true
+Frame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 12)
+UICorner.Parent = Frame
+
+local Button = Instance.new("TextButton")
+Button.Size = UDim2.new(1, -10, 1, -10)
+Button.Position = UDim2.new(0, 5, 0, 5)
+Button.BackgroundColor3 = Color3.fromRGB(255, 70, 70)
+Button.BackgroundTransparency = 0.3
+Button.Text = "💣 БЕКОН-БОМБА"
+Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+Button.TextScaled = true
+Button.Font = Enum.Font.Bold
+Button.BorderSizePixel = 0
+Button.Parent = Frame
+
+local UICorner2 = Instance.new("UICorner")
+UICorner2.CornerRadius = UDim.new(0, 8)
+UICorner2.Parent = Button
+
+-- Звук взрыва (генерация)
+local function PlayExplosionSound()
+    local sound = Instance.new("Sound")
+    sound.SoundId = "rbxassetid://9120386370" -- громкий взрыв
+    sound.Volume = 1
+    sound.Parent = workspace
+    sound:Play()
+    game:GetService("Debris"):AddItem(sound, 3)
+end
+
+-- СОЗДАНИЕ БЕКОНОВ
+local function CreateBacon(name, color, position)
+    local model = Instance.new("Model")
+    model.Name = name
+    
+    local hrp = Instance.new("Part")
+    hrp.Name = "HumanoidRootPart"
+    hrp.Size = Vector3.new(2, 2, 1)
+    hrp.Position = position
+    hrp.Anchored = false
+    hrp.CanCollide = true
+    hrp.Material = Enum.Material.SmoothPlastic
+    hrp.BrickColor = BrickColor.new(color)
+    hrp.Parent = model
+    
+    local torso = Instance.new("Part")
+    torso.Name = "Torso"
+    torso.Size = Vector3.new(2, 2.5, 1.5)
+    torso.Position = position + Vector3.new(0, 1.5, 0)
+    torso.Anchored = false
+    torso.CanCollide = true
+    torso.Material = Enum.Material.SmoothPlastic
+    torso.BrickColor = BrickColor.new(color)
+    torso.Parent = model
+    
+    local head = Instance.new("Part")
+    head.Name = "Head"
+    head.Size = Vector3.new(1.5, 1.5, 1.5)
+    head.Position = position + Vector3.new(0, 3.5, 0)
+    head.Anchored = false
+    head.CanCollide = true
+    head.Material = Enum.Material.SmoothPlastic
+    head.BrickColor = BrickColor.new("Bright yellow")
+    head.Parent = model
+    
+    local humanoid = Instance.new("Humanoid")
+    humanoid.Name = "Humanoid"
+    humanoid.MaxHealth = 100
+    humanoid.Health = 100
+    humanoid.Parent = model
+    
+    -- Склеиваем части
+    local weld1 = Instance.new("Weld")
+    weld1.Part0 = hrp
+    weld1.Part1 = torso
+    weld1.C0 = CFrame.new(0, 1.5, 0)
+    weld1.Parent = hrp
+    
+    local weld2 = Instance.new("Weld")
+    weld2.Part0 = torso
+    weld2.Part1 = head
+    weld2.C0 = CFrame.new(0, 2, 0)
+    weld2.Parent = torso
+    
+    model.Parent = workspace
+    return model
+end
+
+-- Функция анимации "привет"
+local function PlayWaveAnimation(baconModel)
+    local hrp = baconModel:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local torso = baconModel:FindFirstChild("Torso")
+    if not torso then return end
+    
+    -- Поворот в сторону
+    local tween1 = TweenService:Create(torso, TweenInfo.new(0.3), {CFrame = torso.CFrame * CFrame.Angles(0, 1.5, 0)})
+    local tween2 = TweenService:Create(torso, TweenInfo.new(0.3), {CFrame = torso.CFrame * CFrame.Angles(0, -1.5, 0)})
+    
+    tween1:Play()
+    tween1.Completed:Wait()
+    tween2:Play()
+    tween2.Completed:Wait()
+end
+
+-- СОЗДАНИЕ ДИНАМИЧНОЙ БОМБЫ (взрывает всё, что видит)
+local function CreateNuke(origin)
+    PlayExplosionSound()
+    
+    -- Визуальный эффект взрыва (сфера)
+    local explosion = Instance.new("Part")
+    explosion.Name = "BombExplosion"
+    explosion.Size = Vector3.new(1, 1, 1)
+    explosion.Position = origin
+    explosion.Anchored = true
+    explosion.CanCollide = false
+    explosion.Material = Enum.Material.Neon
+    explosion.BrickColor = BrickColor.new("Bright red")
+    explosion.Transparency = 0.3
+    explosion.Parent = workspace
+    
+    -- Анимация расширения (Nuke)
+    local tweenSize = TweenService:Create(explosion, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        Size = Vector3.new(80, 80, 80),
+        Transparency = 0
+    })
+    local tweenFade = TweenService:Create(explosion, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        Transparency = 1
+    })
+    
+    tweenSize:Play()
+    tweenSize.Completed:Wait()
+    tweenFade:Play()
+    
+    -- УДАЛЕНИЕ ВСЕХ ОБЪЕКТОВ В РАДИУСЕ 50 СТУПЕНЕЙ
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj ~= explosion then
+            local distance = (obj.Position - origin).Magnitude
+            if distance < 50 then
+                game:GetService("Debris"):AddItem(obj, 0.1)
+                
+                -- Создаём осколки
+                for i = 1, 10 do
+                    local shard = Instance.new("Part")
+                    shard.Size = Vector3.new(0.5, 0.5, 0.5)
+                    shard.Position = obj.Position + Vector3.new(math.random(-5,5), math.random(-5,5), math.random(-5,5))
+                    shard.Anchored = false
+                    shard.CanCollide = true
+                    shard.BrickColor = BrickColor.random()
+                    shard.Material = Enum.Material.Neon
+                    shard.Velocity = Vector3.new(math.random(-50,50), math.random(20,80), math.random(-50,50))
+                    shard.Parent = workspace
+                    game:GetService("Debris"):AddItem(shard, 3)
+                end
+            end
+        end
+    end
+    
+    -- Удаляем бомбу
+    game:GetService("Debris"):AddItem(explosion, 1.5)
+end
+
+-- ГЛАВНАЯ СЦЕНА
+Button.MouseButton1Click:Connect(function()
+    print("💥 Запускаем бекон-драму!")
+    
+    -- Создаём двух беконов
+    local bacon1 = CreateBacon("Bacon1", "Bright blue", Vector3.new(0, 1, 0))
+    local bacon2 = CreateBacon("Bacon2", "Bright green", Vector3.new(10, 1, 0))
+    
+    -- Заставляем их смотреть друг на друга
+    local function FaceEachOther()
+        local dir = (bacon1.HumanoidRootPart.Position - bacon2.HumanoidRootPart.Position).Unit
+        bacon1.HumanoidRootPart.CFrame = CFrame.lookAt(bacon1.HumanoidRootPart.Position, bacon2.HumanoidRootPart.Position)
+        bacon2.HumanoidRootPart.CFrame = CFrame.lookAt(bacon2.HumanoidRootPart.Position, bacon1.HumanoidRootPart.Position)
+    end
+    
+    FaceEachOther()
+    
+    -- ДИАЛОГ (с анимациями и паузами)
+    task.wait(0.5)
+    
+    -- Бекон 1 подходит к Бекону 2 (идёт)
+    local tweenWalk = TweenService:Create(bacon1.HumanoidRootPart, TweenInfo.new(2), {
+        Position = Vector3.new(8, 1, 0)
+    })
+    tweenWalk:Play()
+    tweenWalk.Completed:Wait()
+    FaceEachOther()
+    
+    -- Бекон 1 говорит "Привет" с анимацией
+    PlayWaveAnimation(bacon1)
+    game:GetService("Chat"):Chat(bacon1.Head, "Привет!", Enum.ChatColor.Blue)
+    task.wait(1)
+    
+    -- Бекон 2 отвечает "Привет" с анимацией
+    PlayWaveAnimation(bacon2)
+    game:GetService("Chat"):Chat(bacon2.Head, "Привет!", Enum.ChatColor.Green)
+    task.wait(1)
+    
+    -- Бекон 1 говорит "Хаха тупой"
+    PlayWaveAnimation(bacon1)
+    game:GetService("Chat"):Chat(bacon1.Head, "Хаха тупой!", Enum.ChatColor.Blue)
+    task.wait(1.5)
+    
+    -- Бекон 2 скидывает бомбу (взрыв)
+    game:GetService("Chat"):Chat(bacon2.Head, "Держи бомбу! 💣", Enum.ChatColor.Red)
+    task.wait(0.5)
+    
+    -- СОЗДАЁМ БОМБУ (летит в бекон 1)
+    local bomb = Instance.new("Part")
+    bomb.Size = Vector3.new(1.5, 1.5, 1.5)
+    bomb.Position = bacon2.HumanoidRootPart.Position + Vector3.new(0, 5, 0)
+    bomb.Anchored = false
+    bomb.CanCollide = true
+    bomb.BrickColor = BrickColor.new("Really black")
+    bomb.Material = Enum.Material.Neon
+    bomb.Parent = workspace
+    
+    -- Добавляем свечение
+    local pointLight = Instance.new("PointLight")
+    pointLight.Color = Color3.fromRGB(255, 0, 0)
+    pointLight.Range = 20
+    pointLight.Brightness = 5
+    pointLight.Parent = bomb
+    
+    -- Анимация полёта бомбы
+    local tweenBomb = TweenService:Create(bomb, TweenInfo.new(1, Enum.EasingStyle.Quad), {
+        Position = bacon1.HumanoidRootPart.Position + Vector3.new(0, 2, 0)
+    })
+    tweenBomb:Play()
+    tweenBomb.Completed:Wait()
+    
+    -- ВЗРЫВ!!!
+    CreateNuke(bomb.Position)
+    
+    -- Удаляем беконов и бомбу
+    game:GetService("Debris"):AddItem(bacon1, 0.2)
+    game:GetService("Debris"):AddItem(bacon2, 0.2)
+    game:GetService("Debris"):AddItem(bomb, 0.2)
+    
+    print("💥 ВСЁ ВЗОРВАНО! БЕКОНЫ УНИЧТОЖЕНЫ!")
+end)
+
+print("✅ Кнопка 'Бекон-Бомба' создана! Нажми на неё в левом верхнем углу.")
