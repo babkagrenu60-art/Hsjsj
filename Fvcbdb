@@ -1,0 +1,352 @@
+-- БЕКОН-ДРАМА С БОМБАМИ (ВСЕ ВИДЯТ!)
+-- Для Delta Executor
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+-- СОЗДАЁМ RemoteEvent ДЛЯ ВСЕХ ИГРОКОВ
+local function CreateRemoteEvent()
+    local remote = Instance.new("RemoteEvent")
+    remote.Name = "BaconBombEvent"
+    remote.Parent = ReplicatedStorage
+    return remote
+end
+
+local BombEvent = ReplicatedStorage:FindFirstChild("BaconBombEvent") or CreateRemoteEvent()
+
+-- СОЗДАЁМ GUI КНОПКУ (ТОЛЬКО ДЛЯ ТЕБЯ)
+local function CreateButton()
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "BaconGUI"
+    ScreenGui.Parent = game:GetService("CoreGui")
+    ScreenGui.ResetOnSpawn = false
+    
+    local Button = Instance.new("TextButton")
+    Button.Name = "BaconButton"
+    Button.Size = UDim2.new(0, 280, 0, 80)
+    Button.Position = UDim2.new(0.5, -140, 0.5, -40)
+    Button.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    Button.BackgroundTransparency = 0.1
+    Button.Text = "💣 ЗАПУСТИТЬ АПОКАЛИПСИС"
+    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Button.TextScaled = true
+    Button.Font = Enum.Font.GothamBold
+    Button.BorderSizePixel = 0
+    Button.Parent = ScreenGui
+    
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, 15)
+    UICorner.Parent = Button
+    
+    -- Свечение
+    local glow = Instance.new("UIGradient")
+    glow.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 200, 0)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))
+    })
+    glow.Parent = Button
+    
+    -- Пульсация
+    spawn(function()
+        while Button and Button.Parent do
+            for i = 1, 20 do
+                task.wait(0.05)
+                Button.BackgroundTransparency = 0.1 + math.sin(i * 0.5) * 0.05
+            end
+        end
+    end)
+    
+    return Button
+end
+
+local Button = CreateButton()
+
+-- ФУНКЦИЯ АНИМАЦИЙ
+local function AnimateBacon(baconModel, animationType)
+    local hrp = baconModel:FindFirstChild("HumanoidRootPart")
+    local torso = baconModel:FindFirstChild("Torso")
+    if not hrp or not torso then return end
+    
+    if animationType == "wave" then
+        local t1 = TweenService:Create(torso, TweenInfo.new(0.3), {CFrame = torso.CFrame * CFrame.Angles(0, 1.5, 0)})
+        local t2 = TweenService:Create(torso, TweenInfo.new(0.3), {CFrame = torso.CFrame * CFrame.Angles(0, -1.5, 0)})
+        t1:Play()
+        t1.Completed:Wait()
+        t2:Play()
+        t2.Completed:Wait()
+        
+    elseif animationType == "dance" then
+        for i = 1, 4 do
+            local t = TweenService:Create(hrp, TweenInfo.new(0.15), {CFrame = hrp.CFrame * CFrame.Angles(0, 0.8, 0)})
+            t:Play()
+            t.Completed:Wait()
+            local t2 = TweenService:Create(hrp, TweenInfo.new(0.15), {CFrame = hrp.CFrame * CFrame.Angles(0, -0.8, 0)})
+            t2:Play()
+            t2.Completed:Wait()
+        end
+        
+    elseif animationType == "jump" then
+        local t = TweenService:Create(hrp, TweenInfo.new(0.3), {Position = hrp.Position + Vector3.new(0, 5, 0)})
+        t:Play()
+        t.Completed:Wait()
+        local t2 = TweenService:Create(hrp, TweenInfo.new(0.2), {Position = hrp.Position - Vector3.new(0, 5, 0)})
+        t2:Play()
+        t2.Completed:Wait()
+        
+    elseif animationType == "fall" then
+        local t = TweenService:Create(hrp, TweenInfo.new(0.5), {CFrame = hrp.CFrame * CFrame.Angles(1.5, 0, 0)})
+        t:Play()
+        t.Completed:Wait()
+    end
+end
+
+-- ФУНКЦИЯ ДИАЛОГА (ВИДЯТ ВСЕ)
+local function Say(baconModel, text, color)
+    local head = baconModel:FindFirstChild("Head")
+    if not head then return end
+    game:GetService("Chat"):Chat(head, text, color or Enum.ChatColor.White)
+end
+
+-- СОЗДАНИЕ БЕКОНА
+local function CreateBacon(name, color, position)
+    local model = Instance.new("Model")
+    model.Name = name
+    model.Parent = workspace
+    
+    local parts = {}
+    local partData = {
+        {name = "HumanoidRootPart", size = Vector3.new(2, 1, 1), pos = position, color = color},
+        {name = "Torso", size = Vector3.new(2, 2.5, 1.5), pos = position + Vector3.new(0, 1.5, 0), color = color},
+        {name = "Head", size = Vector3.new(1.5, 1.5, 1.5), pos = position + Vector3.new(0, 3.5, 0), color = "Bright yellow"},
+        {name = "LeftLeg", size = Vector3.new(0.5, 2, 0.5), pos = position + Vector3.new(-0.7, -0.5, 0), color = color},
+        {name = "RightLeg", size = Vector3.new(0.5, 2, 0.5), pos = position + Vector3.new(0.7, -0.5, 0), color = color},
+    }
+    
+    for _, data in ipairs(partData) do
+        local part = Instance.new("Part")
+        part.Name = data.name
+        part.Size = data.size
+        part.Position = data.pos
+        part.Anchored = false
+        part.CanCollide = true
+        part.Material = Enum.Material.SmoothPlastic
+        part.BrickColor = BrickColor.new(data.color)
+        part.Parent = model
+    end
+    
+    local humanoid = Instance.new("Humanoid")
+    humanoid.Name = "Humanoid"
+    humanoid.MaxHealth = 100
+    humanoid.Health = 100
+    humanoid.Parent = model
+    
+    return model
+end
+
+-- 🔥 МАССОВЫЙ ВЗРЫВ (ВИДЯТ ВСЕ)
+local function MassiveExplosion()
+    print("💥 МАССОВЫЙ ВЗРЫВ ЗАПУЩЕН!")
+    
+    -- Запускаем на всех игроках через RemoteEvent
+    BombEvent:FireAllClients()
+    
+    -- Создаём 10 бомб в разных местах
+    for i = 1, 10 do
+        local x = math.random(-80, 80)
+        local z = math.random(-80, 80)
+        local y = math.random(20, 50)
+        
+        local bomb = Instance.new("Part")
+        bomb.Size = Vector3.new(3, 3, 3)
+        bomb.Position = Vector3.new(x, y, z)
+        bomb.Anchored = false
+        bomb.CanCollide = true
+        bomb.BrickColor = BrickColor.new("Really black")
+        bomb.Material = Enum.Material.Neon
+        bomb.Parent = workspace
+        
+        -- Свечение
+        local light = Instance.new("PointLight")
+        light.Color = Color3.fromRGB(255, 0, 0)
+        light.Range = 40
+        light.Brightness = 15
+        light.Parent = bomb
+        
+        -- Бомба летит вниз
+        local tweenBomb = TweenService:Create(bomb, TweenInfo.new(1.5 + math.random(0, 1), Enum.EasingStyle.Quad), {
+            Position = Vector3.new(x, 1, z)
+        })
+        tweenBomb:Play()
+        tweenBomb.Completed:Connect(function()
+            -- ВЗРЫВ КАЖДОЙ БОМБЫ
+            CreateExplosion(bomb.Position, 50 + math.random(0, 30))
+            game:GetService("Debris"):AddItem(bomb, 0.1)
+        end)
+        
+        task.wait(0.2) -- Задержка между бомбами
+    end
+end
+
+-- СОЗДАНИЕ ВЗРЫВА (ВИДЯТ ВСЕ)
+local function CreateExplosion(position, radius)
+    radius = radius or 40
+    
+    -- Звук взрыва
+    local sound = Instance.new("Sound")
+    sound.SoundId = "rbxassetid://9120386370"
+    sound.Volume = 2
+    sound.Parent = workspace
+    sound:Play()
+    game:GetService("Debris"):AddItem(sound, 4)
+    
+    -- Световая сфера
+    local blast = Instance.new("Part")
+    blast.Name = "Explosion"
+    blast.Size = Vector3.new(1, 1, 1)
+    blast.Position = position
+    blast.Anchored = true
+    blast.CanCollide = false
+    blast.Material = Enum.Material.Neon
+    blast.BrickColor = BrickColor.new("Bright red")
+    blast.Transparency = 0.3
+    blast.Parent = workspace
+    
+    -- Разрастание взрыва
+    local tween1 = TweenService:Create(blast, TweenInfo.new(0.8, Enum.EasingStyle.Quad), {
+        Size = Vector3.new(radius, radius, radius),
+        Transparency = 0
+    })
+    local tween2 = TweenService:Create(blast, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+        Transparency = 1
+    })
+    
+    tween1:Play()
+    tween1.Completed:Wait()
+    tween2:Play()
+    tween2.Completed:Wait()
+    
+    -- Удаляем объекты в радиусе
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj ~= blast then
+            local dist = (obj.Position - position).Magnitude
+            if dist < radius and obj.Parent ~= LocalPlayer.Character then
+                game:GetService("Debris"):AddItem(obj, 0.1)
+                
+                -- Осколки
+                for j = 1, 5 do
+                    local shard = Instance.new("Part")
+                    shard.Size = Vector3.new(0.5, 0.5, 0.5)
+                    shard.Position = obj.Position + Vector3.new(math.random(-3,3), math.random(-3,3), math.random(-3,3))
+                    shard.Anchored = false
+                    shard.CanCollide = true
+                    shard.BrickColor = BrickColor.random()
+                    shard.Material = Enum.Material.Neon
+                    shard.Velocity = Vector3.new(math.random(-60,60), math.random(30,100), math.random(-60,60))
+                    shard.Parent = workspace
+                    game:GetService("Debris"):AddItem(shard, 2)
+                end
+            end
+        end
+    end
+    
+    game:GetService("Debris"):AddItem(blast, 1)
+end
+
+-- 🔄 СЛУШАЕМ СОБЫТИЕ ДЛЯ ВСЕХ ИГРОКОВ
+BombEvent.OnClientEvent:Connect(function()
+    print("🔥 ВЗРЫВ ВИДИТ ВЕСЬ СЕРВЕР!")
+    
+    -- Создаём несколько взрывов для эффекта
+    for i = 1, 3 do
+        local x = math.random(-50, 50)
+        local z = math.random(-50, 50)
+        CreateExplosion(Vector3.new(x, 1, z), 30 + math.random(0, 20))
+        task.wait(0.3)
+    end
+end)
+
+-- ГЛАВНОЕ ДЕЙСТВИЕ (ПО КНОПКЕ)
+Button.MouseButton1Click:Connect(function()
+    print("🚀 ЗАПУСК БЕКОН-АПОКАЛИПСИСА")
+    Button.Text = "⏳ ШОУ НАЧАЛОСЬ..."
+    Button.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
+    
+    -- Удаляем старых беконов
+    if workspace:FindFirstChild("Bacon1") then workspace.Bacon1:Destroy() end
+    if workspace:FindFirstChild("Bacon2") then workspace.Bacon2:Destroy() end
+    
+    -- СОЗДАЁМ БЕКОНОВ
+    local bacon1 = CreateBacon("Bacon1", "Bright blue", Vector3.new(-5, 1, 0))
+    local bacon2 = CreateBacon("Bacon2", "Bright green", Vector3.new(5, 1, 0))
+    
+    task.wait(0.5)
+    
+    -- СМОТРЯТ ДРУГ НА ДРУГА
+    local function LookAt(b1, b2)
+        local r1 = b1:FindFirstChild("HumanoidRootPart")
+        local r2 = b2:FindFirstChild("HumanoidRootPart")
+        if r1 and r2 then
+            r1.CFrame = CFrame.lookAt(r1.Position, r2.Position)
+            r2.CFrame = CFrame.lookAt(r2.Position, r1.Position)
+        end
+    end
+    
+    LookAt(bacon1, bacon2)
+    task.wait(0.5)
+    
+    -- 1️⃣ Бекон 1 идёт к Бекону 2
+    local root1 = bacon1:FindFirstChild("HumanoidRootPart")
+    if root1 then
+        local walk = TweenService:Create(root1, TweenInfo.new(1.5), {
+            Position = Vector3.new(3, 1, 0)
+        })
+        walk:Play()
+        walk.Completed:Wait()
+    end
+    
+    LookAt(bacon1, bacon2)
+    task.wait(0.3)
+    
+    -- 2️⃣ ДИАЛОГ
+    AnimateBacon(bacon1, "wave")
+    Say(bacon1, "Привет!", Enum.ChatColor.Blue)
+    task.wait(1)
+    
+    AnimateBacon(bacon2, "wave")
+    Say(bacon2, "Привет!", Enum.ChatColor.Green)
+    task.wait(1)
+    
+    AnimateBacon(bacon1, "dance")
+    Say(bacon1, "Хаха тупой!", Enum.ChatColor.Blue)
+    task.wait(1.5)
+    
+    AnimateBacon(bacon2, "jump")
+    Say(bacon2, "Сейчас будет АПОКАЛИПСИС! 💀", Enum.ChatColor.Red)
+    task.wait(1)
+    
+    -- 3️⃣ УДАЛЯЕМ БЕКОНОВ
+    bacon1:Destroy()
+    bacon2:Destroy()
+    
+    -- 4️⃣ МАССИВНЫЙ ВЗРЫВ (10 БОМБ)
+    Button.Text = "💥 БОМБЫ ЛЕТЯТ..."
+    MassiveExplosion()
+    
+    -- 5️⃣ ФИНАЛЬНЫЙ МЕГА-ВЗРЫВ
+    task.wait(2)
+    CreateExplosion(Vector3.new(0, 5, 0), 80)
+    CreateExplosion(Vector3.new(0, 5, 20), 60)
+    CreateExplosion(Vector3.new(0, 5, -20), 60)
+    CreateExplosion(Vector3.new(20, 5, 0), 60)
+    CreateExplosion(Vector3.new(-20, 5, 0), 60)
+    
+    Button.Text = "💣 ЗАПУСТИТЬ АПОКАЛИПСИС"
+    Button.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    print("💥 АПОКАЛИПСИС ЗАВЕРШЁН!")
+end)
+
+print("✅ Бекон-Апокалипсис загружен! Все игроки увидят взрывы!")
+print("🔥 Нажми на кнопку в центре экрана!")
