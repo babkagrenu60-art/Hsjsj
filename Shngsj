@@ -1,0 +1,53 @@
+local P=game:GetService("Players");local PF=game:GetService("PathfindingService");local LP=P.LocalPlayer
+local A=false;local M={bad={},places={}};local S=16;local F=1.5
+
+local G=Instance.new("ScreenGui",LP:WaitForChild("PlayerGui"));G.ResetOnSpawn=false
+local B=Instance.new("TextButton",G);B.Size=UDim2.fromOffset(180,60);B.Position=UDim2.new(1,-195,1,-85);B.Text="🤖 AI: OFF";B.TextScaled=true;B.BackgroundColor3=Color3.fromRGB(20,20,25)
+Instance.new("UICorner",B).CornerRadius=UDim.new(0,14)
+
+local function R()return LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")end
+local function H()return LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")end
+
+local function path(pos)
+	local r,h=R(),H();if not r or not h then return end
+	local p=PF:CreatePath({AgentRadius=2,AgentHeight=5,AgentCanJump=true})
+	if not pcall(function()p:ComputeAsync(r.Position,pos)end)or p.Status~=Enum.PathStatus.Success then h:MoveTo(pos);return end
+	for _,w in ipairs(p:GetWaypoints())do
+		if not A then return end
+		if w.Action==Enum.PathWaypointAction.Jump then h.Jump=true end
+		h:MoveTo(w.Position);h.MoveToFinished:Wait()
+	end
+end
+
+local function danger()
+	local r=R();if not r then return end
+	for _,x in ipairs(P:GetPlayers())do
+		if x~=LP and x.Character and x.Character:FindFirstChild("HumanoidRootPart") then
+			local q=x.Character.HumanoidRootPart
+			if (q.Position-r.Position).Magnitude<35 then
+				M.bad[x.UserId]=x
+				return x
+			end
+		end
+	end
+end
+
+local function think()
+	local r,h=R(),H();if not r or not h then return end
+	table.insert(M.places,r.Position)
+	local e=danger()
+	if e and e.Character and e.Character:FindFirstChild("HumanoidRootPart")then
+		h.WalkSpeed=S*F
+		local q=e.Character.HumanoidRootPart
+		path(r.Position+(r.Position-q.Position).Unit*100)
+		h.WalkSpeed=S
+	else
+		local a=math.random()*math.pi*2
+		path(r.Position+Vector3.new(math.cos(a)*math.random(30,100),0,math.sin(a)*math.random(30,100)))
+	end
+end
+
+B.Activated:Connect(function()
+	A=not A;B.Text=A and"🤖 AI: ON"or"🤖 AI: OFF"
+	if A then task.spawn(function()while A do task.wait(.4);think()end end)end
+end)
