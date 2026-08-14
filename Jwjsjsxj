@@ -1,0 +1,584 @@
+local Players = game:GetService("Players")
+local PathfindingService = game:GetService("PathfindingService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Remote = ReplicatedStorage:FindFirstChild("AIPlayerRemote")
+
+if not Remote then
+	Remote = Instance.new("RemoteEvent")
+	Remote.Name = "AIPlayerRemote"
+	Remote.Parent = ReplicatedStorage
+end
+
+local AI = {}
+local Memory = {}
+
+local CFG = {
+	NormalSpeed = 16,
+	FearMultiplier = 1.5,
+
+	ExploreRadius = 100,
+	FearRadius = 60,
+
+	ThinkDelay = 0.3,
+	MemoryLimit = 500,
+}
+
+--------------------------------------------------
+-- MEMORY
+--------------------------------------------------
+
+local function getMemory(player)
+	if not Memory[player] then
+		Memory[player] = {
+			visited = {},
+			dangerPlaces = {},
+			enemies = {},
+			rounds = 0
+		}
+	end
+
+	return Memory[player]
+end
+
+local function rememberPlace(player, position)
+	local mem = getMemory(player)
+
+	table.insert(mem.visited, {
+		position = position,
+		time = os.clock()
+	})
+
+	if #mem.visited > CFG.MemoryLimit then
+		table.remove(mem.visited, 1)
+	end
+end
+
+local function rememberEnemy(player, enemy, score)
+	if not enemy or enemy == player then
+		return
+	end
+
+	local mem = getMemory(player)
+
+	mem.enemies[enemy.UserId] = {
+		player = enemy,
+		score = score or 5,
+		lastSeen = os.clock()
+	}
+end
+
+local function rememberDanger(player, position)
+	local mem = getMemory(player)
+
+	table.insert(mem.dangerPlaces, {
+		position = position,
+		score = 10,
+		time = os.clock()
+	})
+
+	if #mem.dangerPlaces > 100 then
+		table.remove(mem.dangerPlaces, 1)
+	end
+end
+
+--------------------------------------------------
+-- CHARACTER
+--------------------------------------------------
+
+local function getCharacter(player)
+	return player.Character
+end
+
+local function getRoot(player)
+	local char = getCharacter(player)
+
+	if not char then
+		return nil
+	end
+
+	return char:FindFirstChild("HumanoidRootPart")
+end
+
+local function getHumanoid(player)
+	local char = getCharacter(player)
+
+	if not char then
+		return nil
+	end
+
+	return char:FindFirstChildOfClass("Humanoid")
+end
+
+--------------------------------------------------
+-- FEAR
+--------------------------------------------------
+
+local function getNearestEnemy(player)
+	local root = getRoot(player)
+
+	if not root then
+		return nil
+	end
+
+	local mem = getMemory(player)
+
+	local closest = nil
+	local closestDistance = math.huge
+
+	for _, info in pairs(mem.enemies) do
+		local enemy = info.player
+
+		if enemy and enemy.Parent then
+			local enemyRoot = getRoot(enemy)
+
+			if enemyRoot then
+				local distance =
+					(enemyRoot.Position - root.Position).Magnitude
+
+				if distance < CFG.FearRadius
+					and distance < closestDistance then
+
+					closest = enemy
+					closestDistance = distance
+				end
+			end
+		end
+	end
+
+	return closest
+end
+
+--------------------------------------------------
+-- PATHFINDING
+--------------------------------------------------
+
+local function createPath(startPosition, targetPosition)
+	local path = PathfindingService:CreatePath({
+		AgentRadius = 2,
+		AgentHeight = 5,
+		AgentCanJump = true,
+		AgentCanClimb = true,
+		WaypointSpacing = 4
+	})
+
+	local success = pcall(function()
+		path:ComputeAsync(
+			startPosition,
+			targetPosition
+		)
+	end)
+
+	if success and path.Status == Enum.PathStatus.Success then
+		return path:GetWaypoints()
+	end
+
+	return nil
+end
+
+--------------------------------------------------
+-- RANDOM POSITION
+--------------------------------------------------
+
+local function randomPosition(root)
+	local angle = math.random() * math.pi * 2
+	local distance =
+		math.random(30, CFG.ExploreRadius)
+
+	return root.Position + Vector3.new(
+		math.cos(angle) * distance,
+		0,
+		math.sin(angle) * distance
+	)
+end
+
+--------------------------------------------------
+-- DANGER SCORE
+--------------------------------------------------
+
+local function dangerScore(player, position)
+	local mem = getMemory(player)
+
+	local score = 0
+
+	for _, danger in ipairs(mem.dangerPlaces) do
+		local distance =
+			(danger.position - position).Magnitude
+
+		if distance < 50 then
+			score += danger.score
+		end
+	end
+
+	return score
+end
+
+--------------------------------------------------
+-- SAFE DESTINATION
+--------------------------------------------------
+
+local function findSafePosition(player, root)
+	local best = nil
+	local bestScore = math.huge
+
+	local enemy = getNearestEnemy(player)
+
+	for i = 1, 25 do
+		local point = randomPosition(root)
+
+		local score =
+			dangerScore(player, point)
+
+		if enemy then
+			local enemyRoot = getRoot(enemy)
+
+			if enemyRoot then
+				local enemyDistance =
+					(point - enemyRoot.Position).Magnitude
+
+				-- Чем дальше от врага, тем лучше
+				score -= enemyDistance * 0.5
+			end
+		end
+
+		if score < bestScore then
+			bestScore = score
+			best = point
+		end
+	end
+
+	return best
+end
+
+--------------------------------------------------
+-- MOVE
+--------------------------------------------------
+
+local function moveTo(player, destination)
+	local humanoid = getHumanoid(player)
+	local root = getRoot(player)
+
+	if not humanoid or not root then
+		return false
+	end
+
+	local waypoints =
+		createPath(root.Position, destination)
+
+	if not waypoints then
+		humanoid:MoveTo(destination)
+		task.wait(1)
+		return true
+	end
+
+	for _, waypoint in ipairs(waypoints) do
+
+		if not AI[player] then
+			return false
+		end
+
+		root = getRoot(player)
+
+		if not root then
+			return false
+		end
+
+		local enemy =
+			getNearestEnemy(player)
+
+		if enemy then
+			return false
+		end
+
+		if waypoint.Action ==
+			Enum.PathWaypointAction.Jump then
+
+			humanoid.Jump = true
+		end
+
+		humanoid:MoveTo(
+			waypoint.Position
+		)
+
+		local reached =
+			humanoid.MoveToFinished:Wait()
+
+		if not reached then
+			return false
+		end
+
+		rememberPlace(
+			player,
+			root.Position
+		)
+	end
+
+	return true
+end
+
+--------------------------------------------------
+-- ESCAPE
+--------------------------------------------------
+
+local function escape(player)
+	local humanoid = getHumanoid(player)
+	local root = getRoot(player)
+
+	if not humanoid or not root then
+		return
+	end
+
+	-- Ускорение ×1.5
+	humanoid.WalkSpeed =
+		CFG.NormalSpeed *
+		CFG.FearMultiplier
+
+	local enemy =
+		getNearestEnemy(player)
+
+	local destination = nil
+
+	if enemy then
+		local enemyRoot = getRoot(enemy)
+
+		if enemyRoot then
+
+			local direction =
+				(root.Position -
+				enemyRoot.Position).Unit
+
+			destination =
+				root.Position +
+				direction * 100
+		end
+	end
+
+	if not destination then
+		destination =
+			findSafePosition(
+				player,
+				root
+			)
+	end
+
+	if destination then
+		moveTo(
+			player,
+			destination
+		)
+	end
+
+	-- Возвращаем обычную скорость
+	if humanoid then
+		humanoid.WalkSpeed =
+			CFG.NormalSpeed
+	end
+end
+
+--------------------------------------------------
+-- EXPLORE
+--------------------------------------------------
+
+local function explore(player)
+	local root = getRoot(player)
+
+	if not root then
+		return
+	end
+
+	local destination =
+		findSafePosition(
+			player,
+			root
+		)
+
+	if destination then
+		moveTo(
+			player,
+			destination
+		)
+	end
+end
+
+--------------------------------------------------
+-- AI LOOP
+--------------------------------------------------
+
+local function runAI(player)
+
+	local mem =
+		getMemory(player)
+
+	mem.rounds += 1
+
+	while AI[player] do
+
+		task.wait(CFG.ThinkDelay)
+
+		local humanoid =
+			getHumanoid(player)
+
+		local root =
+			getRoot(player)
+
+		if not humanoid
+			or not root
+			or humanoid.Health <= 0 then
+
+			continue
+		end
+
+		rememberPlace(
+			player,
+			root.Position
+		)
+
+		local enemy =
+			getNearestEnemy(player)
+
+		if enemy then
+
+			-- Страх
+			escape(player)
+
+		else
+
+			-- Исследование
+			explore(player)
+
+		end
+	end
+end
+
+--------------------------------------------------
+-- DAMAGE / KILL MEMORY
+--------------------------------------------------
+
+local function setupCharacter(player, character)
+
+	local humanoid =
+		character:WaitForChild(
+			"Humanoid",
+			10
+		)
+
+	if not humanoid then
+		return
+	end
+
+	humanoid.WalkSpeed =
+		CFG.NormalSpeed
+
+	------------------------------------------------
+	-- УМЕР
+	------------------------------------------------
+
+	humanoid.Died:Connect(function()
+
+		local root =
+			character:FindFirstChild(
+				"HumanoidRootPart"
+			)
+
+		if root then
+			rememberDanger(
+				player,
+				root.Position
+			)
+		end
+
+		-- Если система оружия использует creator
+		local creator =
+			humanoid:FindFirstChild("creator")
+
+		if creator
+			and creator.Value
+			and creator.Value:IsA("Player") then
+
+			rememberEnemy(
+				player,
+				creator.Value,
+				100
+			)
+		end
+
+		AI[player] = false
+	end)
+end
+
+--------------------------------------------------
+-- PLAYER SETUP
+--------------------------------------------------
+
+local function setupPlayer(player)
+
+	getMemory(player)
+
+	player.CharacterAdded:Connect(
+		function(character)
+			setupCharacter(
+				player,
+				character
+			)
+		end
+	)
+
+	if player.Character then
+		setupCharacter(
+			player,
+			player.Character
+		)
+	end
+end
+
+Players.PlayerAdded:Connect(setupPlayer)
+
+Players.PlayerRemoving:Connect(
+	function(player)
+
+		AI[player] = nil
+		Memory[player] = nil
+	end
+)
+
+for _, player in ipairs(
+	Players:GetPlayers()
+) do
+	setupPlayer(player)
+end
+
+--------------------------------------------------
+-- MOBILE BUTTON COMMAND
+--------------------------------------------------
+
+Remote.OnServerEvent:Connect(
+	function(player, command)
+
+		if command == "START" then
+
+			if AI[player] then
+				return
+			end
+
+			AI[player] = true
+
+			task.spawn(
+				function()
+					runAI(player)
+				end
+			)
+
+		elseif command == "STOP" then
+
+			AI[player] = false
+
+			local humanoid =
+				getHumanoid(player)
+
+			if humanoid then
+				humanoid.WalkSpeed =
+					CFG.NormalSpeed
+			end
+		end
+	end
+)
