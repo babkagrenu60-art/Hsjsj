@@ -1,0 +1,158 @@
+local P=game:GetService("Players")
+local PF=game:GetService("PathfindingService")
+local N=script.Parent
+local H=N:WaitForChild("Humanoid")
+local R=N:WaitForChild("HumanoidRootPart")
+
+local S=16
+local PANIC=S*2
+local memory={places={},walls={},enemies={},actions={explore=1,escape=1}}
+local running=true
+
+local function learn(k,reward)
+	memory.actions[k]=math.clamp((memory.actions[k]or 1)+reward,.2,20)
+end
+
+local function path(goal)
+	local p=PF:CreatePath({
+		AgentRadius=2,AgentHeight=5,
+		AgentCanJump=true,WaypointSpacing=4
+	})
+	if not pcall(function()p:ComputeAsync(R.Position,goal)end)
+		or p.Status~=Enum.PathStatus.Success then
+		return false
+	end
+
+	for _,w in ipairs(p:GetWaypoints())do
+		if not running then return false end
+		if w.Action==Enum.PathWaypointAction.Jump then H.Jump=true end
+
+		local old=R.Position
+		H:MoveTo(w.Position)
+
+		local ok=H.MoveToFinished:Wait(1.2)
+
+		if not ok or (R.Position-old).Magnitude<1 then
+			table.insert(memory.walls,R.Position)
+			learn("explore",-0.5)
+			return false
+		end
+	end
+
+	return true
+end
+
+local function danger()
+	local best=nil
+	local dist=70
+
+	for _,p in ipairs(P:GetPlayers())do
+		local c=p.Character
+		local q=c and c:FindFirstChild("HumanoidRootPart")
+
+		if q then
+			local d=(q.Position-R.Position).Magnitude
+			if d<dist then
+				best=p
+				dist=d
+			end
+		end
+	end
+
+	return best,dist
+end
+
+local function safePoint(enemy)
+	local best=nil
+	local score=-math.huge
+
+	for i=1,12 do
+		local a=math.random()*math.pi*2
+		local d=math.random(50,110)
+		local pos=R.Position+Vector3.new(math.cos(a)*d,0,math.sin(a)*d)
+
+		local p=PF:CreatePath({
+			AgentRadius=2,AgentHeight=5,
+			AgentCanJump=true
+		})
+
+		if pcall(function()p:ComputeAsync(R.Position,pos)end)
+			and p.Status==Enum.PathStatus.Success then
+
+			local value=#p:GetWaypoints()*-1
+
+			if enemy and enemy.Character then
+				local er=enemy.Character:FindFirstChild("HumanoidRootPart")
+				if er then value+=(pos-er.Position).Magnitude end
+			end
+
+			if value>score then
+				score=value
+				best=pos
+			end
+		end
+	end
+
+	return best
+end
+
+local function explore()
+	H.WalkSpeed=S
+
+	local a=math.random()*math.pi*2
+	local d=math.random(40,100)
+	local pos=R.Position+Vector3.new(math.cos(a)*d,0,math.sin(a)*d)
+
+	if path(pos) then
+		table.insert(memory.places,R.Position)
+		learn("explore",.2)
+	else
+		learn("explore",-0.2)
+	end
+end
+
+local function escape(enemy)
+	H.WalkSpeed=PANIC
+
+	local pos=safePoint(enemy)
+
+	if pos and path(pos) then
+		learn("escape",.5)
+	else
+		learn("escape",-0.2)
+	end
+
+	H.WalkSpeed=S
+end
+
+local function rememberEnemy(p)
+	if p then
+		memory.enemies[p.UserId]=(memory.enemies[p.UserId]or 0)+1
+	end
+end
+
+H.Died:Connect(function()
+	local tag=H:FindFirstChild("creator")
+
+	if tag and tag.Value and tag.Value:IsA("Player") then
+		rememberEnemy(tag.Value)
+	end
+
+	running=false
+end)
+
+while running and H.Health>0 do
+	task.wait(.2)
+
+	local enemy,dist=danger()
+
+	if enemy and dist<35 then
+		rememberEnemy(enemy)
+		escape(enemy)
+	elseif math.random()<memory.actions.explore/(memory.actions.explore+memory.actions.escape) then
+		explore()
+	else
+		local pos=safePoint()
+		if pos then path(pos) end
+	end
+end
