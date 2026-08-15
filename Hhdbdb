@@ -1,0 +1,163 @@
+local P=game:GetService("Players")
+local PF=game:GetService("PathfindingService")
+local LP=P.LocalPlayer
+local A=false
+local S=16
+local M={}
+local RAD=100
+
+local G=Instance.new("ScreenGui",LP:WaitForChild("PlayerGui"));G.ResetOnSpawn=false
+
+local B=Instance.new("TextButton",G)
+B.Size=UDim2.fromOffset(180,55);B.Position=UDim2.new(1,-195,1,-70)
+B.Text="🤖 AI: OFF";B.TextScaled=true;B.BackgroundColor3=Color3.fromRGB(20,20,25)
+Instance.new("UICorner",B).CornerRadius=UDim.new(0,14)
+
+local R=Instance.new("Frame",G)
+R.Size=UDim2.fromOffset(150,150);R.Position=UDim2.fromOffset(10,10)
+R.BackgroundColor3=Color3.fromRGB(10,15,18);R.BackgroundTransparency=.1
+Instance.new("UICorner",R).CornerRadius=UDim.new(1,0)
+
+local T=Instance.new("TextLabel",G)
+T.Size=UDim2.fromOffset(180,28);T.Position=UDim2.fromOffset(10,165)
+T.Text="⚠ ОПАСНЫЕ ИГРОКИ";T.TextScaled=true
+T.BackgroundColor3=Color3.fromRGB(15,15,20);T.TextColor3=Color3.new(1,1,1)
+
+local L=Instance.new("TextLabel",G)
+L.Size=UDim2.fromOffset(180,90);L.Position=UDim2.fromOffset(10,195)
+L.Text="Нет известных угроз";L.TextScaled=true;L.TextWrapped=true
+L.BackgroundColor3=Color3.fromRGB(15,15,20);L.TextColor3=Color3.new(1,1,1)
+
+local function root()
+	return LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+end
+
+local function hum()
+	return LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+end
+
+local function remember(p)
+	if p and p~=LP then M[p.UserId]=p end
+end
+
+local function radar()
+	local r=root();if not r then return end
+	for _,v in ipairs(R:GetChildren())do if v:IsA("Frame") then v:Destroy()end end
+	local names={};local panic=false;local enemy
+
+	for _,p in pairs(M)do
+		if p.Parent and p.Character then
+			local q=p.Character:FindFirstChild("HumanoidRootPart")
+			if q then
+				local d=q.Position-r.Position
+				if d.Magnitude<=RAD then
+					local dot=Instance.new("Frame",R)
+					dot.Size=UDim2.fromOffset(9,9);dot.AnchorPoint=Vector2.new(.5,.5)
+					dot.Position=UDim2.fromScale(.5+math.clamp(d.X/RAD,-.45,.45),.5+math.clamp(d.Z/RAD,-.45,.45))
+					dot.BackgroundColor3=Color3.fromRGB(255,50,50)
+					Instance.new("UICorner",dot).CornerRadius=UDim.new(1,0)
+					table.insert(names,"☠ "..p.Name)
+					if d.Magnitude<45 then panic=true;enemy=p end
+				end
+			end
+		end
+	end
+
+	L.Text=#names>0 and table.concat(names,"\n")or"Нет известных угроз"
+	return panic,enemy
+end
+
+local function path(pos)
+	local r,h=root(),hum();if not r or not h then return false end
+	local p=PF:CreatePath({AgentRadius=2,AgentHeight=5,AgentCanJump=true,WaypointSpacing=5})
+	if not pcall(function()p:ComputeAsync(r.Position,pos)end)or p.Status~=Enum.PathStatus.Success then return false end
+
+	for _,w in ipairs(p:GetWaypoints())do
+		if not A then return false end
+		if w.Action==Enum.PathWaypointAction.Jump then h.Jump=true end
+		h:MoveTo(w.Position)
+		local t=os.clock()
+		while os.clock()-t<1 do
+			if (r.Position-w.Position).Magnitude<4 then break end
+			task.wait(.05)
+		end
+		if os.clock()-t>=1 then return false end
+	end
+	return true
+end
+
+local function safe(e)
+	local r=root();if not r then return end
+	local best,score
+	for i=1,10 do
+		local a=math.random()*6.28;local d=math.random(50,110)
+		local p=r.Position+Vector3.new(math.cos(a)*d,0,math.sin(a)*d)
+		local s=d
+		if e and e.Character then
+			local q=e.Character:FindFirstChild("HumanoidRootPart")
+			if q then s=s+(p-q.Position).Magnitude*2 end
+		end
+		if not score or s>score then best,score=p,s end
+	end
+	return best
+end
+
+local function think()
+	local r,h=root(),hum();if not r or not h or h.Health<=0 then return end
+	local panic,e=radar()
+
+	if panic and e then
+		h.WalkSpeed=S*2
+		local q=e.Character and e.Character:FindFirstChild("HumanoidRootPart")
+		if q then
+			local v=(r.Position-q.Position).Unit
+			if not path(r.Position+v*100)then
+				h:MoveTo(r.Position+v*100)
+			end
+		end
+		return
+	end
+
+	h.WalkSpeed=S
+	local a=math.random()*6.28
+	local d=math.random(35,90)
+	local pos=r.Position+Vector3.new(math.cos(a)*d,0,math.sin(a)*d)
+
+	if not path(pos)then
+		local p=safe()
+		if p then path(p)end
+	end
+end
+
+local function setup()
+	local h=hum();if not h then return end
+	h.WalkSpeed=S
+	h.Died:Connect(function()
+		local tag=h:FindFirstChild("creator")
+		if tag and tag.Value and tag.Value:IsA("Player")then remember(tag.Value)end
+		A=false
+	end)
+end
+
+LP.CharacterAdded:Connect(function()task.wait(1);setup()end)
+if LP.Character then setup()end
+
+B.Activated:Connect(function()
+	A=not A;B.Text=A and"🤖 AI: ON"or"🤖 AI: OFF"
+	if A then
+		task.spawn(function()
+			while A do
+				for _,p in ipairs(P:GetPlayers())do
+					if p~=LP and p.Character then
+						local q=p.Character:FindFirstChild("HumanoidRootPart")
+						local r=root()
+						if q and r and (q.Position-r.Position).Magnitude<12 then remember(p)end
+					end
+				end
+				think()
+				task.wait(.15)
+			end
+			local h=hum();if h then h.WalkSpeed=S end
+		end)
+	end
+end)
