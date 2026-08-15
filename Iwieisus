@@ -1,0 +1,34 @@
+-- Delta Executor: Wanderer Bot Script
+local PathfindingService = game:GetService("PathfindingService")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+-- Настройки: радиус блуждания и параметры агента для обхода препятствий
+local WANDER_RADIUS = 50 
+local agentParams = {AgentRadius = 2.5, AgentHeight = 5.0, AgentCanJump = true}
+
+local function walkToTarget(targetPosition)
+    local path = PathfindingService:CreatePath(agentParams)
+    local success, _ = pcall(function() path:ComputeAsync(rootPart.Position, targetPosition) end)
+
+    if success and path.Status == Enum.PathStatus.Success then
+        for _, waypoint in ipairs(path:GetWaypoints()) do
+            if waypoint.Action == Enum.PathWaypointAction.Jump then humanoid.Jump = true end
+            humanoid:MoveTo(waypoint.Position)
+            if not humanoid.MoveToFinished:Wait(2) then break end -- Защита от застревания
+        end
+    end
+end
+
+-- Основной цикл
+spawn(function()
+    while task.wait(1) do
+        if humanoid and humanoid.Health > 0 then
+            local target = rootPart.Position + Vector3.new(math.random(-WANDER_RADIUS, WANDER_RADIUS), 0, math.random(-WANDER_RADIUS, WANDER_RADIUS))
+            walkToTarget(target)
+        end
+    end
+end)
