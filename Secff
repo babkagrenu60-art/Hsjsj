@@ -1,0 +1,442 @@
+local Players = game:GetService("Players")
+local PathfindingService = game:GetService("PathfindingService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+
+--==================================================
+-- НАСТРОЙКИ
+--==================================================
+
+local running = false
+local humanoid
+local root
+
+local visited = {}
+local failed = {}
+
+local SEARCH_DISTANCE = 80
+local WAYPOINT_SPACING = 3
+
+--==================================================
+-- ПЕРСОНАЖ
+--==================================================
+
+local function getCharacter()
+	local character = player.Character or player.CharacterAdded:Wait()
+
+	humanoid = character:WaitForChild("Humanoid")
+	root = character:WaitForChild("HumanoidRootPart")
+
+	return character
+end
+
+getCharacter()
+
+player.CharacterAdded:Connect(function()
+	task.wait(1)
+	getCharacter()
+end)
+
+--==================================================
+-- GUI
+--==================================================
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "AIPlayerPanel"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local panel = Instance.new("Frame")
+panel.Size = UDim2.fromOffset(180,135)
+panel.Position = UDim2.new(0.5,-90,0.5,-67)
+panel.BackgroundColor3 = Color3.fromRGB(20,20,25)
+panel.BorderSizePixel = 0
+panel.Parent = gui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0,12)
+corner.Parent = panel
+
+local outline = Instance.new("UIStroke")
+outline.Thickness = 1.5
+outline.Transparency = 0.2
+outline.Parent = panel
+
+-- Верхняя полоска
+local top = Instance.new("Frame")
+top.Size = UDim2.new(1,0,0,32)
+top.BackgroundColor3 = Color3.fromRGB(30,30,37)
+top.BorderSizePixel = 0
+top.Parent = panel
+
+local topCorner = Instance.new("UICorner")
+topCorner.CornerRadius = UDim.new(0,12)
+topCorner.Parent = top
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,-45,1,0)
+title.Position = UDim2.fromOffset(10,0)
+title.BackgroundTransparency = 1
+title.Text = "AI PLAYER"
+title.TextColor3 = Color3.fromRGB(240,240,240)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 13
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = top
+
+-- Кнопка закрытия
+local minus = Instance.new("TextButton")
+minus.Size = UDim2.fromOffset(30,30)
+minus.Position = UDim2.new(1,-32,0,1)
+minus.BackgroundTransparency = 1
+minus.Text = "−"
+minus.TextColor3 = Color3.fromRGB(230,230,230)
+minus.TextSize = 22
+minus.Font = Enum.Font.GothamBold
+minus.Parent = top
+
+-- Центральная кнопка
+local aiButton = Instance.new("TextButton")
+aiButton.Size = UDim2.fromOffset(65,65)
+aiButton.Position = UDim2.new(0.5,-32.5,0.5,-18)
+aiButton.BackgroundColor3 = Color3.fromRGB(35,35,43)
+aiButton.Text = "AI"
+aiButton.TextColor3 = Color3.fromRGB(255,255,255)
+aiButton.TextSize = 20
+aiButton.Font = Enum.Font.GothamBold
+aiButton.Parent = panel
+
+local aiCorner = Instance.new("UICorner")
+aiCorner.CornerRadius = UDim.new(0,15)
+aiCorner.Parent = aiButton
+
+local aiStroke = Instance.new("UIStroke")
+aiStroke.Thickness = 2
+aiStroke.Parent = aiButton
+
+local status = Instance.new("TextLabel")
+status.Size = UDim2.new(1,-20,0,20)
+status.Position = UDim2.new(0,10,1,-25)
+status.BackgroundTransparency = 1
+status.Text = "OFF"
+status.TextColor3 = Color3.fromRGB(150,150,150)
+status.Font = Enum.Font.Gotham
+status.TextSize = 11
+status.Parent = panel
+
+-- Кнопка открытия
+local openButton = Instance.new("TextButton")
+openButton.Size = UDim2.fromOffset(45,45)
+openButton.Position = UDim2.new(0.5,-22.5,0.5,-22.5)
+openButton.BackgroundColor3 = Color3.fromRGB(25,25,30)
+openButton.Text = "+"
+openButton.TextColor3 = Color3.fromRGB(255,255,255)
+openButton.TextSize = 25
+openButton.Font = Enum.Font.GothamBold
+openButton.Visible = false
+openButton.Parent = gui
+
+local openCorner = Instance.new("UICorner")
+openCorner.CornerRadius = UDim.new(1,0)
+openCorner.Parent = openButton
+
+--==================================================
+-- ПЕРЕТАСКИВАНИЕ ПАНЕЛИ
+--==================================================
+
+local dragging = false
+local dragStart
+local panelStart
+
+top.InputBegan:Connect(function(input)
+
+	if input.UserInputType == Enum.UserInputType.Touch
+	or input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+		dragging = true
+		dragStart = input.Position
+		panelStart = panel.Position
+	end
+end)
+
+top.InputEnded:Connect(function(input)
+
+	if input.UserInputType == Enum.UserInputType.Touch
+	or input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+		dragging = false
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+
+	if not dragging then
+		return
+	end
+
+	if input.UserInputType ~= Enum.UserInputType.Touch
+	and input.UserInputType ~= Enum.UserInputType.MouseMovement then
+		return
+	end
+
+	local delta = input.Position - dragStart
+
+	panel.Position = UDim2.new(
+		panelStart.X.Scale,
+		panelStart.X.Offset + delta.X,
+		panelStart.Y.Scale,
+		panelStart.Y.Offset + delta.Y
+	)
+end)
+
+--==================================================
+-- ПОИСК ЗЕМЛИ
+--==================================================
+
+local function findGround(position)
+
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+
+	local character = player.Character
+
+	if character then
+		params.FilterDescendantsInstances = {character}
+	end
+
+	local ray = workspace:Raycast(
+		position + Vector3.new(0,50,0),
+		Vector3.new(0,-120,0),
+		params
+	)
+
+	if ray then
+		return ray.Position + Vector3.new(0,3,0)
+	end
+
+	return nil
+end
+
+--==================================================
+-- ВЫБОР НОВОЙ ТОЧКИ
+--==================================================
+
+local function chooseTarget()
+
+	if not root then
+		return nil
+	end
+
+	for i = 1,40 do
+
+		local angle = math.random() * math.pi * 2
+		local distance = math.random(20,SEARCH_DISTANCE)
+
+		local candidate = root.Position + Vector3.new(
+			math.cos(angle) * distance,
+			0,
+			math.sin(angle) * distance
+		)
+
+		local ground = findGround(candidate)
+
+		if ground then
+
+			local x = math.floor(ground.X / 10)
+			local z = math.floor(ground.Z / 10)
+
+			local key = x .. ":" .. z
+
+			if not visited[key] and not failed[key] then
+				return ground,key
+			end
+		end
+	end
+
+	-- Если всё рядом уже исследовано,
+	-- очищаем часть памяти и продолжаем исследование.
+	visited = {}
+
+	return nil
+end
+
+--==================================================
+-- ПОСТРОЕНИЕ МАРШРУТА
+--==================================================
+
+local function makePath(target)
+
+	if not root then
+		return nil
+	end
+
+	local path = PathfindingService:CreatePath({
+		AgentRadius = 2,
+		AgentHeight = 5,
+		AgentCanJump = true,
+		AgentJumpHeight = 8,
+		AgentMaxSlope = 45,
+		WaypointSpacing = WAYPOINT_SPACING
+	})
+
+	local success = pcall(function()
+		path:ComputeAsync(root.Position,target)
+	end)
+
+	if not success then
+		return nil
+	end
+
+	if path.Status ~= Enum.PathStatus.Success then
+		return nil
+	end
+
+	return path:GetWaypoints()
+end
+
+--==================================================
+-- ПРОХОЖДЕНИЕ МАРШРУТА
+--==================================================
+
+local function followPath(waypoints,key)
+
+	for _,waypoint in ipairs(waypoints) do
+
+		if not running then
+			return false
+		end
+
+		if not humanoid or humanoid.Health <= 0 then
+			return false
+		end
+
+		if waypoint.Action == Enum.PathWaypointAction.Jump then
+			humanoid.Jump = true
+		end
+
+		humanoid:MoveTo(waypoint.Position)
+
+		local finished = humanoid.MoveToFinished:Wait()
+
+		if not finished then
+
+			failed[key] = true
+
+			-- Попытка выбраться из тупика
+			humanoid.Jump = true
+
+			return false
+		end
+
+		-- Иногда бот самостоятельно прыгает
+		if math.random(1,20) == 1 then
+			humanoid.Jump = true
+		end
+	end
+
+	visited[key] = true
+
+	return true
+end
+
+--==================================================
+-- AI
+--==================================================
+
+local function runAI()
+
+	while running do
+
+		if not humanoid or not root or humanoid.Health <= 0 then
+			getCharacter()
+			task.wait(1)
+			continue
+		end
+
+		local target,key = chooseTarget()
+
+		if target then
+
+			status.Text = "Ищу путь..."
+
+			local waypoints = makePath(target)
+
+			if waypoints then
+
+				status.Text = "Иду..."
+
+				followPath(waypoints,key)
+
+			else
+
+				status.Text = "Обхожу..."
+
+				failed[key] = true
+
+				-- Бот пробует небольшое смещение,
+				-- после чего строит новый маршрут.
+				humanoid:MoveTo(
+					root.Position +
+					Vector3.new(
+						math.random(-12,12),
+						0,
+						math.random(-12,12)
+					)
+				)
+
+				humanoid.Jump = true
+
+				task.wait(0.7)
+			end
+
+		else
+			status.Text = "Исследую..."
+			task.wait(0.5)
+		end
+
+		task.wait(0.15)
+	end
+end
+
+--==================================================
+-- ВКЛ / ВЫКЛ
+--==================================================
+
+aiButton.Activated:Connect(function()
+
+	running = not running
+
+	if running then
+
+		aiButton.Text = "ON"
+		aiButton.TextColor3 = Color3.fromRGB(100,255,140)
+		status.Text = "Запущен"
+
+		task.spawn(runAI)
+
+	else
+
+		aiButton.Text = "AI"
+		aiButton.TextColor3 = Color3.fromRGB(255,255,255)
+		status.Text = "OFF"
+
+		if humanoid then
+			humanoid:MoveTo(root.Position)
+		end
+	end
+end)
+
+--==================================================
+-- ЗАКРЫТЬ / ОТКРЫТЬ
+--==================================================
+
+minus.Activated:Connect(function()
+	panel.Visible = false
+	openButton.Visible = true
+end)
+
+openButton.Activated:Connect(function()
+	panel.Visible = true
+	openButton.Visible = false
+end)
