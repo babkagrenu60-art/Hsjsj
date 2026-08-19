@@ -1,0 +1,379 @@
+local Players = game:GetService("Players")
+local PathfindingService = game:GetService("PathfindingService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+
+--==================================================
+-- AI
+--==================================================
+
+local bot
+local running = false
+local visited = {}
+local failed = {}
+
+local function getTarget(root)
+
+	for i = 1,30 do
+
+		local angle = math.random() * math.pi * 2
+		local distance = math.random(25,80)
+
+		local pos = root.Position + Vector3.new(
+			math.cos(angle) * distance,
+			50,
+			math.sin(angle) * distance
+		)
+
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = {bot}
+
+		local ray = workspace:Raycast(
+			pos,
+			Vector3.new(0,-120,0),
+			params
+		)
+
+		if ray then
+
+			local target = ray.Position + Vector3.new(0,3,0)
+
+			local key = math.floor(target.X/10)..":"..
+						math.floor(target.Z/10)
+
+			if not visited[key] and not failed[key] then
+				return target,key
+			end
+		end
+	end
+
+	return nil
+end
+
+local function createPath(startPos,targetPos)
+
+	local path = PathfindingService:CreatePath({
+		AgentRadius = 2,
+		AgentHeight = 5,
+		AgentCanJump = true,
+		AgentJumpHeight = 9,
+		AgentMaxSlope = 45,
+		WaypointSpacing = 3
+	})
+
+	local ok = pcall(function()
+		path:ComputeAsync(startPos,targetPos)
+	end)
+
+	if ok and path.Status == Enum.PathStatus.Success then
+		return path:GetWaypoints()
+	end
+
+	return nil
+end
+
+local function startBot()
+
+	if running then return end
+
+	local character = player.Character
+	if not character then return end
+
+	character.Archivable = true
+
+	bot = character:Clone()
+	bot.Name = player.Name .. "_AI_Bot"
+	bot.Parent = workspace
+
+	local humanoid = bot:FindFirstChildOfClass("Humanoid")
+	local root = bot:FindFirstChild("HumanoidRootPart")
+
+	if not humanoid or not root then
+		bot:Destroy()
+		bot = nil
+		return
+	end
+
+	bot:PivotTo(character:GetPivot() * CFrame.new(5,0,0))
+
+	humanoid.WalkSpeed = 16
+	humanoid.JumpPower = 50
+
+	running = true
+	visited = {}
+	failed = {}
+
+	while running and bot.Parent and humanoid.Health > 0 do
+
+		local target,key = getTarget(root)
+
+		if target then
+
+			local waypoints = createPath(
+				root.Position,
+				target
+			)
+
+			if waypoints then
+
+				local stuck = false
+
+				for _,point in ipairs(waypoints) do
+
+					if not running then break end
+					if not bot.Parent then break end
+
+					if point.Action ==
+						Enum.PathWaypointAction.Jump then
+						humanoid.Jump = true
+					end
+
+					humanoid:MoveTo(point.Position)
+
+					local reached =
+						humanoid.MoveToFinished:Wait()
+
+					if not reached then
+						failed[key] = true
+						stuck = true
+
+						humanoid.Jump = true
+						task.wait(.4)
+
+						break
+					end
+
+					if math.random(1,15) == 1 then
+						humanoid.Jump = true
+					end
+				end
+
+				if not stuck then
+					visited[key] = true
+				end
+
+			else
+				failed[key] = true
+				humanoid.Jump = true
+				task.wait(.5)
+			end
+
+		else
+
+			visited = {}
+
+		end
+
+		task.wait(.15)
+	end
+end
+
+local function stopBot()
+
+	running = false
+
+	if bot then
+		bot:Destroy()
+		bot = nil
+	end
+end
+
+--==================================================
+-- GUI
+--==================================================
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "MiniAIBot"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+-- Маленькая панель
+local panel = Instance.new("Frame")
+panel.Size = UDim2.fromOffset(190,150)
+panel.Position = UDim2.new(.5,-95,.5,-75)
+panel.BackgroundColor3 = Color3.fromRGB(18,18,22)
+panel.BorderSizePixel = 0
+panel.Parent = gui
+
+local panelCorner = Instance.new("UICorner")
+panelCorner.CornerRadius = UDim.new(0,12)
+panelCorner.Parent = panel
+
+local panelStroke = Instance.new("UIStroke")
+panelStroke.Thickness = 1.5
+panelStroke.Transparency = .25
+panelStroke.Parent = panel
+
+--==================================================
+-- Верхняя полоска
+--==================================================
+
+local top = Instance.new("Frame")
+top.Size = UDim2.new(1,0,0,32)
+top.BackgroundColor3 = Color3.fromRGB(28,28,34)
+top.BorderSizePixel = 0
+top.Parent = panel
+
+local topCorner = Instance.new("UICorner")
+topCorner.CornerRadius = UDim.new(0,12)
+topCorner.Parent = top
+
+-- Заголовок
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,-65,1,0)
+title.Position = UDim2.fromOffset(10,0)
+title.BackgroundTransparency = 1
+title.Text = "AI BOT"
+title.TextColor3 = Color3.fromRGB(240,240,240)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 14
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = top
+
+--==================================================
+-- Кнопка -
+--==================================================
+
+local close = Instance.new("TextButton")
+close.Size = UDim2.fromOffset(27,27)
+close.Position = UDim2.new(1,-30,0,2)
+close.BackgroundTransparency = 1
+close.Text = "−"
+close.TextColor3 = Color3.fromRGB(220,220,220)
+close.TextSize = 22
+close.Font = Enum.Font.GothamBold
+close.Parent = top
+
+--==================================================
+-- Кнопка +
+--==================================================
+
+local start = Instance.new("TextButton")
+start.Size = UDim2.fromOffset(65,65)
+start.Position = UDim2.new(.5,-32.5,.5,-20)
+start.BackgroundColor3 = Color3.fromRGB(35,35,42)
+start.Text = "+"
+start.TextColor3 = Color3.fromRGB(255,255,255)
+start.TextSize = 38
+start.Font = Enum.Font.GothamBold
+start.Parent = panel
+
+local startCorner = Instance.new("UICorner")
+startCorner.CornerRadius = UDim.new(0,15)
+startCorner.Parent = start
+
+local startStroke = Instance.new("UIStroke")
+startStroke.Thickness = 2
+startStroke.Parent = start
+
+--==================================================
+-- Маленькая кнопка открытия
+--==================================================
+
+local open = Instance.new("TextButton")
+open.Size = UDim2.fromOffset(45,45)
+open.Position = UDim2.new(.5,-22.5,.5,-22.5)
+open.BackgroundColor3 = Color3.fromRGB(25,25,30)
+open.Text = "+"
+open.TextColor3 = Color3.new(1,1,1)
+open.TextSize = 26
+open.Font = Enum.Font.GothamBold
+open.Visible = false
+open.Parent = gui
+
+local openCorner = Instance.new("UICorner")
+openCorner.CornerRadius = UDim.new(1,0)
+openCorner.Parent = open
+
+--==================================================
+-- AI BUTTON
+--==================================================
+
+start.Activated:Connect(function()
+
+	if running then
+
+		stopBot()
+
+		start.Text = "+"
+		start.TextColor3 = Color3.fromRGB(255,255,255)
+
+	else
+
+		start.Text = "✓"
+		start.TextColor3 = Color3.fromRGB(80,255,130)
+
+		task.spawn(startBot)
+	end
+end)
+
+--==================================================
+-- ЗАКРЫТИЕ
+--==================================================
+
+close.Activated:Connect(function()
+
+	panel.Visible = false
+	open.Visible = true
+
+end)
+
+open.Activated:Connect(function()
+
+	panel.Visible = true
+	open.Visible = false
+
+end)
+
+--==================================================
+-- ПЕРЕМЕЩЕНИЕ ПАНЕЛИ
+--==================================================
+
+local dragging = false
+local dragStart
+local startPos
+
+local function update(input)
+
+	local delta = input.Position - dragStart
+
+	panel.Position = UDim2.new(
+		startPos.X.Scale,
+		startPos.X.Offset + delta.X,
+		startPos.Y.Scale,
+		startPos.Y.Offset + delta.Y
+	)
+end
+
+top.InputBegan:Connect(function(input)
+
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+	or input.UserInputType == Enum.UserInputType.Touch then
+
+		dragging = true
+		dragStart = input.Position
+		startPos = panel.Position
+	end
+end)
+
+top.InputEnded:Connect(function(input)
+
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+	or input.UserInputType == Enum.UserInputType.Touch then
+
+		dragging = false
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+
+	if dragging and (
+		input.UserInputType == Enum.UserInputType.MouseMovement
+		or input.UserInputType == Enum.UserInputType.Touch
+	) then
+
+		update(input)
+	end
+end)
