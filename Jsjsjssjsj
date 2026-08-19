@@ -1,0 +1,258 @@
+local Players = game:GetService("Players")
+local PathfindingService = game:GetService("PathfindingService")
+
+local player = Players.LocalPlayer
+
+local bot
+local running = false
+local visited = {}
+local failed = {}
+
+--========================
+-- GUI
+--========================
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "AIBot"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local button = Instance.new("TextButton")
+button.Size = UDim2.fromOffset(160, 55)
+button.Position = UDim2.new(1, -175, 1, -90)
+button.BackgroundColor3 = Color3.fromRGB(25,25,25)
+button.TextColor3 = Color3.new(1,1,1)
+button.Text = "🤖 AI BOT: OFF"
+button.TextScaled = true
+button.Font = Enum.Font.GothamBold
+button.Parent = gui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0,14)
+corner.Parent = button
+
+local stroke = Instance.new("UIStroke")
+stroke.Thickness = 2
+stroke.Parent = button
+
+--========================
+-- ПОИСК ТОЧКИ
+--========================
+
+local function getTarget(root)
+
+	for i = 1, 30 do
+
+		local angle = math.random() * math.pi * 2
+		local distance = math.random(25,80)
+
+		local pos = root.Position + Vector3.new(
+			math.cos(angle) * distance,
+			50,
+			math.sin(angle) * distance
+		)
+
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = {bot}
+
+		local ray = workspace:Raycast(
+			pos,
+			Vector3.new(0,-120,0),
+			params
+		)
+
+		if ray then
+
+			local target = ray.Position + Vector3.new(0,3,0)
+
+			-- Не возвращаемся постоянно в одно место
+			local key = Vector3.new(
+				math.floor(target.X/10),
+				0,
+				math.floor(target.Z/10)
+			)
+
+			if not visited[tostring(key)] then
+				return target
+			end
+		end
+	end
+
+	return nil
+end
+
+--========================
+-- СОЗДАНИЕ ПУТИ
+--========================
+
+local function makePath(startPos,targetPos)
+
+	local path = PathfindingService:CreatePath({
+		AgentRadius = 2,
+		AgentHeight = 5,
+		AgentCanJump = true,
+		AgentJumpHeight = 9,
+		AgentMaxSlope = 45,
+		WaypointSpacing = 3
+	})
+
+	local ok = pcall(function()
+		path:ComputeAsync(startPos,targetPos)
+	end)
+
+	if ok and path.Status == Enum.PathStatus.Success then
+		return path:GetWaypoints()
+	end
+
+	return nil
+end
+
+--========================
+-- ЗАПУСК AI
+--========================
+
+local function startBot()
+
+	if running then return end
+
+	local character = player.Character
+	if not character then return end
+
+	character.Archivable = true
+
+	bot = character:Clone()
+	bot.Name = player.Name .. "_AI"
+	bot.Parent = workspace
+
+	local humanoid = bot:FindFirstChildOfClass("Humanoid")
+	local root = bot:FindFirstChild("HumanoidRootPart")
+
+	if not humanoid or not root then
+		bot:Destroy()
+		bot = nil
+		return
+	end
+
+	bot:PivotTo(character:GetPivot() * CFrame.new(5,0,0))
+
+	humanoid.WalkSpeed = 16
+	humanoid.JumpPower = 50
+
+	running = true
+	visited = {}
+	failed = {}
+
+	while running and bot and bot.Parent and humanoid.Health > 0 do
+
+		local target = getTarget(root)
+
+		if target then
+
+			local key = Vector3.new(
+				math.floor(target.X/10),
+				0,
+				math.floor(target.Z/10)
+			)
+
+			local waypoints = makePath(root.Position,target)
+
+			if waypoints then
+
+				local stuck = false
+
+				for _,point in ipairs(waypoints) do
+
+					if not running then break end
+					if not bot.Parent then break end
+
+					if point.Action == Enum.PathWaypointAction.Jump then
+						humanoid.Jump = true
+					end
+
+					humanoid:MoveTo(point.Position)
+
+					local reached =
+						humanoid.MoveToFinished:Wait()
+
+					if not reached then
+						stuck = true
+
+						-- Запоминаем проблемную область
+						failed[tostring(key)] = true
+
+						humanoid.Jump = true
+						task.wait(.4)
+
+						break
+					end
+
+					-- Иногда бот сам прыгает
+					if math.random(1,15) == 1 then
+						humanoid.Jump = true
+					end
+				end
+
+				if not stuck then
+					visited[tostring(key)] = true
+				end
+
+			else
+				-- Путь не найден
+				humanoid.Jump = true
+				task.wait(.5)
+			end
+
+		else
+			-- Если вокруг мало вариантов — идём дальше
+			humanoid:MoveTo(
+				root.Position +
+				Vector3.new(
+					math.random(-40,40),
+					0,
+					math.random(-40,40)
+				)
+			)
+
+			task.wait(1)
+		end
+
+		task.wait(.15)
+	end
+end
+
+--========================
+-- ОСТАНОВКА
+--========================
+
+local function stopBot()
+
+	running = false
+
+	if bot then
+		bot:Destroy()
+		bot = nil
+	end
+end
+
+--========================
+-- КНОПКА
+--========================
+
+button.Activated:Connect(function()
+
+	if running then
+
+		stopBot()
+
+		button.Text = "🤖 AI BOT: OFF"
+		button.BackgroundColor3 = Color3.fromRGB(25,25,25)
+
+	else
+
+		button.Text = "🤖 AI BOT: ON"
+		button.BackgroundColor3 = Color3.fromRGB(20,100,50)
+
+		task.spawn(startBot)
+	end
+end)
