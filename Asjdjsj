@@ -1,0 +1,487 @@
+-- UI PANEL BY GREGOO (FULL + SCROLL + MINI CUBE)
+local player = game.Players.LocalPlayer
+local gui = Instance.new("ScreenGui")
+gui.Name = "GregooUI"
+gui.Parent = player.PlayerGui
+
+-- ЧЁРНЫЙ ЭКРАН С НАДПИСЬЮ
+local black = Instance.new("Frame")
+black.Size = UDim2.new(1,0,1,0)
+black.BackgroundColor3 = Color3.new(0,0,0)
+black.Parent = gui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,0,1,0)
+title.BackgroundTransparency = 1
+title.Text = "Explorer BY: Gregoo"
+title.TextColor3 = Color3.new(1,1,1)
+title.TextSize = 60
+title.Font = Enum.Font.GothamBold
+title.Parent = gui
+
+game:GetService("TweenService"):Create(title, TweenInfo.new(4, Enum.EasingStyle.Linear), {TextTransparency = 1}):Play()
+game:GetService("TweenService"):Create(black, TweenInfo.new(4, Enum.EasingStyle.Linear), {BackgroundTransparency = 1}):Play()
+task.wait(4)
+black:Destroy()
+title:Destroy()
+
+-- МИНИ-КУБИК (всегда на экране)
+local miniCube = Instance.new("Frame")
+miniCube.Size = UDim2.new(0,70,0,70)
+miniCube.Position = UDim2.new(0.02,0,0.5,-35)
+miniCube.BackgroundColor3 = Color3.new(0.08,0.08,0.12)
+miniCube.BorderSizePixel = 2
+miniCube.BorderColor3 = Color3.new(0.3,0.8,1)
+miniCube.Visible = false
+miniCube.Active = true
+miniCube.Draggable = true
+local miniCorner = Instance.new("UICorner")
+miniCorner.CornerRadius = UDim.new(0,12)
+miniCorner.Parent = miniCube
+miniCube.Parent = gui
+
+local miniAvatar = Instance.new("ImageLabel")
+miniAvatar.Size = UDim2.new(0,40,0,40)
+miniAvatar.Position = UDim2.new(0.5,-20,0.15,0)
+miniAvatar.BackgroundTransparency = 1
+miniAvatar.Image = game:GetService("Players"):GetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+miniAvatar.Parent = miniCube
+
+local miniName = Instance.new("TextLabel")
+miniName.Size = UDim2.new(1,0,0,20)
+miniName.Position = UDim2.new(0,0,0.75,0)
+miniName.BackgroundTransparency = 1
+miniName.Text = player.Name
+miniName.TextColor3 = Color3.new(1,1,1)
+miniName.TextSize = 10
+miniName.Font = Enum.Font.GothamBold
+miniName.Parent = miniCube
+
+-- ГЛАВНАЯ ПАНЕЛЬ
+local main = Instance.new("Frame")
+main.Size = UDim2.new(0,0,0,0)
+main.Position = UDim2.new(0.5,0,0.5,0)
+main.BackgroundColor3 = Color3.new(0.08,0.08,0.12)
+main.BorderSizePixel = 0
+main.ClipsDescendants = true
+main.Parent = gui
+
+game:GetService("TweenService"):Create(main, TweenInfo.new(0.8, Enum.EasingStyle.Back), {Size = UDim2.new(0,520,0,480), Position = UDim2.new(0.5,-260,0.5,-240)}):Play()
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0,14)
+corner.Parent = main
+
+-- RGB ОБВОДКА
+local glow = Instance.new("Frame")
+glow.Size = UDim2.new(1,8,1,8)
+glow.Position = UDim2.new(0,-4,0,-4)
+glow.BackgroundTransparency = 1
+glow.BorderSizePixel = 3
+glow.BorderColor3 = Color3.new(1,0,0)
+glow.ClipsDescendants = false
+glow.Parent = main
+
+local glowCorner = Instance.new("UICorner")
+glowCorner.CornerRadius = UDim.new(0,18)
+glowCorner.Parent = glow
+
+spawn(function()
+    while wait(0.05) do
+        local r = (math.sin(tick() * 0.7) + 1) / 2
+        local g = (math.sin(tick() * 0.7 + 2.1) + 1) / 2
+        local b = (math.sin(tick() * 0.7 + 4.2) + 1) / 2
+        glow.BorderColor3 = Color3.new(r, g, b)
+    end
+end)
+
+-- СКРОЛЛ
+local scrollFrame = Instance.new("ScrollingFrame")
+scrollFrame.Size = UDim2.new(1,0,1,0)
+scrollFrame.Position = UDim2.new(0,0,0,0)
+scrollFrame.BackgroundTransparency = 1
+scrollFrame.CanvasSize = UDim2.new(0,0,0,700)
+scrollFrame.ScrollBarThickness = 8
+scrollFrame.ScrollBarImageColor3 = Color3.new(0.3,0.8,1)
+scrollFrame.Parent = main
+
+local content = Instance.new("Frame")
+content.Size = UDim2.new(1,0,0,700)
+content.Position = UDim2.new(0,0,0,0)
+content.BackgroundTransparency = 1
+content.Parent = scrollFrame
+
+-- КНОПКА СВЕРНУТЬ
+local minimizeBtn = Instance.new("TextButton")
+minimizeBtn.Size = UDim2.new(0,30,0,30)
+minimizeBtn.Position = UDim2.new(1,-36,0,6)
+minimizeBtn.BackgroundColor3 = Color3.new(0.2,0.2,0.25)
+minimizeBtn.Text = "_"
+minimizeBtn.TextColor3 = Color3.new(1,1,1)
+minimizeBtn.TextSize = 20
+minimizeBtn.Font = Enum.Font.GothamBold
+minimizeBtn.BorderSizePixel = 0
+local minCorner = Instance.new("UICorner")
+minCorner.CornerRadius = UDim.new(0,8)
+minCorner.Parent = minimizeBtn
+minimizeBtn.Parent = content
+
+local minimized = false
+
+minimizeBtn.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    if minimized then
+        main.Visible = false
+        glow.Visible = false
+        miniCube.Visible = true
+        miniCube.Position = UDim2.new(0.02,0,0.5,-35)
+        minimizeBtn.Text = "+"
+    else
+        main.Visible = true
+        glow.Visible = true
+        miniCube.Visible = false
+        minimizeBtn.Text = "_"
+    end
+end)
+
+-- ОТКРЫТИЕ ПО НАЖАТИЮ НА КУБИК
+local isDragging = false
+local dragStart, startPos
+
+miniCube.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isDragging = true
+        dragStart = input.Position
+        startPos = miniCube.Position
+    elseif input.UserInputType == Enum.UserInputType.Touch then
+        isDragging = true
+        dragStart = input.Position
+        startPos = miniCube.Position
+    end
+end)
+
+miniCube.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if isDragging then
+            local delta = input.Position - dragStart
+            if delta.Magnitude < 10 then
+                -- ЭТО БЫЛ КЛИК, А НЕ ПЕРЕТАСКИВАНИЕ → ОТКРЫВАЕМ ПАНЕЛЬ
+                minimized = false
+                main.Visible = true
+                glow.Visible = true
+                miniCube.Visible = false
+                minimizeBtn.Text = "_"
+            end
+        end
+        isDragging = false
+    end
+end)
+
+miniCube.InputChanged:Connect(function(input)
+    if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        miniCube.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- АВАТАР И ИНФО
+local avatar = Instance.new("ImageLabel")
+avatar.Size = UDim2.new(0,60,0,60)
+avatar.Position = UDim2.new(0.02,0,0.02,0)
+avatar.BackgroundTransparency = 1
+avatar.Image = game:GetService("Players"):GetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+avatar.Parent = content
+
+local nameLabel = Instance.new("TextLabel")
+nameLabel.Size = UDim2.new(0,150,0,25)
+nameLabel.Position = UDim2.new(0.14,0,0.025,0)
+nameLabel.BackgroundTransparency = 1
+nameLabel.Text = player.Name
+nameLabel.TextColor3 = Color3.new(1,1,1)
+nameLabel.TextSize = 18
+nameLabel.Font = Enum.Font.GothamBold
+nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+nameLabel.Parent = content
+
+local fpsLabel = Instance.new("TextLabel")
+fpsLabel.Size = UDim2.new(0,100,0,20)
+fpsLabel.Position = UDim2.new(0.14,0,0.13,0)
+fpsLabel.BackgroundTransparency = 1
+fpsLabel.Text = "FPS: 60"
+fpsLabel.TextColor3 = Color3.new(0,1,0)
+fpsLabel.TextSize = 14
+fpsLabel.Font = Enum.Font.Gotham
+fpsLabel.TextXAlignment = Enum.TextXAlignment.Left
+fpsLabel.Parent = content
+
+local pingLabel = Instance.new("TextLabel")
+pingLabel.Size = UDim2.new(0,100,0,20)
+pingLabel.Position = UDim2.new(0.14,0,0.22,0)
+pingLabel.BackgroundTransparency = 1
+pingLabel.Text = "Ping: 50ms"
+pingLabel.TextColor3 = Color3.new(0,1,1)
+pingLabel.TextSize = 14
+pingLabel.Font = Enum.Font.Gotham
+pingLabel.TextXAlignment = Enum.TextXAlignment.Left
+pingLabel.Parent = content
+
+-- ВКЛАДКИ
+local tab1 = Instance.new("TextButton")
+tab1.Size = UDim2.new(0,100,0,35)
+tab1.Position = UDim2.new(0.02,0,0.32,0)
+tab1.BackgroundColor3 = Color3.new(0.15,0.15,0.2)
+tab1.Text = "VISUAL"
+tab1.TextColor3 = Color3.new(1,1,1)
+tab1.Font = Enum.Font.GothamBold
+tab1.TextSize = 15
+tab1.BorderSizePixel = 2
+tab1.BorderColor3 = Color3.new(0.3,0.8,1)
+tab1.Parent = content
+
+local tab2 = Instance.new("TextButton")
+tab2.Size = UDim2.new(0,120,0,35)
+tab2.Position = UDim2.new(0.22,0,0.32,0)
+tab2.BackgroundColor3 = Color3.new(0.1,0.1,0.15)
+tab2.Text = "CONNECTIONS"
+tab2.TextColor3 = Color3.new(1,1,1)
+tab2.Font = Enum.Font.GothamBold
+tab2.TextSize = 15
+tab2.BorderSizePixel = 0
+tab2.Parent = content
+
+local contentArea = Instance.new("Frame")
+contentArea.Size = UDim2.new(1,0,0.6,0)
+contentArea.Position = UDim2.new(0,0,0.38,0)
+contentArea.BackgroundTransparency = 1
+contentArea.ClipsDescendants = true
+contentArea.Parent = content
+
+-- VISUAL КНОПКИ
+local fpsBusted = Instance.new("TextButton")
+fpsBusted.Size = UDim2.new(0,180,0,40)
+fpsBusted.Position = UDim2.new(0.05,0,0.05,0)
+fpsBusted.BackgroundColor3 = Color3.new(0.2,0.2,0.25)
+fpsBusted.Text = "FPS BUSTED"
+fpsBusted.TextColor3 = Color3.new(1,1,1)
+fpsBusted.Font = Enum.Font.GothamBold
+fpsBusted.TextSize = 16
+fpsBusted.BorderSizePixel = 2
+fpsBusted.BorderColor3 = Color3.new(0.3,0.8,1)
+local c2 = Instance.new("UICorner")
+c2.CornerRadius = UDim.new(0,8)
+c2.Parent = fpsBusted
+fpsBusted.Parent = contentArea
+
+local fpsSlider = Instance.new("TextBox")
+fpsSlider.Size = UDim2.new(0,80,0,30)
+fpsSlider.Position = UDim2.new(0.05,0,0.25,0)
+fpsSlider.BackgroundColor3 = Color3.new(0.15,0.15,0.2)
+fpsSlider.Text = "60"
+fpsSlider.TextColor3 = Color3.new(1,1,1)
+fpsSlider.Font = Enum.Font.Gotham
+fpsSlider.TextSize = 16
+fpsSlider.BorderSizePixel = 2
+fpsSlider.BorderColor3 = Color3.new(0.3,0.8,1)
+local c3 = Instance.new("UICorner")
+c3.CornerRadius = UDim.new(0,6)
+c3.Parent = fpsSlider
+fpsSlider.Parent = contentArea
+fpsSlider.Visible = false
+
+fpsBusted.MouseButton1Click:Connect(function()
+    fpsSlider.Visible = not fpsSlider.Visible
+end)
+
+fpsSlider.FocusLost:Connect(function(enter)
+    if enter then
+        local val = tonumber(fpsSlider.Text)
+        if val and val > 0 and val <= 144 then
+            setfpscap(val)
+            fpsSlider.Text = tostring(val)
+        else
+            fpsSlider.Text = "60"
+        end
+    end
+end)
+
+local minGraphics = Instance.new("TextButton")
+minGraphics.Size = UDim2.new(0,180,0,40)
+minGraphics.Position = UDim2.new(0.05,0,0.4,0)
+minGraphics.BackgroundColor3 = Color3.new(0.2,0.2,0.25)
+minGraphics.Text = "Minimal Graphics"
+minGraphics.TextColor3 = Color3.new(1,1,1)
+minGraphics.Font = Enum.Font.GothamBold
+minGraphics.TextSize = 16
+minGraphics.BorderSizePixel = 2
+minGraphics.BorderColor3 = Color3.new(0.3,0.8,1)
+local c4 = Instance.new("UICorner")
+c4.CornerRadius = UDim.new(0,8)
+c4.Parent = minGraphics
+minGraphics.Parent = contentArea
+
+local lightBtn = Instance.new("TextButton")
+lightBtn.Size = UDim2.new(0,180,0,40)
+lightBtn.Position = UDim2.new(0.05,0,0.75,0)
+lightBtn.BackgroundColor3 = Color3.new(0.2,0.2,0.25)
+lightBtn.Text = "Lighting"
+lightBtn.TextColor3 = Color3.new(1,1,1)
+lightBtn.Font = Enum.Font.GothamBold
+lightBtn.TextSize = 16
+lightBtn.BorderSizePixel = 2
+lightBtn.BorderColor3 = Color3.new(0.3,0.8,1)
+local c5 = Instance.new("UICorner")
+c5.CornerRadius = UDim.new(0,8)
+c5.Parent = lightBtn
+lightBtn.Parent = contentArea
+
+-- 30+ PING
+local pingBoostBtn = Instance.new("TextButton")
+pingBoostBtn.Size = UDim2.new(0,200,0,50)
+pingBoostBtn.Position = UDim2.new(0.05,0,0.7,0)
+pingBoostBtn.BackgroundColor3 = Color3.new(0.15,0.15,0.2)
+pingBoostBtn.Text = "30+ PING"
+pingBoostBtn.TextColor3 = Color3.new(0,1,0.5)
+pingBoostBtn.Font = Enum.Font.GothamBold
+pingBoostBtn.TextSize = 20
+pingBoostBtn.BorderSizePixel = 2
+pingBoostBtn.BorderColor3 = Color3.new(0,1,0.5)
+local c6 = Instance.new("UICorner")
+c6.CornerRadius = UDim.new(0,10)
+c6.Parent = pingBoostBtn
+pingBoostBtn.Parent = contentArea
+
+local loadingBar = Instance.new("Frame")
+loadingBar.Size = UDim2.new(0,0,0,10)
+loadingBar.Position = UDim2.new(0,0,0.86,0)
+loadingBar.BackgroundColor3 = Color3.new(0,0.8,0.4)
+loadingBar.BorderSizePixel = 0
+loadingBar.Parent = contentArea
+local barCorner = Instance.new("UICorner")
+barCorner.CornerRadius = UDim.new(0,5)
+barCorner.Parent = loadingBar
+
+local loadText = Instance.new("TextLabel")
+loadText.Size = UDim2.new(0,200,0,20)
+loadText.Position = UDim2.new(0.05,0,0.9,0)
+loadText.BackgroundTransparency = 1
+loadText.Text = ""
+loadText.TextColor3 = Color3.new(1,1,1)
+loadText.TextSize = 14
+loadText.Font = Enum.Font.Gotham
+loadText.Parent = contentArea
+
+local boostActive = false
+
+pingBoostBtn.MouseButton1Click:Connect(function()
+    if boostActive then return end
+    boostActive = true
+    pingBoostBtn.Text = "ЗАГРУЗКА..."
+    pingBoostBtn.BorderColor3 = Color3.new(1,0.7,0)
+    pingBoostBtn.TextColor3 = Color3.new(1,0.7,0)
+    loadingBar.Size = UDim2.new(0,0,0,10)
+    loadText.Text = "Убираем хлам..."
+    
+    for i = 1, 100 do
+        task.wait(0.1)
+        loadingBar.Size = UDim2.new(i/100,0,0,10)
+        if i <= 30 then
+            loadText.Text = "Убираем хлам.."
+        elseif i <= 60 then
+            loadText.Text = "Ищем стабильность.."
+        elseif i <= 100 then
+            loadText.Text = "Убираем лишнее..."
+        end
+    end
+    
+    for _, v in pairs(game:GetService("Workspace"):GetDescendants()) do
+        if v:IsA("BasePart") and v.Material == Enum.Material.Water then
+            v.Material = Enum.Material.SmoothPlastic
+        end
+    end
+    game:GetService("Lighting").ShadowSoftness = 0
+    game:GetService("Lighting").GlobalShadows = false
+    settings().Rendering.QualityLevel = 2
+    
+    loadText.Text = "ГОТОВО! Пинг снижен!"
+    pingBoostBtn.Text = "30+ PING ✅"
+    pingBoostBtn.BorderColor3 = Color3.new(0,1,0.5)
+    pingBoostBtn.TextColor3 = Color3.new(0,1,0.5)
+    task.wait(1)
+    loadText.Text = ""
+    boostActive = false
+end)
+
+-- CONNECTIONS
+local tgBtn = Instance.new("TextButton")
+tgBtn.Size = UDim2.new(0,200,0,50)
+tgBtn.Position = UDim2.new(0.05,0,0.15,0)
+tgBtn.BackgroundColor3 = Color3.new(0.15,0.15,0.2)
+tgBtn.Text = "TG KAGAL"
+tgBtn.TextColor3 = Color3.new(0,0.7,1)
+tgBtn.Font = Enum.Font.GothamBold
+tgBtn.TextSize = 20
+tgBtn.BorderSizePixel = 2
+tgBtn.BorderColor3 = Color3.new(0,0.7,1)
+local c7 = Instance.new("UICorner")
+c7.CornerRadius = UDim.new(0,10)
+c7.Parent = tgBtn
+tgBtn.Parent = contentArea
+tgBtn.Visible = false
+
+-- ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК
+tab1.MouseButton1Click:Connect(function()
+    fpsBusted.Visible = true
+    minGraphics.Visible = true
+    lightBtn.Visible = true
+    pingBoostBtn.Visible = true
+    loadingBar.Visible = true
+    loadText.Visible = true
+    tgBtn.Visible = false
+    fpsSlider.Visible = false
+    tab1.BorderSizePixel = 2
+    tab2.BorderSizePixel = 0
+end)
+
+tab2.MouseButton1Click:Connect(function()
+    fpsBusted.Visible = false
+    minGraphics.Visible = false
+    lightBtn.Visible = false
+    pingBoostBtn.Visible = false
+    loadingBar.Visible = false
+    loadText.Visible = false
+    tgBtn.Visible = true
+    fpsSlider.Visible = false
+    tab1.BorderSizePixel = 0
+    tab2.BorderSizePixel = 2
+end)
+
+-- ЛОГИКА
+minGraphics.MouseButton1Click:Connect(function()
+    for _,v in pairs(game:GetService("Lighting"):GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.Material = Enum.Material.Plastic
+        end
+    end
+    game:GetService("Lighting").Brightness = 0.5
+    game:GetService("Lighting").ShadowSoftness = 0
+end)
+
+lightBtn.MouseButton1Click:Connect(function()
+    game:GetService("Lighting").Brightness = 3
+    game:GetService("Lighting").GlobalShadows = false
+end)
+
+tgBtn.MouseButton1Click:Connect(function()
+    setclipboard("https://t.me/rbxscriptiroll")
+    game:GetService("GuiService"):OpenBrowserWindow("https://t.me/rbxscriptiroll")
+end)
+
+-- FPS И PING
+spawn(function()
+    while wait(0.5) do
+        local fps = math.floor(1 / task.wait())
+        fpsLabel.Text = "FPS: " .. tostring(fps)
+        local ping = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue()
+        pingLabel.Text = "Ping: " .. tostring(math.floor(ping)) .. "ms"
+    end
+end)
