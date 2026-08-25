@@ -1,0 +1,395 @@
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local WH_Enabled = false
+local PanelVisible = true
+local BoostCooldown = false
+
+-- ====================================================================
+--                      СОЗДАНИЕ КАСТОМНОГО GUI
+-- ====================================================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "CustomWallHopUI"
+ScreenGui.ResetOnSpawn = false
+
+-- Безопасное создание GUI
+local success, err = pcall(function()
+    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end)
+
+if not success then
+    pcall(function()
+        ScreenGui.Parent = CoreGui
+    end)
+end
+
+-- ====================================================================
+--                      КНОПКА ОТКРЫТИЯ/ЗАКРЫТИЯ
+-- ====================================================================
+local ToggleMenuButton = Instance.new("TextButton")
+ToggleMenuButton.Name = "ToggleMenu"
+ToggleMenuButton.Parent = ScreenGui
+ToggleMenuButton.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+ToggleMenuButton.Position = UDim2.new(0.02, 0, 0.05, 0)
+ToggleMenuButton.Size = UDim2.new(0, 50, 0, 50)
+ToggleMenuButton.Font = Enum.Font.SourceSansBold
+ToggleMenuButton.Text = "🏃"
+ToggleMenuButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleMenuButton.TextSize = 24
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0, 25)
+ToggleCorner.Parent = ToggleMenuButton
+
+-- Перетаскивание для кнопки
+local function makeDraggable(frame)
+    local dragging, dragInput, dragStart, startPos
+    local function update(input)
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        )
+    end
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+           input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or 
+           input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            update(input)
+        end
+    end)
+end
+
+makeDraggable(ToggleMenuButton)
+
+-- ====================================================================
+--                      ГЛАВНОЕ МЕНЮ
+-- ====================================================================
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+MainFrame.Position = UDim2.new(0.02, 0, 0.12, 0)
+MainFrame.Size = UDim2.new(0, 280, 0, 220)
+MainFrame.Active = true
+MainFrame.Visible = true
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 12)
+MainCorner.Parent = MainFrame
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Thickness = 2
+MainStroke.Color = Color3.fromRGB(100, 100, 255)
+MainStroke.Parent = MainFrame
+
+makeDraggable(MainFrame)
+
+-- ====================================================================
+--                      ЗАГОЛОВОК
+-- ====================================================================
+local Title = Instance.new("TextLabel")
+Title.Parent = MainFrame
+Title.BackgroundTransparency = 1
+Title.Position = UDim2.new(0, 10, 0, 5)
+Title.Size = UDim2.new(1, -20, 0, 30)
+Title.Font = Enum.Font.SourceSansBold
+Title.Text = "⚡ PRO WALLHOP AI"
+Title.TextColor3 = Color3.fromRGB(255, 200, 100)
+Title.TextSize = 16
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+-- ====================================================================
+--                      СТАТУС
+-- ====================================================================
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Name = "StatusLabel"
+StatusLabel.Parent = MainFrame
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Position = UDim2.new(0, 10, 0, 38)
+StatusLabel.Size = UDim2.new(1, -20, 0, 25)
+StatusLabel.Font = Enum.Font.SourceSans
+StatusLabel.Text = "Статус: Ожидание"
+StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+StatusLabel.TextSize = 12
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- ====================================================================
+--                      КНОПКИ
+-- ====================================================================
+local function createButton(parent, text, yPos, color)
+    local btn = Instance.new("TextButton")
+    btn.Parent = parent
+    btn.BackgroundColor3 = color or Color3.fromRGB(50, 50, 80)
+    btn.Position = UDim2.new(0.03, 0, yPos, 0)
+    btn.Size = UDim2.new(0.94, 0, 0, 40)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 13
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = btn
+    
+    return btn
+end
+
+-- Кнопка включения велхопа
+local ToggleBtn = createButton(MainFrame, "🏃 АВТО-ВЕЛХОП: ВЫКЛ", 0.30, Color3.fromRGB(60, 30, 30))
+
+-- Кнопка буста
+local BoostBtn = createButton(MainFrame, "🚀 СУПЕР-ТОЛЧОК", 0.55, Color3.fromRGB(0, 120, 200))
+
+-- Кнопка информации
+local InfoBtn = createButton(MainFrame, "ℹ️ ИНФОРМАЦИЯ", 0.80, Color3.fromRGB(60, 60, 80))
+
+-- ====================================================================
+--                      ЛОГИКА КНОПКИ ПЕРЕКЛЮЧЕНИЯ
+-- ====================================================================
+ToggleMenuButton.MouseButton1Click:Connect(function()
+    PanelVisible = not PanelVisible
+    MainFrame.Visible = PanelVisible
+    ToggleMenuButton.BackgroundColor3 = PanelVisible and Color3.fromRGB(30, 30, 40) or Color3.fromRGB(60, 60, 80)
+end)
+
+-- ====================================================================
+--                      ОСНОВНАЯ ЛОГИКА ВЕЛХОПА
+-- ====================================================================
+
+-- Поиск ближайшей стены
+local function FindNearestWall()
+    local character = LocalPlayer.Character
+    if not character then return nil end
+    
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return nil end
+    
+    local closestWall = nil
+    local shortestDistance = 20
+    local currentPos = rootPart.Position
+    
+    -- Ищем стены в радиусе
+    local parts = workspace:GetPartBoundsInRadius(currentPos, shortestDistance)
+    
+    for _, part in pairs(parts) do
+        if part:IsA("BasePart") and part.CanCollide then
+            -- Проверяем, что это не часть персонажа
+            if not part:IsDescendantOf(character) then
+                -- Проверяем, что стена достаточно высокая
+                local sizeY = part.Size.Y
+                if sizeY > 3 then
+                    local distance = (currentPos - part.Position).Magnitude
+                    -- Проверяем, что стена находится спереди
+                    local directionToWall = (part.Position - currentPos).Unit
+                    local forward = rootPart.CFrame.LookVector
+                    
+                    -- Стена должна быть впереди и не слишком низко
+                    if directionToWall:Dot(forward) > 0.3 and part.Position.Y > currentPos.Y - 3 then
+                        if distance < shortestDistance then
+                            shortestDistance = distance
+                            closestWall = part
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    return closestWall
+end
+
+-- Функция велхопа
+local function DoWallHop()
+    if not WH_Enabled then return end
+    
+    local character = LocalPlayer.Character
+    if not character then 
+        StatusLabel.Text = "❌ Персонаж не найден"
+        return 
+    end
+    
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    
+    if not humanoid or not rootPart then 
+        StatusLabel.Text = "❌ Нет Humanoid"
+        return 
+    end
+    
+    if humanoid.Health <= 0 then
+        StatusLabel.Text = "💀 Персонаж мертв"
+        return
+    end
+    
+    local targetWall = FindNearestWall()
+    
+    if targetWall then
+        local wallPos = targetWall.Position
+        local wallCFrame = targetWall.CFrame
+        
+        -- Вычисляем направление к стене
+        local directionToWall = (Vector3.new(wallPos.X, rootPart.Position.Y, wallPos.Z) - rootPart.Position).Unit
+        
+        -- Разворачиваемся к стене спиной (для велхопа)
+        local lookDirection = -directionToWall
+        rootPart.CFrame = CFrame.lookAt(rootPart.Position, rootPart.Position + lookDirection)
+        
+        -- Двигаемся к стене
+        local movePos = wallPos - directionToWall * 2
+        humanoid:MoveTo(Vector3.new(movePos.X, rootPart.Position.Y, movePos.Z))
+        
+        -- Проверяем, достаточно ли близко к стене
+        local distanceToWall = (rootPart.Position - wallPos).Magnitude
+        
+        if distanceToWall < 4 then
+            -- Делаем велхоп
+            humanoid.Jump = true
+            
+            -- Мощный толчок вверх и в сторону от стены
+            local jumpVelocity = directionToWall * 8 + Vector3.new(0, 45, 0)
+            rootPart.AssemblyLinearVelocity = jumpVelocity
+            
+            StatusLabel.Text = "🏃 Велхоп выполнен!"
+            StatusLabel.TextColor3 = Color3.fromRGB(85, 255, 140)
+            
+            task.wait(0.05)
+        else
+            StatusLabel.Text = "🔍 Ищу стену... Расстояние: " .. math.floor(distanceToWall)
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+        end
+    else
+        StatusLabel.Text = "🔍 Стена не найдена"
+        StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    end
+end
+
+-- ====================================================================
+--                      ЛОГИКА КНОПКИ ВКЛЮЧЕНИЯ
+-- ====================================================================
+local loopConnection = nil
+
+ToggleBtn.MouseButton1Click:Connect(function()
+    WH_Enabled = not WH_Enabled
+    
+    if WH_Enabled then
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 50)
+        ToggleBtn.Text = "🏃 АВТО-ВЕЛХОП: ВКЛ"
+        StatusLabel.Text = "✅ Велхоп активирован!"
+        StatusLabel.TextColor3 = Color3.fromRGB(85, 255, 140)
+        
+        -- Запускаем цикл
+        if loopConnection then loopConnection:Disconnect() end
+        
+        loopConnection = RunService.Heartbeat:Connect(function()
+            if WH_Enabled then
+                pcall(DoWallHop)
+            end
+        end)
+    else
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 30, 30)
+        ToggleBtn.Text = "🏃 АВТО-ВЕЛХОП: ВЫКЛ"
+        StatusLabel.Text = "⏸️ Велхоп выключен"
+        StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+        
+        if loopConnection then
+            loopConnection:Disconnect()
+            loopConnection = nil
+        end
+    end
+end)
+
+-- ====================================================================
+--                      ЛОГИКА КНОПКИ БУСТА
+-- ====================================================================
+BoostBtn.MouseButton1Click:Connect(function()
+    if BoostCooldown then
+        StatusLabel.Text = "⏳ Подождите 2 секунды!"
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+        return
+    end
+    
+    local char = LocalPlayer.Character
+    if not char then
+        StatusLabel.Text = "❌ Нет персонажа!"
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+        return
+    end
+    
+    local rootPart = char:FindFirstChild("HumanoidRootPart")
+    if not rootPart then
+        StatusLabel.Text = "❌ Нет RootPart!"
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+        return
+    end
+    
+    -- Супер-прыжок
+    local boostHeight = 70
+    local boostForward = 20
+    
+    local lookVector = rootPart.CFrame.LookVector
+    local velocity = Vector3.new(
+        lookVector.X * boostForward,
+        boostHeight,
+        lookVector.Z * boostForward
+    )
+    
+    rootPart.AssemblyLinearVelocity = velocity
+    
+    StatusLabel.Text = "🚀 СУПЕР-ТОЛЧОК!"
+    StatusLabel.TextColor3 = Color3.fromRGB(0, 200, 255)
+    
+    -- Визуальный эффект
+    BoostBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 200)
+    task.wait(0.2)
+    BoostBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 200)
+    
+    -- Кулдаун
+    BoostCooldown = true
+    task.wait(2)
+    BoostCooldown = false
+end)
+
+-- ====================================================================
+--                      ИНФОРМАЦИЯ
+-- ====================================================================
+InfoBtn.MouseButton1Click:Connect(function()
+    StatusLabel.Text = "📱 Авто-велхоп | Буст | Для Дельты"
+    StatusLabel.TextColor3 = Color3.fromRGB(150, 200, 255)
+    InfoBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+    task.wait(0.5)
+    InfoBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+end)
+
+-- ====================================================================
+--                      ОЧИСТКА ПРИ ВЫХОДЕ
+-- ====================================================================
+LocalPlayer.CharacterAdded:Connect(function()
+    if loopConnection then
+        loopConnection:Disconnect()
+        loopConnection = nil
+    end
+end)
+
+print("✅ PRO WALLHOP AI загружен для Дельты!")
+print("📱 Нажми кнопку 🏃 в левом верхнем углу")
