@@ -1,0 +1,162 @@
+-- Загружаем легкую и красивую библиотеку интерфейса
+local Material = loadstring(game:HttpGet("https://githubusercontent.com"))()
+
+-- Создаем главное окно
+local UI = Material.Load({
+    Title = "99 Nights | Extended Item v2",
+    Style = 1,
+    SizeX = 400,
+    SizeY = 360,
+    Theme = "Dark"
+})
+
+-- Локальные переменные
+local LocalPlayer = game.Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local SelectedCampfireItem = "Log"
+local SelectedScrapItem = "Sheet Metal"
+local KillAuraEnabled = false
+local TreeAuraEnabled = false
+
+-- Функция для стягивания лута вокруг
+local function TeleportItemsToPlayer(itemName)
+    local character = game.Players.LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    for _, item in pairs(workspace:GetChildren()) do
+        if item:IsA("Tool") or (item:IsA("Model") and string.find(string.lower(item.Name), string.lower(itemName))) then
+            local primaryPart = item:IsA("Model") and item.PrimaryPart or item:FindFirstChildWhichIsA("BasePart")
+            if primaryPart then
+                primaryPart.CFrame = character.HumanoidRootPart.CFrame + Vector3.new(0, 2, 0)
+            end
+        end
+    end
+end
+
+-- Вкладка 1: ВЫДАЧА (Сбор предметов вокруг)
+local Tab1 = UI.New({Title = "Выдача"})
+
+Tab1.Button({
+    Text = "Стянуть Револьверы (Revolver)",
+    Callback = function() TeleportItemsToPlayer("Revolver") end
+})
+Tab1.Button({
+    Text = "Стянуть Патроны (Ammo)",
+    Callback = function() TeleportItemsToPlayer("Ammo") end
+})
+Tab1.Button({
+    Text = "Стянуть Аптечки (Medkit)",
+    Callback = function() TeleportItemsToPlayer("Medkit") end
+})
+Tab1.Button({
+    Text = "Стянуть Еду (Food/Carrot)",
+    Callback = function() TeleportItemsToPlayer("Carrot") end
+})
+
+-- Вкладка 2: КОСТЕР (Расширенный список)
+local Tab2 = UI.New({Title = "Костер"})
+
+Tab2.Dropdown({
+    Text = "Выбрать топливо/еду",
+    Callback = function(value) SelectedCampfireItem = value end,
+    Options = {"Log", "Wood", "Stick", "Plank", "Coal", "Torch", "Oil", "Canister", "Fuel", "Morsel", "Steak"}
+})
+
+Tab2.Button({
+    Text = "СТАРТ (Бросить в костер)",
+    Callback = function()
+        local campfire = workspace:FindFirstChild("Campfire") or workspace:FindFirstChild("Fire") or workspace:FindFirstChild("Campfire_Model")
+        if campfire then
+            for _, item in pairs(workspace:GetChildren()) do
+                if string.find(string.lower(item.Name), string.lower(SelectedCampfireItem)) then
+                    local part = item:FindFirstChildWhichIsA("BasePart") or item
+                    if part and part:IsA("BasePart") then
+                        part.CFrame = campfire.CFrame
+                    end
+                end
+            end
+        end
+    end
+})
+
+-- Вкладка 3: СКРАП (Расширенный список хлама)
+local Tab3 = UI.New({Title = "Скрап"})
+
+Tab3.Dropdown({
+    Text = "Выбрать хлам для машины",
+    Callback = function(value) SelectedScrapItem = value end,
+    Options = {"Sheet Metal", "Old Radio", "Broken Microwave", "Broken Fan", "Tire", "Bolt", "Chair", "Metal", "Scrap"}
+})
+
+Tab3.Button({
+    Text = "СТАРТ (Отправить в скрап)",
+    Callback = function()
+        -- Ищем измельчитель/машину на карте по ключевым названиям плейса
+        local scrapMachine = workspace:FindFirstChild("ScrapMachine") or workspace:FindFirstChild("Chipper") or workspace:FindFirstChild("Grinder") or workspace:FindFirstChild("Machine")
+        if scrapMachine then
+            for _, item in pairs(workspace:GetChildren()) do
+                if string.find(string.lower(item.Name), string.lower(SelectedScrapItem)) then
+                    local part = item:FindFirstChildWhichIsA("BasePart") or item
+                    if part and part:IsA("BasePart") then
+                        part.CFrame = scrapMachine.CFrame
+                    end
+                end
+            end
+        end
+    end
+})
+
+-- Вкладка 4: АТАКА (Киллаура)
+local Tab4 = UI.New({Title = "Атака"})
+
+Tab4.Toggle({
+    Text = "Киллаура на Монстров (Kill Aura)",
+    Callback = function(state) KillAuraEnabled = state end
+})
+
+Tab4.Toggle({
+    Text = "Авто-добыча деревьев (Tree Aura)",
+    Callback = function(state) TreeAuraEnabled = state end
+})
+
+-- Фоновый поток для атак и добычи
+task.spawn(function()
+    while task.wait(0.4) do
+        local char = game.Players.LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            
+            -- Киллаура на волков, культистов и мобов
+            if KillAuraEnabled then
+                for _, monster in pairs(workspace:GetChildren()) do
+                    if monster:FindFirstChild("Humanoid") and monster:FindFirstChild("HumanoidRootPart") and not game.Players:GetPlayerFromCharacter(monster) then
+                        local distance = (char.HumanoidRootPart.Position - monster.HumanoidRootPart.Position).Magnitude
+                        if distance < 25 then
+                            local tool = char:FindFirstChildWhichIsA("Tool")
+                            if tool then tool:Activate() end
+                            pcall(function()
+                                monster.Humanoid.Health = monster.Humanoid.Health - 15
+                            end)
+                        end
+                    end
+                end
+            end
+            
+            -- Киллаура на деревья (поиск объектов Tree/Log)
+            if TreeAuraEnabled then
+                for _, tree in pairs(workspace:GetChildren()) do
+                    if string.find(string.lower(tree.Name), "tree") or string.find(string.lower(tree.Name), "log") then
+                        local treePart = tree:FindFirstChildWhichIsA("BasePart") or tree
+                        if treePart and treePart:IsA("BasePart") then
+                            local distance = (char.HumanoidRootPart.Position - treePart.Position).Magnitude
+                            if distance < 45 then
+                                local tool = char:FindFirstChildWhichIsA("Tool")
+                                if tool then tool:Activate() end
+                            end
+                        end
+                    end
+                end
+            end
+            
+        end
+    end
+end)
