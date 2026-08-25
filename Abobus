@@ -1,0 +1,278 @@
+local player = game.Players.LocalPlayer
+
+-- Безопасное бесконечное ожидание интерфейса, чтобы скрипт не зависал
+local pgui = player:FindFirstChildOfClass("PlayerGui")
+while not pgui do
+    task.wait(0.5)
+    pgui = player:FindFirstChildOfClass("PlayerGui")
+end
+
+-- Удаление прошлых копий панели
+if pgui:FindFirstChild("EgorMobileGUI") then pgui.EgorMobileGUI:Destroy() end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "EgorMobileGUI"
+ScreenGui.Parent = pgui
+ScreenGui.ResetOnSpawn = false
+
+local MainFrame = Instance.new("Frame")
+local VersionTag = Instance.new("TextLabel")
+local Title = Instance.new("TextLabel")
+local OpenCloseButton = Instance.new("TextButton")
+
+local TrollTabFrame = Instance.new("Frame")
+local GameTabFrame = Instance.new("Frame")
+local TrollTabBtn = Instance.new("TextButton")
+local GameTabBtn = Instance.new("TextButton")
+
+local function addCorner(parent, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius)
+    corner.Parent = parent
+end
+
+-- Кнопка Открыть/Закрыть меню (Нижний левый угол, зафиксирована)
+OpenCloseButton.Name = "ToggleMenu"
+OpenCloseButton.Parent = ScreenGui
+OpenCloseButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+OpenCloseButton.Position = UDim2.new(0.05, 0, 0.82, 0)
+OpenCloseButton.Size = UDim2.new(0, 140, 0, 38)
+OpenCloseButton.Font = Enum.Font.SourceSansBold
+OpenCloseButton.Text = "МЕНЮ (ЗАКРЫТЬ)"
+OpenCloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+OpenCloseButton.TextSize = 14
+addCorner(OpenCloseButton, 6)
+
+-- Главное меню (Строго по центру экрана, без функции перетаскивания во избежание багов)
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.Position = UDim2.new(0.5, -140, 0.5, -135)
+MainFrame.Size = UDim2.new(0, 280, 0, 270)
+MainFrame.Active = true
+addCorner(MainFrame, 12)
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Thickness = 3
+UIStroke.Parent = MainFrame
+
+-- Облегченный RGB поток (Всё крутится внутри одной быстрой функции)
+task.spawn(function()
+    local hue = 0
+    while task.wait(0.02) do
+        hue = (hue + 0.005) % 1
+        local rgbColor = Color3.fromHSV(hue, 1, 1)
+        if UIStroke and UIStroke.Parent then UIStroke.Color = rgbColor end
+        if VersionTag and VersionTag.Parent then VersionTag.TextColor3 = rgbColor end
+    end
+end)
+
+-- Версия 1.6 Beta с RGB
+VersionTag.Name = "VersionTag"
+VersionTag.Parent = MainFrame
+VersionTag.BackgroundTransparency = 1
+VersionTag.Position = UDim2.new(0, 0, 0, 6)
+VersionTag.Size = UDim2.new(1, 0, 0, 15)
+VersionTag.Font = Enum.Font.SourceSansBold
+VersionTag.Text = "1.6 Beta"
+VersionTag.TextSize = 13
+
+-- Заголовок панели
+Title.Name = "Title"
+Title.Parent = MainFrame
+Title.BackgroundTransparency = 1
+Title.Position = UDim2.new(0, 0, 0, 20)
+Title.Size = UDim2.new(1, 0, 0, 20)
+Title.Font = Enum.Font.SourceSansBold
+Title.Text = "GREGOO MULTIHACK (MOBILE)"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 13
+
+-- Верхние кнопки Вкладок
+TrollTabBtn.Size = UDim2.new(0.43, 0, 0, 30)
+TrollTabBtn.Position = UDim2.new(0.05, 0, 0.16, 0)
+TrollTabBtn.Text = "ТРОЛЛЬ"
+TrollTabBtn.Font = Enum.Font.SourceSansBold
+TrollTabBtn.TextSize = 14
+TrollTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+TrollTabBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+TrollTabBtn.Parent = MainFrame
+addCorner(TrollTabBtn, 6)
+
+GameTabBtn.Size = UDim2.new(0.43, 0, 0, 30)
+GameTabBtn.Position = UDim2.new(0.52, 0, 0.16, 0)
+GameTabBtn.Text = "ИГРА"
+GameTabBtn.Font = Enum.Font.SourceSansBold
+GameTabBtn.TextSize = 14
+GameTabBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+GameTabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+GameTabBtn.Parent = MainFrame
+addCorner(GameTabBtn, 6)
+
+-- Фреймы контента
+TrollTabFrame.Size = UDim2.new(1, 0, 0.65, 0)
+TrollTabFrame.Position = UDim2.new(0, 0, 0.32, 0)
+TrollTabFrame.BackgroundTransparency = 1
+TrollTabFrame.Parent = MainFrame
+
+GameTabFrame.Size = UDim2.new(1, 0, 0.65, 0)
+GameTabFrame.Position = UDim2.new(0, 0, 0.32, 0)
+GameTabFrame.BackgroundTransparency = 1
+GameTabFrame.Visible = false
+GameTabFrame.Parent = MainFrame
+
+TrollTabBtn.MouseButton1Click:Connect(function()
+    TrollTabFrame.Visible = true
+    GameTabFrame.Visible = false
+    TrollTabBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    TrollTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    GameTabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    GameTabBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+end)
+
+GameTabBtn.MouseButton1Click:Connect(function()
+    TrollTabFrame.Visible = false
+    GameTabFrame.Visible = true
+    GameTabBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    GameTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TrollTabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    TrollTabBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+end)
+
+local function createMenuBtn(parent, text, yPos)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.9, 0, 0, 42)
+    btn.Position = UDim2.new(0.05, 0, yPos, 0)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 14
+    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    btn.Parent = parent
+    addCorner(btn, 8)
+    return btn
+end
+
+-- ==========================================
+-- ВКЛАДКА «ТРОЛЛЬ»
+-- ==========================================
+local GravityInput = Instance.new("TextBox")
+local ApplyButton = Instance.new("TextButton")
+local EgorWalkButton = createMenuBtn(TrollTabFrame, "Роблокс Егор (Бег)", 0.35)
+local EgorGravButton = createMenuBtn(TrollTabFrame, "Егор Гравитация (Лаги)", 0.65)
+
+GravityInput.Parent = TrollTabFrame
+GravityInput.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+GravityInput.Position = UDim2.new(0.05, 0, 0.05, 0)
+GravityInput.Size = UDim2.new(0.55, 0, 0, 35)
+GravityInput.Font = Enum.Font.SourceSans
+GravityInput.Text = "50"
+GravityInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+GravityInput.TextSize = 16
+addCorner(GravityInput, 6)
+
+ApplyButton.Parent = TrollTabFrame
+ApplyButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+ApplyButton.Position = UDim2.new(0.65, 0, 0.05, 0)
+ApplyButton.Size = UDim2.new(0.3, 0, 0, 35)
+ApplyButton.Font = Enum.Font.SourceSansBold
+ApplyButton.Text = "OK"
+ApplyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ApplyButton.TextSize = 14
+addCorner(ApplyButton, 6)
+
+ApplyButton.MouseButton1Click:Connect(function()
+    local tg = tonumber(GravityInput.Text)
+    if tg then workspace.Gravity = tg end
+end)
+
+local egorWalkActive = false
+EgorWalkButton.MouseButton1Click:Connect(function()
+    local char = player.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    egorWalkActive = not egorWalkActive
+    if egorWalkActive then
+        EgorWalkButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+        hum.WalkSpeed = 4
+        task.spawn(function()
+            while egorWalkActive and char and hum.Parent do
+                pcall(function()
+                    local animator = hum:FindFirstChildOfClass("Animator")
+                    if animator then
+                        for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                            track:AdjustSpeed(25)
+                        end
+                    end
+                end)
+                task.wait(0.1)
+            end
+        end)
+    else
+        EgorWalkButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        hum.WalkSpeed = 16
+    end
+end)
+
+local egorGravActive = false
+EgorGravButton.MouseButton1Click:Connect(function()
+    local char = player.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    egorGravActive = not egorGravActive
+    if egorGravActive then
+        EgorGravButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+        task.spawn(function()
+            while egorGravActive and char and hrp.Parent do
+                if hrp.AssemblyLinearVelocity.Y < -2 then
+                    hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, -3, hrp.AssemblyLinearVelocity.Z)
+                    hrp.CFrame = hrp.CFrame * CFrame.new(0, math.sin(tick() * 50) * 0.05, 0)
+                end
+                task.wait(0.02)
+            end
+        end)
+    else
+        EgorGravButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    end
+end)
+
+-- ==========================================
+-- ВКЛАДКА «ИГРА»
+-- ==========================================
+local AntiFlingButton = createMenuBtn(GameTabFrame, "Anti-Fling: ВЫКЛ", 0.05)
+local FlyButton = createMenuBtn(GameTabFrame, "Админ Полёт: ВЫКЛ", 0.40)
+
+local antiFlingActive = false
+AntiFlingButton.MouseButton1Click:Connect(function()
+    antiFlingActive = not antiFlingActive
+    if antiFlingActive then
+        AntiFlingButton.BackgroundColor3 = Color3.fromRGB(0, 150, 50)
+        AntiFlingButton.Text = "Anti-Fling: ВКЛ"
+        task.spawn(function()
+            while antiFlingActive do
+                pcall(function()
+                    for _, p in pairs(game.Players:GetPlayers()) do
+                        if p ~= player and p.Character then
+                            for _, part in pairs(p.Character:GetChildren()) do
+                                if part:IsA("BasePart") then part.CanCollide = false end
+                            end
+                        end
+                    end
+                end)
+                task.wait(0.5) -- Легкий интервал, чтобы не лагал процессор смартфона
+            end
+        end)
+    else
+        AntiFlingButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        AntiFlingButton.Text = "Anti-Fling: ВЫКЛ"
+    end
+end)
+
+local flying = false
+local flySpeed = 45
+local bv, bg
+
+FlyButton.MouseButton1Click:Connect(function()
+    local char = player.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
