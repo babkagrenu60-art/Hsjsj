@@ -1,0 +1,473 @@
+local player = game.Players.LocalPlayer
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+-- Безопасное ожидание загрузки интерфейса
+local pgui = player:FindFirstChildOfClass("PlayerGui")
+while not pgui do
+    task.wait(0.5)
+    pgui = player:FindFirstChildOfClass("PlayerGui")
+end
+
+if pgui:FindFirstChild("EgorMM2GUI") then pgui.EgorMM2GUI:Destroy() end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "EgorMM2GUI"
+ScreenGui.Parent = pgui
+ScreenGui.ResetOnSpawn = false
+
+local MainFrame = Instance.new("Frame")
+local VersionTag = Instance.new("TextLabel")
+local DisclaimerTag = Instance.new("TextLabel")
+local Title = Instance.new("TextLabel")
+local OpenCloseButton = Instance.new("TextButton")
+
+local MM2TabFrame = Instance.new("Frame")
+local ESPTabFrame = Instance.new("Frame")
+local MM2TabBtn = Instance.new("TextButton")
+local ESPTabBtn = Instance.new("TextButton")
+
+-- Переменная для состояния меню
+local menuVisible = true
+
+-- Переменные для автострельбы
+local autoShootActive = false
+local autoShootButton = nil
+
+local function addCorner(parent, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius)
+    corner.Parent = parent
+end
+
+-- Мобильный скрипт перетаскивания пальцем
+local function makeDraggable(frame)
+    local dragging, dragInput, dragStart, startPos
+    local function update(input)
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+    end)
+    UIS.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then update(input) end
+    end)
+end
+
+-- Кнопка Открыть/Закрыть меню
+OpenCloseButton.Name = "ToggleMenu"
+OpenCloseButton.Parent = ScreenGui
+OpenCloseButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+OpenCloseButton.Position = UDim2.new(0.05, 0, 0.15, 0)
+OpenCloseButton.Size = UDim2.new(0, 140, 0, 38)
+OpenCloseButton.Font = Enum.Font.SourceSansBold
+OpenCloseButton.Text = "МЕНЮ (ЗАКРЫТЬ)"
+OpenCloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+OpenCloseButton.TextSize = 14
+addCorner(OpenCloseButton, 6)
+makeDraggable(OpenCloseButton)
+
+-- Логика открытия/закрытия меню
+OpenCloseButton.MouseButton1Click:Connect(function()
+    menuVisible = not menuVisible
+    MainFrame.Visible = menuVisible
+    if menuVisible then
+        OpenCloseButton.Text = "МЕНЮ (ЗАКРЫТЬ)"
+        OpenCloseButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    else
+        OpenCloseButton.Text = "МЕНЮ (ОТКРЫТЬ)"
+        OpenCloseButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    end
+end)
+
+-- Главное меню
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.Position = UDim2.new(0.5, -140, 0.5, -150)
+MainFrame.Size = UDim2.new(0, 280, 0, 300)
+MainFrame.Active = true
+addCorner(MainFrame, 12)
+makeDraggable(MainFrame)
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Thickness = 3
+UIStroke.Parent = MainFrame
+
+-- Переливающийся RGB поток
+task.spawn(function()
+    local hue = 0
+    while task.wait(0.02) do
+        hue = (hue + 0.005) % 1
+        local rgbColor = Color3.fromHSV(hue, 1, 1)
+        if UIStroke and UIStroke.Parent then UIStroke.Color = rgbColor end
+        if VersionTag and VersionTag.Parent then VersionTag.TextColor3 = rgbColor end
+    end
+end)
+
+-- Шапка: Версия и Название
+VersionTag.Name = "VersionTag"
+VersionTag.Parent = MainFrame
+VersionTag.BackgroundTransparency = 1
+VersionTag.Position = UDim2.new(0, 0, 0, 6)
+VersionTag.Size = UDim2.new(1, 0, 0, 15)
+VersionTag.Font = Enum.Font.SourceSansBold
+VersionTag.Text = "1.6 Beta"
+VersionTag.TextSize = 13
+
+Title.Name = "Title"
+Title.Parent = MainFrame
+Title.BackgroundTransparency = 1
+Title.Position = UDim2.new(0, 0, 0, 20)
+Title.Size = UDim2.new(1, 0, 0, 20)
+Title.Font = Enum.Font.SourceSansBold
+Title.Text = "GREGOO MM2 HACK (MOBILE)"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 13
+
+DisclaimerTag.Name = "DisclaimerTag"
+DisclaimerTag.Parent = MainFrame
+DisclaimerTag.BackgroundTransparency = 1
+DisclaimerTag.Position = UDim2.new(0, 0, 0, 38)
+DisclaimerTag.Size = UDim2.new(1, 0, 0, 15)
+DisclaimerTag.Font = Enum.Font.SourceSansItalic
+DisclaimerTag.Text = "это Beta 1.0 есле что-то не работает тогда хз"
+DisclaimerTag.TextColor3 = Color3.fromRGB(180, 180, 180)
+DisclaimerTag.TextSize = 11
+
+-- Кнопки вкладок
+MM2TabBtn.Size = UDim2.new(0.43, 0, 0, 30)
+MM2TabBtn.Position = UDim2.new(0.05, 0, 0.20, 0)
+MM2TabBtn.Text = "ММ2 ФУНКЦИИ"
+MM2TabBtn.Font = Enum.Font.SourceSansBold
+MM2TabBtn.TextSize = 12
+MM2TabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MM2TabBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+MM2TabBtn.Parent = MainFrame
+addCorner(MM2TabBtn, 6)
+
+ESPTabBtn.Size = UDim2.new(0.43, 0, 0, 30)
+ESPTabBtn.Position = UDim2.new(0.52, 0, 0.20, 0)
+ESPTabBtn.Text = "ЕСП (ВИЗУАЛЫ)"
+ESPTabBtn.Font = Enum.Font.SourceSansBold
+ESPTabBtn.TextSize = 12
+ESPTabBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+ESPTabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+ESPTabBtn.Parent = MainFrame
+addCorner(ESPTabBtn, 6)
+
+-- Фреймы для вкладок
+MM2TabFrame.Size = UDim2.new(1, 0, 0.65, 0)
+MM2TabFrame.Position = UDim2.new(0, 0, 0.35, 0)
+MM2TabFrame.BackgroundTransparency = 1
+MM2TabFrame.Parent = MainFrame
+
+ESPTabFrame.Size = UDim2.new(1, 0, 0.65, 0)
+ESPTabFrame.Position = UDim2.new(0, 0, 0.35, 0)
+ESPTabFrame.BackgroundTransparency = 1
+ESPTabFrame.Visible = false
+ESPTabFrame.Parent = MainFrame
+
+MM2TabBtn.MouseButton1Click:Connect(function()
+    MM2TabFrame.Visible = true; ESPTabFrame.Visible = false
+    MM2TabBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45); MM2TabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ESPTabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30); ESPTabBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+end)
+
+ESPTabBtn.MouseButton1Click:Connect(function()
+    MM2TabFrame.Visible = false; ESPTabFrame.Visible = true
+    ESPTabBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45); ESPTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    MM2TabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30); MM2TabBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+end)
+
+local function createMenuBtn(parent, text, yPos)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.9, 0, 0, 42)
+    btn.Position = UDim2.new(0.05, 0, yPos, 0)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 14
+    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    btn.Parent = parent
+    addCorner(btn, 8)
+    return btn
+end
+
+-- Создание кнопок в ММ2
+local AutoPickBtn = createMenuBtn(MM2TabFrame, "Автоподбор песта: ВЫКЛ", 0.05)
+local AutoShootToggleBtn = createMenuBtn(MM2TabFrame, "🔫 АВТОСТРЕЛЬБА: ВЫКЛ", 0.35)
+local ESPBtn = createMenuBtn(ESPTabFrame, "Показать Роли (ESP): ВЫКЛ", 0.05)
+
+-- ==========================================
+-- ЛОГИКА 1: АВТОПОДБОР ПИСТОЛЕТА (ИСПРАВЛЕН)
+-- ==========================================
+local autoPickActive = false
+local pickConnection = nil
+
+AutoPickBtn.MouseButton1Click:Connect(function()
+    autoPickActive = not autoPickActive
+    
+    if autoPickActive then
+        AutoPickBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 50)
+        AutoPickBtn.Text = "Автоподбор песта: ВКЛ"
+        
+        if pickConnection then pickConnection:Disconnect() end
+        
+        pickConnection = RunService.Heartbeat:Connect(function()
+            if not autoPickActive then return end
+            
+            pcall(function()
+                local char = player.Character
+                if not char then return end
+                
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+                
+                -- Ищем пистолет на земле (правильный поиск)
+                local gunDrop = nil
+                for _, obj in pairs(workspace:GetChildren()) do
+                    if obj:IsA("BasePart") and (obj.Name == "GunDrop" or obj.Name == "Gun" or obj.Name == "Handle") then
+                        -- Проверяем, что это не часть персонажа
+                        if not obj:IsDescendantOf(char) then
+                            gunDrop = obj
+                            break
+                        end
+                    end
+                end
+                
+                -- Если пистолет найден, телепортируемся к нему
+                if gunDrop and hrp then
+                    local targetPos = gunDrop.Position + Vector3.new(0, 2.5, 0)
+                    hrp.CFrame = CFrame.new(targetPos)
+                    
+                    -- Пытаемся подобрать автоматически
+                    local tool = gunDrop.Parent
+                    if tool and tool:IsA("Tool") then
+                        tool.Parent = player.Backpack
+                    end
+                end
+            end)
+        end)
+    else
+        AutoPickBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        AutoPickBtn.Text = "Автоподбор песта: ВЫКЛ"
+        if pickConnection then 
+            pickConnection:Disconnect()
+            pickConnection = nil
+        end
+    end
+end)
+
+-- ==========================================
+-- ЛОГИКА 2: АВТОСТРЕЛЬБА ПО УБИЙЦЕ
+-- ==========================================
+local shootConnection = nil
+
+-- Создаем кнопку для стрельбы (появляется в левом углу)
+function CreateShootButton()
+    if autoShootButton then return end
+    
+    autoShootButton = Instance.new("TextButton")
+    autoShootButton.Name = "ShootButton"
+    autoShootButton.Parent = ScreenGui
+    autoShootButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+    autoShootButton.Position = UDim2.new(0.02, 0, 0.5, -25)
+    autoShootButton.Size = UDim2.new(0, 80, 0, 50)
+    autoShootButton.Font = Enum.Font.SourceSansBold
+    autoShootButton.Text = "🔫\nСТРЕЛЬБА"
+    autoShootButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    autoShootButton.TextSize = 12
+    autoShootButton.Visible = false
+    addCorner(autoShootButton, 10)
+    makeDraggable(autoShootButton)
+    
+    -- Логика стрельбы при нажатии
+    autoShootButton.MouseButton1Click:Connect(function()
+        ShootAtMurderer()
+    end)
+end
+
+-- Функция выстрела в убийцу
+function ShootAtMurderer()
+    pcall(function()
+        local char = player.Character
+        if not char then return end
+        
+        -- Ищем пистолет
+        local gun = char:FindFirstChild("Gun") or player.Backpack:FindFirstChild("Gun")
+        if not gun then
+            autoShootButton.Text = "❌ НЕТ\nПЕСТА"
+            task.wait(1)
+            autoShootButton.Text = "🔫\nСТРЕЛЬБА"
+            return
+        end
+        
+        -- Если пистолет в бекпаке, берем в руки
+        if gun.Parent == player.Backpack then
+            gun.Parent = char
+        end
+        
+        -- Ищем убийцу
+        local murderer = nil
+        for _, p in pairs(game.Players:GetPlayers()) do
+            if p ~= player and p.Character then
+                local char2 = p.Character
+                if char2 then
+                    if p.Backpack:FindFirstChild("Knife") or char2:FindFirstChild("Knife") then
+                        murderer = char2:FindFirstChild("HumanoidRootPart")
+                        break
+                    end
+                end
+            end
+        end
+        
+        if not murderer then
+            autoShootButton.Text = "❌ НЕТ\nУБИЙЦЫ"
+            task.wait(1)
+            autoShootButton.Text = "🔫\nСТРЕЛЬБА"
+            return
+        end
+        
+        -- Пытаемся выстрелить
+        local shootEvent = gun:FindFirstChild("ShootGun") or gun:FindFirstChildOfClass("RemoteEvent")
+        if shootEvent then
+            shootEvent:FireServer(murderer.Position)
+            autoShootButton.Text = "✅ ВЫСТРЕЛ!"
+            task.wait(0.5)
+            autoShootButton.Text = "🔫\nСТРЕЛЬБА"
+        else
+            -- Альтернативный способ
+            if gun:IsA("Tool") then
+                gun:Activate()
+                autoShootButton.Text = "✅ ВЫСТРЕЛ!"
+                task.wait(0.5)
+                autoShootButton.Text = "🔫\nСТРЕЛЬБА"
+            end
+        end
+    end)
+end
+
+-- Включаем/выключаем автострельбу
+AutoShootToggleBtn.MouseButton1Click:Connect(function()
+    autoShootActive = not autoShootActive
+    
+    if autoShootActive then
+        AutoShootToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+        AutoShootToggleBtn.Text = "🔫 АВТОСТРЕЛЬБА: ВКЛ"
+        
+        -- Создаем кнопку стрельбы
+        CreateShootButton()
+        autoShootButton.Visible = true
+        
+        -- Автоматически ищем убийцу и стреляем каждые 1.5 секунды
+        if shootConnection then shootConnection:Disconnect() end
+        
+        shootConnection = RunService.Heartbeat:Connect(function()
+            if not autoShootActive then return end
+            -- Стреляем каждые 1.5 секунды
+            if tick() % 1.5 < 0.05 then
+                ShootAtMurderer()
+            end
+        end)
+        
+    else
+        AutoShootToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        AutoShootToggleBtn.Text = "🔫 АВТОСТРЕЛЬБА: ВЫКЛ"
+        
+        if autoShootButton then
+            autoShootButton.Visible = false
+        end
+        
+        if shootConnection then
+            shootConnection:Disconnect()
+            shootConnection = nil
+        end
+    end
+end)
+
+-- ==========================================
+-- ЛОГИКА 3: ESP (ВИЗУАЛЫ)
+-- ==========================================
+local espActive = false
+local espObjects = {}
+
+ESPBtn.MouseButton1Click:Connect(function()
+    espActive = not espActive
+    if espActive then
+        ESPBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 50)
+        ESPBtn.Text = "Показать Роли (ESP): ВКЛ"
+        
+        task.spawn(function()
+            while espActive do
+                pcall(function()
+                    -- Удаляем старые ESP объекты
+                    for _, obj in pairs(espObjects) do
+                        if obj and obj.Parent then obj:Destroy() end
+                    end
+                    espObjects = {}
+                    
+                    -- Сканируем всех игроков
+                    for _, p in pairs(game.Players:GetPlayers()) do
+                        if p ~= player and p.Character then
+                            local char = p.Character
+                            local hrp = char:FindFirstChild("HumanoidRootPart")
+                            if hrp then
+                                local color = Color3.fromRGB(255, 255, 255)
+                                local roleText = "Игрок"
+                                local hasKnife = p.Backpack:FindFirstChild("Knife") or char:FindFirstChild("Knife")
+                                local hasGun = p.Backpack:FindFirstChild("Gun") or char:FindFirstChild("Gun")
+                                
+                                if hasKnife then
+                                    color = Color3.fromRGB(255, 0, 0)
+                                    roleText = "🔪 УБИЙЦА"
+                                elseif hasGun then
+                                    color = Color3.fromRGB(0, 255, 0)
+                                    roleText = "🔫 ШЕРИФ"
+                                end
+                                
+                                local billboard = Instance.new("BillboardGui")
+                                billboard.Size = UDim2.new(0, 100, 0, 30)
+                                billboard.AlwaysOnTop = true
+                                billboard.Adornee = hrp
+                                billboard.StudsOffset = Vector3.new(0, 3.5, 0)
+                                billboard.Parent = hrp
+                                
+                                local textLabel = Instance.new("TextLabel")
+                                textLabel.Size = UDim2.new(1, 0, 1, 0)
+                                textLabel.BackgroundTransparency = 1
+                                textLabel.Text = roleText
+                                textLabel.TextColor3 = color
+                                textLabel.TextSize = 16
+                                textLabel.Font = Enum.Font.SourceSansBold
+                                textLabel.Parent = billboard
+                                
+                                table.insert(espObjects, billboard)
+                            end
+                        end
+                    end
+                end)
+                task.wait(0.5)
+            end
+        end)
+    else
+        ESPBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        ESPBtn.Text = "Показать Роли (ESP): ВЫКЛ"
+        
+        for _, obj in pairs(espObjects) do
+            if obj and obj.Parent then obj:Destroy() end
+        end
+        espObjects = {}
+    end
+end)
