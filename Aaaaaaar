@@ -1,0 +1,463 @@
+-- Простой GUI для 99 Nights (Работает на телефоне)
+local player = game.Players.LocalPlayer
+local UIS = game:GetService("UserInputService")
+
+-- Ожидание загрузки интерфейса
+local pgui = player:FindFirstChildOfClass("PlayerGui")
+while not pgui do
+    task.wait(0.5)
+    pgui = player:FindFirstChildOfClass("PlayerGui")
+end
+
+if pgui:FindFirstChild("NightsGUI") then pgui.NightsGUI:Destroy() end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "NightsGUI"
+ScreenGui.Parent = pgui
+ScreenGui.ResetOnSpawn = false
+
+-- Переменные для состояний
+local menuVisible = true
+local KillAuraEnabled = false
+local TreeAuraEnabled = false
+local autoPickActive = false
+local SelectedItem = "Revolver"
+local SelectedCampfireItem = "Log"
+local SelectedScrapItem = "Sheet Metal"
+
+-- Функция для создания скругления
+local function addCorner(parent, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius)
+    corner.Parent = parent
+end
+
+-- Функция для перетаскивания
+local function makeDraggable(frame)
+    local dragging, dragInput, dragStart, startPos
+    local function update(input)
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+    end)
+    UIS.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then update(input) end
+    end)
+end
+
+-- ========== КНОПКА ОТКРЫТИЯ/ЗАКРЫТИЯ ==========
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Name = "ToggleMenu"
+ToggleButton.Parent = ScreenGui
+ToggleButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+ToggleButton.Position = UDim2.new(0.02, 0, 0.05, 0)
+ToggleButton.Size = UDim2.new(0, 140, 0, 40)
+ToggleButton.Font = Enum.Font.SourceSansBold
+ToggleButton.Text = "📱 МЕНЮ (ЗАКРЫТЬ)"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.TextSize = 14
+addCorner(ToggleButton, 8)
+makeDraggable(ToggleButton)
+
+ToggleButton.MouseButton1Click:Connect(function()
+    menuVisible = not menuVisible
+    MainFrame.Visible = menuVisible
+    if menuVisible then
+        ToggleButton.Text = "📱 МЕНЮ (ЗАКРЫТЬ)"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    else
+        ToggleButton.Text = "📱 МЕНЮ (ОТКРЫТЬ)"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    end
+end)
+
+-- ========== ГЛАВНОЕ МЕНЮ ==========
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+MainFrame.Position = UDim2.new(0.5, -170, 0.5, -200)
+MainFrame.Size = UDim2.new(0, 340, 0, 400)
+MainFrame.Active = true
+addCorner(MainFrame, 12)
+makeDraggable(MainFrame)
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Thickness = 2
+UIStroke.Color = Color3.fromRGB(100, 100, 255)
+UIStroke.Parent = MainFrame
+
+-- ========== ЗАГОЛОВОК ==========
+local Title = Instance.new("TextLabel")
+Title.Parent = MainFrame
+Title.BackgroundTransparency = 1
+Title.Position = UDim2.new(0, 0, 0, 5)
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Font = Enum.Font.SourceSansBold
+Title.Text = "⚔️ 99 NIGHTS HACK ⚔️"
+Title.TextColor3 = Color3.fromRGB(255, 200, 100)
+Title.TextSize = 18
+
+-- ========== ВКЛАДКИ ==========
+local Tabs = {}
+local TabContents = {}
+local currentTab = 1
+
+local tabNames = {"📦 СБОР", "🔥 КОСТЕР", "⚙️ СКРАП", "⚔️ АТАКА"}
+
+for i = 1, 4 do
+    local tabBtn = Instance.new("TextButton")
+    tabBtn.Parent = MainFrame
+    tabBtn.BackgroundColor3 = (i == 1) and Color3.fromRGB(60, 60, 80) or Color3.fromRGB(40, 40, 60)
+    tabBtn.Position = UDim2.new((i-1) * 0.25, 2, 0.1, 0)
+    tabBtn.Size = UDim2.new(0.24, 0, 0, 35)
+    tabBtn.Font = Enum.Font.SourceSansBold
+    tabBtn.Text = tabNames[i]
+    tabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    tabBtn.TextSize = 11
+    addCorner(tabBtn, 4)
+    Tabs[i] = tabBtn
+    
+    local content = Instance.new("ScrollingFrame")
+    content.Parent = MainFrame
+    content.Position = UDim2.new(0, 5, 0.18, 0)
+    content.Size = UDim2.new(1, -10, 0.8, -10)
+    content.BackgroundTransparency = 1
+    content.CanvasSize = UDim2.new(0, 0, 0, 0)
+    content.ScrollBarThickness = 3
+    content.Visible = (i == 1)
+    TabContents[i] = content
+end
+
+-- Переключение вкладок
+for i = 1, 4 do
+    Tabs[i].MouseButton1Click:Connect(function()
+        for j = 1, 4 do
+            TabContents[j].Visible = (j == i)
+            Tabs[j].BackgroundColor3 = (j == i) and Color3.fromRGB(60, 60, 80) or Color3.fromRGB(40, 40, 60)
+        end
+        currentTab = i
+    end)
+end
+
+-- ========== ФУНКЦИЯ СОЗДАНИЯ КНОПОК ==========
+local function createButton(parent, text, yPos, color)
+    local btn = Instance.new("TextButton")
+    btn.Parent = parent
+    btn.BackgroundColor3 = color or Color3.fromRGB(50, 50, 70)
+    btn.Position = UDim2.new(0.02, 0, yPos, 0)
+    btn.Size = UDim2.new(0.96, 0, 0, 40)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 14
+    addCorner(btn, 8)
+    return btn
+end
+
+local function createLabel(parent, text, yPos)
+    local label = Instance.new("TextLabel")
+    label.Parent = parent
+    label.BackgroundTransparency = 1
+    label.Position = UDim2.new(0.02, 0, yPos, 0)
+    label.Size = UDim2.new(0.96, 0, 0, 25)
+    label.Font = Enum.Font.SourceSans
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    label.TextSize = 13
+    return label
+end
+
+-- ========== ВКЛАДКА 1: СБОР ==========
+local tab1 = TabContents[1]
+local yPos1 = 0.02
+
+createLabel(tab1, "📦 СТЯГИВАНИЕ ПРЕДМЕТОВ", yPos1)
+yPos1 = yPos1 + 0.07
+
+local items = {
+    {"🔫 Револьверы", "Revolver"},
+    {"💊 Аптечки", "Medkit"},
+    {"🍖 Еда", "Carrot"},
+    {"📦 Патроны", "Ammo"},
+    {"🪵 Древесина", "Wood"},
+    {"🪨 Камни", "Stone"}
+}
+
+for _, item in pairs(items) do
+    local btn = createButton(tab1, item[1], yPos1)
+    yPos1 = yPos1 + 0.11
+    btn.MouseButton1Click:Connect(function()
+        TeleportItemsToPlayer(item[2])
+    end)
+end
+
+-- Кнопка собрать всё
+local btnAll = createButton(tab1, "🌟 СТЯНУТЬ ВСЁ!", yPos1, Color3.fromRGB(200, 100, 0))
+yPos1 = yPos1 + 0.11
+btnAll.MouseButton1Click:Connect(function()
+    local allItems = {"Revolver", "Ammo", "Medkit", "Carrot", "Wood", "Log", "Stick", "Stone", "Fiber", "Metal", "Sheet Metal"}
+    for _, item in pairs(allItems) do
+        TeleportItemsToPlayer(item)
+        task.wait(0.1)
+    end
+    print("✅ Все предметы собраны!")
+end)
+
+-- ========== ВКЛАДКА 2: КОСТЕР ==========
+local tab2 = TabContents[2]
+local yPos2 = 0.02
+
+createLabel(tab2, "🔥 БРОСОК В КОСТЕР", yPos2)
+yPos2 = yPos2 + 0.07
+
+-- Выбор предмета для костра
+local dropdownBtn2 = createButton(tab2, "Выбрать: " .. SelectedCampfireItem, yPos2, Color3.fromRGB(40, 40, 80))
+yPos2 = yPos2 + 0.11
+
+local campfireItems = {"Log", "Wood", "Stick", "Plank", "Coal", "Torch", "Oil", "Fuel", "Morsel", "Steak"}
+local itemIndex2 = 1
+
+dropdownBtn2.MouseButton1Click:Connect(function()
+    itemIndex2 = itemIndex2 % #campfireItems + 1
+    SelectedCampfireItem = campfireItems[itemIndex2]
+    dropdownBtn2.Text = "Выбрать: " .. SelectedCampfireItem
+end)
+
+local btnCampfire = createButton(tab2, "🔥 БРОСИТЬ В КОСТЕР", yPos2, Color3.fromRGB(200, 80, 0))
+yPos2 = yPos2 + 0.11
+btnCampfire.MouseButton1Click:Connect(function()
+    ThrowToCampfire()
+end)
+
+-- ========== ВКЛАДКА 3: СКРАП ==========
+local tab3 = TabContents[3]
+local yPos3 = 0.02
+
+createLabel(tab3, "⚙️ ОТПРАВКА В СКРАП", yPos3)
+yPos3 = yPos3 + 0.07
+
+local dropdownBtn3 = createButton(tab3, "Выбрать: " .. SelectedScrapItem, yPos3, Color3.fromRGB(40, 40, 80))
+yPos3 = yPos3 + 0.11
+
+local scrapItems = {"Sheet Metal", "Old Radio", "Broken Microwave", "Broken Fan", "Tire", "Bolt", "Chair", "Metal", "Scrap", "Gear"}
+local itemIndex3 = 1
+
+dropdownBtn3.MouseButton1Click:Connect(function()
+    itemIndex3 = itemIndex3 % #scrapItems + 1
+    SelectedScrapItem = scrapItems[itemIndex3]
+    dropdownBtn3.Text = "Выбрать: " .. SelectedScrapItem
+end)
+
+local btnScrap = createButton(tab3, "⚙️ ОТПРАВИТЬ В СКРАП", yPos3, Color3.fromRGB(0, 150, 200))
+yPos3 = yPos3 + 0.11
+btnScrap.MouseButton1Click:Connect(function()
+    SendToScrap()
+end)
+
+-- ========== ВКЛАДКА 4: АТАКА ==========
+local tab4 = TabContents[4]
+local yPos4 = 0.02
+
+createLabel(tab4, "⚔️ БОЕВЫЕ ФУНКЦИИ", yPos4)
+yPos4 = yPos4 + 0.07
+
+-- Киллаура
+local btnKillAura = createButton(tab4, "⚔️ КИЛЛАУРА: ВЫКЛ", yPos4, Color3.fromRGB(80, 40, 40))
+yPos4 = yPos4 + 0.11
+btnKillAura.MouseButton1Click:Connect(function()
+    KillAuraEnabled = not KillAuraEnabled
+    btnKillAura.Text = "⚔️ КИЛЛАУРА: " .. (KillAuraEnabled and "ВКЛ" or "ВЫКЛ")
+    btnKillAura.BackgroundColor3 = KillAuraEnabled and Color3.fromRGB(200, 0, 0) or Color3.fromRGB(80, 40, 40)
+end)
+
+-- Деревья
+local btnTreeAura = createButton(tab4, "🌳 ДОБЫЧА ДЕРЕВЬЕВ: ВЫКЛ", yPos4, Color3.fromRGB(40, 80, 40))
+yPos4 = yPos4 + 0.11
+btnTreeAura.MouseButton1Click:Connect(function()
+    TreeAuraEnabled = not TreeAuraEnabled
+    btnTreeAura.Text = "🌳 ДОБЫЧА ДЕРЕВЬЕВ: " .. (TreeAuraEnabled and "ВКЛ" or "ВЫКЛ")
+    btnTreeAura.BackgroundColor3 = TreeAuraEnabled and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(40, 80, 40)
+end)
+
+-- ========== ОСНОВНЫЕ ФУНКЦИИ ==========
+
+-- Функция телепортации предметов
+function TeleportItemsToPlayer(itemName)
+    local char = player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then 
+        print("❌ Персонаж не найден!")
+        return 
+    end
+    
+    local hrp = char.HumanoidRootPart
+    local count = 0
+    
+    for _, item in pairs(workspace:GetChildren()) do
+        if item:IsA("Tool") or (item:IsA("Model") and string.find(string.lower(item.Name), string.lower(itemName))) then
+            local primaryPart = nil
+            if item:IsA("Model") then
+                primaryPart = item.PrimaryPart or item:FindFirstChildWhichIsA("BasePart")
+            else
+                primaryPart = item
+            end
+            
+            if primaryPart and primaryPart:IsA("BasePart") then
+                if not primaryPart:IsDescendantOf(char) then
+                    local offset = Vector3.new(math.random(-3, 3), 2, math.random(-3, 3))
+                    primaryPart.CFrame = hrp.CFrame + offset
+                    count = count + 1
+                end
+            end
+        end
+    end
+    
+    print("✅ Собрано " .. itemName .. ": " .. count .. " шт")
+end
+
+-- Функция броска в костер
+function ThrowToCampfire()
+    local campfire = nil
+    for _, obj in pairs(workspace:GetChildren()) do
+        if string.find(string.lower(obj.Name), "campfire") or 
+           string.find(string.lower(obj.Name), "fire") or
+           string.find(string.lower(obj.Name), "camp") then
+            campfire = obj
+            break
+        end
+    end
+    
+    if not campfire then
+        print("❌ Костер не найден!")
+        return
+    end
+    
+    local campfirePart = campfire:FindFirstChildWhichIsA("BasePart") or campfire:FindFirstChild("Part") or campfire
+    if not campfirePart or not campfirePart:IsA("BasePart") then return end
+    
+    local count = 0
+    local char = player.Character
+    for _, item in pairs(workspace:GetChildren()) do
+        if string.find(string.lower(item.Name), string.lower(SelectedCampfireItem)) then
+            local part = item:FindFirstChildWhichIsA("BasePart") or item
+            if part and part:IsA("BasePart") then
+                if char and not part:IsDescendantOf(char) then
+                    part.CFrame = campfirePart.CFrame + Vector3.new(math.random(-2, 2), 1, math.random(-2, 2))
+                    count = count + 1
+                end
+            end
+        end
+    end
+    print("✅ Брошено в костер: " .. count .. " шт")
+end
+
+-- Функция отправки в скрап
+function SendToScrap()
+    local scrapMachine = nil
+    for _, obj in pairs(workspace:GetChildren()) do
+        if string.find(string.lower(obj.Name), "scrap") or 
+           string.find(string.lower(obj.Name), "chipper") or
+           string.find(string.lower(obj.Name), "grinder") or
+           string.find(string.lower(obj.Name), "machine") then
+            scrapMachine = obj
+            break
+        end
+    end
+    
+    if not scrapMachine then
+        print("❌ Скрап-машина не найдена!")
+        return
+    end
+    
+    local machinePart = scrapMachine:FindFirstChildWhichIsA("BasePart") or scrapMachine:FindFirstChild("Part") or scrapMachine
+    if not machinePart or not machinePart:IsA("BasePart") then return end
+    
+    local count = 0
+    local char = player.Character
+    for _, item in pairs(workspace:GetChildren()) do
+        if string.find(string.lower(item.Name), string.lower(SelectedScrapItem)) then
+            local part = item:FindFirstChildWhichIsA("BasePart") or item
+            if part and part:IsA("BasePart") then
+                if char and not part:IsDescendantOf(char) then
+                    part.CFrame = machinePart.CFrame + Vector3.new(math.random(-2, 2), 1, math.random(-2, 2))
+                    count = count + 1
+                end
+            end
+        end
+    end
+    print("✅ Отправлено в скрап: " .. count .. " шт")
+end
+
+-- ========== ФОНОВЫЙ ПОТОК ДЛЯ АТАК ==========
+task.spawn(function()
+    while task.wait(0.3) do
+        pcall(function()
+            local char = player.Character
+            if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChildOfClass("Humanoid") then
+                local hrp = char.HumanoidRootPart
+                local humanoid = char:FindFirstChildOfClass("Humanoid")
+                
+                -- Киллаура
+                if KillAuraEnabled then
+                    for _, monster in pairs(workspace:GetChildren()) do
+                        if monster:FindFirstChild("Humanoid") and 
+                           monster:FindFirstChild("HumanoidRootPart") and 
+                           not game.Players:GetPlayerFromCharacter(monster) then
+                            
+                            local monsterHumanoid = monster:FindFirstChildOfClass("Humanoid")
+                            local monsterHRP = monster:FindFirstChild("HumanoidRootPart")
+                            
+                            if monsterHumanoid and monsterHumanoid.Health > 0 and monsterHRP then
+                                local distance = (hrp.Position - monsterHRP.Position).Magnitude
+                                if distance < 25 then
+                                    local tool = char:FindFirstChildWhichIsA("Tool")
+                                    if tool and tool:IsA("Tool") then
+                                        tool:Activate()
+                                    end
+                                    monsterHumanoid.Health = monsterHumanoid.Health - 10
+                                end
+                            end
+                        end
+                    end
+                end
+                
+                -- Добыча деревьев
+                if TreeAuraEnabled then
+                    for _, tree in pairs(workspace:GetChildren()) do
+                        if string.find(string.lower(tree.Name), "tree") or 
+                           string.find(string.lower(tree.Name), "log") or
+                           string.find(string.lower(tree.Name), "trunk") then
+                            
+                            local treePart = tree:FindFirstChildWhichIsA("BasePart") or tree:FindFirstChild("Part") or tree
+                            if treePart and treePart:IsA("BasePart") then
+                                local distance = (hrp.Position - treePart.Position).Magnitude
+                                if distance < 40 then
+                                    local tool = char:FindFirstChildWhichIsA("Tool")
+                                    if tool and tool:IsA("Tool") then
+                                        tool:Activate()
+                                        task.wait(0.1)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+print("✅ 99 Nights Hack загружен!")
+print("📱 Нажми кнопку 'МЕНЮ' в левом верхнем углу")
