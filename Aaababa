@@ -1,0 +1,175 @@
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local LocalPlayer = Players.LocalPlayer
+
+local WH_Enabled = false
+local PanelVisible = true
+
+-- ====================================================================
+--                      СОЗДАНИЕ КАСТОМНОГО GUI
+-- ====================================================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "CustomWallHopUI"
+ScreenGui.ResetOnSpawn = false
+pcall(function() ScreenGui.Parent = CoreGui end) or pcall(function() ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end)
+
+-- 1. Главное окно меню
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 280, 0, 160)
+MainFrame.Position = UDim2.new(0.5, -140, 0.4, -80) -- Центр экрана
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true -- Меню можно перетаскивать пальцем по экрану!
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 10)
+MainCorner.Parent = MainFrame
+
+-- Заголовок меню
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.BackgroundTransparency = 1
+Title.Text = "⚡ PRO WALLHOP AI"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 16
+Title.Font = Enum.Font.GothamBold
+Title.Parent = MainFrame
+
+-- 2. Кнопка ТУМБЛЕР (Включение/Выключение велхопа)
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(1, -30, 0, 40)
+ToggleBtn.Position = UDim2.new(0, 15, 0, 50)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+ToggleBtn.Text = "АВТО-ВЕЛХОП: ВЫКЛ"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 85, 85)
+ToggleBtn.TextSize = 13
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.Parent = MainFrame
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0, 6)
+ToggleCorner.Parent = ToggleBtn
+
+-- 3. Кнопка БУСТ (Супер-прыжок)
+local BoostBtn = Instance.new("TextButton")
+BoostBtn.Size = UDim2.new(1, -30, 0, 40)
+BoostBtn.Position = UDim2.new(0, 15, 0, 100)
+BoostBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+BoostBtn.Text = "🚀 СУПЕР-ТОЛЧОК (BOOST)"
+BoostBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+BoostBtn.TextSize = 13
+BoostBtn.Font = Enum.Font.GothamBold
+BoostBtn.Parent = MainFrame
+
+local BoostCorner = Instance.new("UICorner")
+BoostCorner.CornerRadius = UDim.new(0, 6)
+BoostCorner.Parent = BoostBtn
+
+-- 4. Круглая мобильная кнопка «🤖» (Скрыть / Показать меню)
+local MobileToggleButton = Instance.new("TextButton")
+MobileToggleButton.Size = UDim2.new(0, 45, 0, 45)
+MobileToggleButton.Position = UDim2.new(1, -65, 0, 20) -- Правый верхний угол телефона
+MobileToggleButton.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+MobileToggleButton.Text = "🤖"
+MobileToggleButton.TextSize = 22
+MobileBadge = Instance.new("UICorner")
+MobileBadge.CornerRadius = UDim.new(0, 22)
+MobileBadge.Parent = MobileToggleButton
+MobileToggleButton.Parent = ScreenGui
+
+-- Логика скрытия/открытия окна по нажатию на робота
+MobileToggleButton.MouseButton1Click:Connect(function()
+    PanelVisible = not PanelVisible
+    MainFrame.Visible = PanelVisible
+    MobileToggleButton.BackgroundColor3 = PanelVisible and Color3.fromRGB(30, 30, 40) or Color3.fromRGB(15, 15, 20)
+end)
+
+-- ====================================================================
+--                      ЛОГИКА РАБОТЫ АВТО-ВЕЛХОПА
+-- ====================================================================
+
+-- Поиск стены
+local function FindNearestWall()
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+    local rootPart = character.HumanoidRootPart
+    
+    local closestWall = nil
+    local shortestDistance = 25 
+    
+    local parts = workspace:GetPartBoundsInRadius(rootPart.Position, shortestDistance)
+    for _, part in pairs(parts) do
+        if part:IsA("BasePart") and part.CanCollide and part.Size.Y > 5 and not part:IsDescendantOf(character) then
+            local distance = (rootPart.Position - part.Position).Magnitude
+            if distance < shortestDistance then
+                shortestDistance = distance
+                closestWall = part
+            end
+        end
+    end
+    return closestWall
+end
+
+-- Процесс велхопа
+local function DoWallHop()
+    if not WH_Enabled then return end
+    local character = LocalPlayer.Character
+    if not character then return end
+    local humanoid = character:FindFirstChildWhichIsA("Humanoid")
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoid or not rootPart then return end
+    
+    local targetWall = FindNearestWall()
+    if targetWall then
+        local wallPos = targetWall.Position
+        local direction = (Vector3.new(wallPos.X, rootPart.Position.Y, wallPos.Z) - rootPart.Position).Unit
+        
+        humanoid:MoveTo(wallPos - (direction * 1.5))
+        rootPart.CFrame = CFrame.lookAt(rootPart.Position, rootPart.Position - direction) -- Поворот спиной
+        
+        local ray = Ray.new(rootPart.Position, direction * 2)
+        local hit, _ = workspace:FindPartOnRayWithIgnoreList(ray, {character})
+        
+        if hit then
+            humanoid.Jump = true
+            rootPart.Velocity = Vector3.new(rootPart.Velocity.X + (direction.X * 2), 48, rootPart.Velocity.Z + (direction.Z * 2))
+            task.wait(0.08)
+        end
+    end
+end
+
+-- Логика кнопки включения
+ToggleBtn.MouseButton1Click:Connect(function()
+    WH_Enabled = not WH_Enabled
+    if WH_Enabled then
+        ToggleBtn.Text = "АВТО-ВЕЛХОП: ВКЛ"
+        ToggleBtn.TextColor3 = Color3.fromRGB(85, 255, 140) -- Зеленый
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 55, 45)
+        
+        task.spawn(function()
+            while WH_Enabled do
+                pcall(DoWallHop)
+                task.wait(0.01)
+            end
+        end)
+    else
+        ToggleBtn.Text = "АВТО-ВЕЛХОП: ВЫКЛ"
+        ToggleBtn.TextColor3 = Color3.fromRGB(255, 85, 85) -- Красный
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+        
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChildWhichIsA("Humanoid") then
+            char:FindFirstChildWhichIsA("Humanoid"):MoveTo(char:FindFirstChild("HumanoidRootPart").Position)
+        end
+    end
+end)
+
+-- Логика кнопки буста
+BoostBtn.MouseButton1Click:Connect(function()
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.Velocity = Vector3.new(char.HumanoidRootPart.Velocity.X, 65, char.HumanoidRootPart.Velocity.Z)
+    end
+end)
