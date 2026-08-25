@@ -1,0 +1,183 @@
+-- Создание элементов интерфейса
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local Title = Instance.new("TextLabel")
+local GravityInput = Instance.new("TextBox")
+local ApplyButton = Instance.new("TextButton")
+local EgorWalkButton = Instance.new("TextButton")
+local EgorGravButton = Instance.new("TextButton")
+
+-- Скругления углов
+local function addCorner(parent, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius)
+    corner.Parent = parent
+end
+
+-- Настройка контейнера
+ScreenGui.Name = "EgorAndGravityGUI"
+ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+
+-- Главное окно (увеличено, чтобы все кнопки поместились)
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.Position = UDim2.new(0.35, 0, 0.3, 0)
+MainFrame.Size = UDim2.new(0, 260, 0, 290)
+MainFrame.Active = true
+MainFrame.Draggable = true
+addCorner(MainFrame, 12)
+
+-- Заголовок
+Title.Name = "Title"
+Title.Parent = MainFrame
+Title.BackgroundTransparency = 1
+Title.Position = UDim2.new(0, 0, 0, 10)
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Font = Enum.Font.SourceSansBold
+Title.Text = "EGOR & GRAVITY MENU"
+Title.TextColor3 = Color3.fromRGB(255, 215, 0) -- Золотой цвет
+Title.TextSize = 18
+
+-- Поле ввода гравитации
+GravityInput.Name = "GravityInput"
+GravityInput.Parent = MainFrame
+GravityInput.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+GravityInput.Position = UDim2.new(0.05, 0, 0.15, 0)
+GravityInput.Size = UDim2.new(0.55, 0, 0, 35)
+GravityInput.Font = Enum.Font.SourceSans
+GravityInput.Text = "50"
+GravityInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+GravityInput.TextSize = 16
+addCorner(GravityInput, 6)
+
+-- Кнопка "Применить гравитацию"
+ApplyButton.Name = "ApplyButton"
+ApplyButton.Parent = MainFrame
+ApplyButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+ApplyButton.Position = UDim2.new(0.65, 0, 0.15, 0)
+ApplyButton.Size = UDim2.new(0.3, 0, 0, 35)
+ApplyButton.Font = Enum.Font.SourceSansBold
+ApplyButton.Text = "ОК"
+ApplyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ApplyButton.TextSize = 14
+addCorner(ApplyButton, 6)
+
+-- Кнопка 1: Роблокс Егор (Быстрые ноги, медленный бег)
+EgorWalkButton.Name = "EgorWalkButton"
+EgorWalkButton.Parent = MainFrame
+EgorWalkButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+EgorWalkButton.Position = UDim2.new(0.05, 0, 0.35, 0)
+EgorWalkButton.Size = UDim2.new(0.9, 0, 0, 45)
+EgorWalkButton.Font = Enum.Font.SourceSansBold
+EgorWalkButton.Text = "Роблокс Егор (Бег)"
+EgorWalkButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+EgorWalkButton.TextSize = 16
+addCorner(EgorWalkButton, 8)
+
+-- Кнопка 2: Роблокс Егор Гравитация (Лаганное приземление)
+EgorGravButton.Name = "EgorGravButton"
+EgorGravButton.Parent = MainFrame
+EgorGravButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+EgorGravButton.Position = UDim2.new(0.05, 0, 0.55, 0)
+EgorGravButton.Size = UDim2.new(0.9, 0, 0, 45)
+EgorGravButton.Font = Enum.Font.SourceSansBold
+EgorGravButton.Text = "Егор Гравитация (Лаги)"
+EgorGravButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+EgorGravButton.TextSize = 16
+addCorner(EgorGravButton, 8)
+
+-- ================= ЛОГИКА СУПЕР-ФУНКЦИЙ =================
+
+local player = game.Players.LocalPlayer
+local egorWalkActive = false
+local egorGravActive = false
+
+-- Смена обычной гравитации
+ApplyButton.MouseButton1Click:Connect(function()
+    local targetGravity = tonumber(GravityInput.Text)
+    if targetGravity then
+        workspace.Gravity = targetGravity
+        ApplyButton.BackgroundColor3 = Color3.fromRGB(0, 200, 50)
+        task.wait(0.5)
+        ApplyButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+    else
+        ApplyButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        task.wait(0.5)
+        ApplyButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+    end
+end)
+
+-- 1. Эффект "Роблокс Егор (Бег)"
+EgorWalkButton.MouseButton1Click:Connect(function()
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoid = character:WaitForChild("Humanoid")
+    
+    egorWalkActive = not egorWalkActive
+    
+    if egorWalkActive then
+        EgorWalkButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0) -- Красный (Активен)
+        
+        -- Уменьшаем скорость ходьбы персонажа, чтобы он шел медленно
+        humanoid.WalkSpeed = 4 
+        
+        -- Цикл, который заставляет анимацию ног проигрываться безумно быстро
+        task.spawn(function()
+            while egorWalkActive and character and humanoid.Parent do
+                for _, animScript in pairs(character:GetChildren()) do
+                    if animScript.Name == "Animate" then
+                        -- Ускоряем скорость воспроизведения анимаций ходьбы и бега
+                        pcall(function()
+                            animScript.walk.WalkAnim.AnimationId = animScript.run.RunAnim.AnimationId
+                        end)
+                    end
+                end
+                
+                -- Разгоняем скорость треков анимации ног через аниматор
+                local animator = humanoid:FindFirstChildOfClass("Animator")
+                if animator then
+                    for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                        if track.Name:lower():find("walk") or track.Name:lower():find("run") then
+                            track:AdjustSpeed(25) -- Скорость перебирания ногами х25!
+                        end
+                    end
+                end
+                task.wait(0.05)
+            end
+        end)
+    else
+        -- Возвращаем всё назад
+        EgorWalkButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        humanoid.WalkSpeed = 16
+    end
+end)
+
+-- 2. Эффект "Роблокс Егор Гравитация" (Нормальный прыжок + лаганный спуск)
+EgorGravButton.MouseButton1Click:Connect(function()
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoid = character:WaitForChild("Humanoid")
+    local hrp = character:WaitForChild("HumanoidRootPart")
+    
+    egorGravActive = not egorGravActive
+    
+    if egorGravActive then
+        EgorGravButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0) -- Красный (Активен)
+        
+        task.spawn(function()
+            while egorGravActive and character and hrp.Parent do
+                -- Проверяем, падает ли персонаж вниз после прыжка
+                if hrp.AssemblyLinearVelocity.Y < -2 then
+                    -- Имитируем "лагающее приземление": искусственно притормаживаем падение
+                    hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, -3, hrp.AssemblyLinearVelocity.Z)
+                    
+                    -- Создаем визуальный микро-дерганый эффект (лаг)
+                    hrp.CFrame = hrp.CFrame * CFrame.new(0, math.sin(tick() * 50) * 0.05, 0)
+                end
+                task.wait(0.02)
+            end
+        end)
+    else
+        EgorGravButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    end
+end)
