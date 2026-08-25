@@ -1,0 +1,86 @@
+-- Создание элементов интерфейса
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local Title = Instance.new("TextLabel")
+local GravityInput = Instance.new("TextBox")
+local ApplyButton = Instance.new("TextButton")
+local UICorner = Instance.new("UICorner")
+local UICorner2 = Instance.new("UICorner")
+local UICorner3 = Instance.new("UICorner")
+
+-- Настройка главного контейнера
+ScreenGui.Name = "GravityChangerGUI"
+ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false -- Меню не пропадет после смерти
+
+-- Стильное темное окошко
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.Position = UDim2.new(0.4, 0, 0.4, 0)
+MainFrame.Size = UDim2.new(0, 220, 0, 160)
+MainFrame.Active = true
+MainFrame.Draggable = true -- Окно можно перетаскивать мышкой по экрану
+
+UICorner.CornerRadius = UDim.new(0, 12)
+UICorner.Parent = MainFrame
+
+-- Заголовок
+Title.Name = "Title"
+Title.Parent = MainFrame
+Title.BackgroundTransparency = 1
+Title.Position = UDim2.new(0, 0, 0, 10)
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Font = Enum.Font.SourceSansBold
+Title.Text = "ГРАВИТАЦИЯ"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 18
+
+-- Поле для ввода числа (обычная гравитация = 196.2)
+GravityInput.Name = "GravityInput"
+GravityInput.Parent = MainFrame
+GravityInput.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+GravityInput.Position = UDim2.new(0.1, 0, 0.35, 0)
+GravityInput.Size = UDim2.new(0.8, 0, 0, 35)
+GravityInput.Font = Enum.Font.SourceSans
+GravityInput.Text = "50" -- Значение по умолчанию в поле ввода
+GravityInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+GravityInput.TextSize = 16
+GravityInput.PlaceholderText = "Введите число..."
+
+UICorner2.CornerRadius = UDim.new(0, 6)
+UICorner2.Parent = GravityInput
+
+-- Кнопка "Применить"
+ApplyButton.Name = "ApplyButton"
+ApplyButton.Parent = MainFrame
+ApplyButton.BackgroundColor3 = Color3.fromRGB(0, 170, 100) -- Зеленая кнопка
+ApplyButton.Position = UDim2.new(0.1, 0, 0.65, 0)
+ApplyButton.Size = UDim2.new(0.8, 0, 0, 40)
+ApplyButton.Font = Enum.Font.SourceSansBold
+ApplyButton.Text = "ПРИМЕНИТЬ"
+ApplyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ApplyButton.TextSize = 16
+
+UICorner3.CornerRadius = UDim.new(0, 8)
+UICorner3.Parent = ApplyButton
+
+-- Логика смены гравитации при клике
+ApplyButton.MouseButton1Click:Connect(function()
+    local targetGravity = tonumber(GravityInput.Text)
+    
+    if targetGravity then
+        workspace.Gravity = targetGravity
+        ApplyButton.Text = "Успешно!"
+        ApplyButton.BackgroundColor3 = Color3.fromRGB(0, 200, 50)
+        task.wait(1)
+        ApplyButton.Text = "ПРИМЕНИТЬ"
+        ApplyButton.BackgroundColor3 = Color3.fromRGB(0, 170, 100)
+    else
+        ApplyButton.Text = "Ошибка (Введите число)"
+        ApplyButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        task.wait(1.5)
+        ApplyButton.Text = "ПРИМЕНИТЬ"
+        ApplyButton.BackgroundColor3 = Color3.fromRGB(0, 170, 100)
+    end
+end)
