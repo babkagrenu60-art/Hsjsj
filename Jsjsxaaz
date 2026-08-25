@@ -1,0 +1,471 @@
+-- Исправленный скрипт для Дельты (Телефон)
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PathfindingService = game:GetService("PathfindingService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+-- Переменные
+local AI_Enabled = false
+local CurrentWaypoints = {}
+local CurrentWaypointIndex = 1
+local DeathLocations = {}
+local LastSafePosition = Vector3.new(0,0,0)
+local PanelVisible = true
+local isRunning = false
+local TargetPosition = nil
+local MoveTimer = 0
+
+-- ========== СОЗДАНИЕ GUI ==========
+local function CreateGUI()
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "AIMindMonitor"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    
+    -- Кнопка открытия/закрытия
+    local ToggleButton = Instance.new("TextButton")
+    ToggleButton.Name = "ToggleMenu"
+    ToggleButton.Parent = ScreenGui
+    ToggleButton.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    ToggleButton.Position = UDim2.new(0.02, 0, 0.05, 0)
+    ToggleButton.Size = UDim2.new(0, 50, 0, 50)
+    ToggleButton.Font = Enum.Font.SourceSansBold
+    ToggleButton.Text = "🤖"
+    ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ToggleButton.TextSize = 24
+    
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 25)
+    btnCorner.Parent = ToggleButton
+    
+    -- Главная панель
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Name = "MainFrame"
+    MainFrame.Parent = ScreenGui
+    MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    MainFrame.Position = UDim2.new(0.02, 0, 0.12, 0)
+    MainFrame.Size = UDim2.new(0, 300, 0, 220)
+    MainFrame.Active = true
+    MainFrame.Visible = true
+    
+    local frameCorner = Instance.new("UICorner")
+    frameCorner.CornerRadius = UDim.new(0, 12)
+    frameCorner.Parent = MainFrame
+    
+    local frameStroke = Instance.new("UIStroke")
+    frameStroke.Thickness = 2
+    frameStroke.Color = Color3.fromRGB(80, 80, 255)
+    frameStroke.Parent = MainFrame
+    
+    -- Перетаскивание
+    local function makeDraggable(frame)
+        local dragging, dragInput, dragStart, startPos
+        local function update(input)
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+        end
+        frame.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+               input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPos = frame.Position
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                    end
+                end)
+            end
+        end)
+        frame.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement or 
+               input.UserInputType == Enum.UserInputType.Touch then
+                dragInput = input
+            end
+        end)
+        UserInputService.InputChanged:Connect(function(input)
+            if input == dragInput and dragging then
+                update(input)
+            end
+        end)
+    end
+    
+    makeDraggable(MainFrame)
+    makeDraggable(ToggleButton)
+    
+    -- Заголовок
+    local TitleLabel = Instance.new("TextLabel")
+    TitleLabel.Parent = MainFrame
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.Position = UDim2.new(0, 10, 0, 5)
+    TitleLabel.Size = UDim2.new(1, -20, 0, 25)
+    TitleLabel.Font = Enum.Font.SourceSansBold
+    TitleLabel.Text = "🧠 САМООБУЧАЮЩИЙСЯ ПАРКУР-ИИ"
+    TitleLabel.TextColor3 = Color3.fromRGB(150, 150, 255)
+    TitleLabel.TextSize = 14
+    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    -- Статус
+    local StatusLabel = Instance.new("TextLabel")
+    StatusLabel.Name = "StatusLabel"
+    StatusLabel.Parent = MainFrame
+    StatusLabel.BackgroundTransparency = 1
+    StatusLabel.Position = UDim2.new(0, 10, 0, 35)
+    StatusLabel.Size = UDim2.new(1, -20, 0, 40)
+    StatusLabel.Font = Enum.Font.SourceSans
+    StatusLabel.Text = "🤖 Бот ожидает запуска..."
+    StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    StatusLabel.TextSize = 13
+    StatusLabel.TextWrapped = true
+    StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    -- Кнопки
+    local function createButton(parent, text, yPos, color)
+        local btn = Instance.new("TextButton")
+        btn.Parent = parent
+        btn.BackgroundColor3 = color or Color3.fromRGB(50, 50, 80)
+        btn.Position = UDim2.new(0.03, 0, yPos, 0)
+        btn.Size = UDim2.new(0.94, 0, 0, 35)
+        btn.Font = Enum.Font.SourceSansBold
+        btn.Text = text
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.TextSize = 13
+        
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 8)
+        corner.Parent = btn
+        
+        return btn
+    end
+    
+    local StartButton = createButton(MainFrame, "▶️ ЗАПУСТИТЬ ИИ", 0.50, Color3.fromRGB(0, 150, 50))
+    local ClearButton = createButton(MainFrame, "🗑️ ОЧИСТИТЬ ПАМЯТЬ", 0.68, Color3.fromRGB(150, 50, 0))
+    local TargetButton = createButton(MainFrame, "🎯 ПОКАЗАТЬ ЦЕЛЬ", 0.86, Color3.fromRGB(0, 100, 200))
+    
+    -- Логика кнопки переключения
+    ToggleButton.MouseButton1Click:Connect(function()
+        PanelVisible = not PanelVisible
+        MainFrame.Visible = PanelVisible
+        ToggleButton.BackgroundColor3 = PanelVisible and Color3.fromRGB(30, 30, 40) or Color3.fromRGB(60, 60, 80)
+    end)
+    
+    -- Функция обновления статуса
+    function SetThought(text, mode)
+        if StatusLabel then
+            if mode == "danger" then
+                StatusLabel.TextColor3 = Color3.fromRGB(255, 85, 85)
+            elseif mode == "learn" then
+                StatusLabel.TextColor3 = Color3.fromRGB(255, 170, 0)
+            else
+                StatusLabel.TextColor3 = Color3.fromRGB(85, 255, 140)
+            end
+            StatusLabel.Text = text
+        end
+    end
+    
+    -- ========== ОСНОВНЫЕ ФУНКЦИИ ИИ ==========
+    
+    -- Поиск всех доступных целей
+    function FindAllTargets()
+        local targets = {}
+        local character = LocalPlayer.Character
+        if not character or not character:FindFirstChild("HumanoidRootPart") then return targets end
+        
+        local hrp = character.HumanoidRootPart
+        local currentPos = hrp.Position
+        
+        -- Ищем все платформы и чекпоинты
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") then
+                local name = string.lower(obj.Name or "")
+                local isTarget = false
+                
+                -- Расширенный список целей
+                if string.find(name, "checkpoint") or 
+                   string.find(name, "finish") or
+                   string.find(name, "stage") or
+                   string.find(name, "platform") or
+                   string.find(name, "ground") or
+                   string.find(name, "floor") or
+                   string.find(name, "block") or
+                   string.find(name, "part") or
+                   string.find(name, "mesh") then
+                    isTarget = true
+                end
+                
+                -- Проверяем размер (не слишком маленькие)
+                if isTarget and obj.Size.Magnitude > 2 then
+                    local dist = (currentPos - obj.Position).Magnitude
+                    -- Ищем цели в радиусе 50 и выше текущей позиции
+                    if dist > 3 and dist < 80 and obj.Position.Y >= currentPos.Y - 5 then
+                        table.insert(targets, {
+                            Object = obj,
+                            Position = obj.Position,
+                            Distance = dist,
+                            Y = obj.Position.Y
+                        })
+                    end
+                end
+            end
+        end
+        
+        -- Сортируем по расстоянию
+        table.sort(targets, function(a, b)
+            return a.Distance < b.Distance
+        end)
+        
+        return targets
+    end
+    
+    -- Поиск ближайшей цели
+    function FindBestTarget()
+        local targets = FindAllTargets()
+        if #targets == 0 then return nil end
+        
+        local character = LocalPlayer.Character
+        if not character then return nil end
+        
+        local hrp = character.HumanoidRootPart
+        local currentPos = hrp.Position
+        
+        -- Сначала ищем чекпоинты
+        for _, target in pairs(targets) do
+            local name = string.lower(target.Object.Name or "")
+            if string.find(name, "checkpoint") or string.find(name, "finish") or string.find(name, "stage") then
+                if target.Distance > 5 then
+                    return target.Object
+                end
+            end
+        end
+        
+        -- Затем ищем платформы выше
+        local bestTarget = nil
+        local bestScore = -math.huge
+        
+        for _, target in pairs(targets) do
+            if target.Distance > 5 then
+                local score = 0
+                -- Выше = лучше
+                if target.Y > currentPos.Y then
+                    score = score + (target.Y - currentPos.Y) * 2
+                end
+                -- Ближе = лучше
+                score = score + (50 - target.Distance)
+                -- Предпочитаем цели выше
+                if target.Y > currentPos.Y + 1 then
+                    score = score + 30
+                end
+                
+                if score > bestScore then
+                    bestScore = score
+                    bestTarget = target.Object
+                end
+            end
+        end
+        
+        return bestTarget
+    end
+    
+    -- Поиск опасностей
+    function CheckHazards(rootPart)
+        pcall(function()
+            for _, part in pairs(workspace:GetPartBoundsInRadius(rootPart.Position, 12)) do
+                if part and part:IsA("BasePart") then
+                    local name = string.lower(part.Name or "")
+                    if string.find(name, "kill") or string.find(name, "lava") or 
+                       string.find(name, "laser") or string.find(name, "acid") or 
+                       string.find(name, "spike") or string.find(name, "void") then
+                        local relativePos = rootPart.CFrame:PointToObjectSpace(part.Position)
+                        if relativePos.Z < 0 and math.abs(relativePos.X) < 4 then
+                            return true
+                        end
+                    end
+                end
+            end
+        end)
+        return false
+    end
+    
+    -- Основной цикл движения
+    function MoveAI()
+        local character = LocalPlayer.Character
+        if not character then 
+            SetThought("❌ Персонаж не найден!", "danger")
+            return 
+        end
+        
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        local rootPart = character:FindFirstChild("HumanoidRootPart")
+        
+        if not humanoid or not rootPart or humanoid.Health <= 0 then
+            SetThought("❌ Персонаж мертв!", "danger")
+            return
+        end
+        
+        -- Проверяем места смерти
+        for _, deathPos in pairs(DeathLocations) do
+            if (rootPart.Position - deathPos).Magnitude < 10 then
+                SetThought("⚠️ Тут я уже падал! ПРЫГАЮ!", "learn")
+                humanoid.Jump = true
+                local jumpVec = rootPart.CFrame.LookVector * 25 + Vector3.new(0, 18, 0)
+                rootPart.AssemblyLinearVelocity = jumpVec
+                task.wait(0.3)
+                return
+            end
+        end
+        
+        -- Проверка опасностей
+        if CheckHazards(rootPart) then
+            SetThought("⚠️ Опасность! Перепрыгиваю!", "danger")
+            humanoid.Jump = true
+            local jumpVec = rootPart.CFrame.LookVector * 20 + Vector3.new(0, 15, 0)
+            rootPart.AssemblyLinearVelocity = jumpVec
+            task.wait(0.2)
+            return
+        end
+        
+        -- Поиск цели
+        local target = FindBestTarget()
+        
+        if not target then
+            -- Если цели не найдены, идем вперед
+            SetThought("🔍 Ищу путь вперед...", "normal")
+            local forwardPos = rootPart.Position + rootPart.CFrame.LookVector * 20
+            forwardPos = Vector3.new(forwardPos.X, rootPart.Position.Y, forwardPos.Z)
+            humanoid:MoveTo(forwardPos)
+            return
+        end
+        
+        -- Получаем позицию цели
+        local targetPos = target.Position
+        local distance = (rootPart.Position - targetPos).Magnitude
+        
+        -- Обновляем статус
+        SetThought("🎯 Движусь к цели! Расстояние: " .. math.floor(distance), "normal")
+        
+        -- Если цель далеко - бежим
+        if distance > 20 then
+            humanoid.WalkSpeed = 20
+        else
+            humanoid.WalkSpeed = 16
+        end
+        
+        -- Двигаемся к цели
+        humanoid:MoveTo(targetPos)
+        
+        -- Если нужно прыгнуть
+        if targetPos.Y > rootPart.Position.Y + 1.5 then
+            SetThought("🏃 Прыгаю на платформу выше!", "normal")
+            humanoid.Jump = true
+            
+            -- Усиленный прыжок
+            if distance < 15 then
+                local jumpVec = rootPart.CFrame.LookVector * 15 + Vector3.new(0, 20, 0)
+                rootPart.AssemblyLinearVelocity = jumpVec
+            end
+        end
+        
+        -- Если застряли - прыгаем
+        if MoveTimer > 3 then
+            SetThought("⚠️ Застрял! Прыгаю!", "danger")
+            humanoid.Jump = true
+            rootPart.AssemblyLinearVelocity = Vector3.new(0, 15, 0)
+            MoveTimer = 0
+        end
+    end
+    
+    -- ========== ЗАПУСК ИИ ==========
+    StartButton.MouseButton1Click:Connect(function()
+        AI_Enabled = not AI_Enabled
+        
+        if AI_Enabled then
+            StartButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+            StartButton.Text = "⏹️ ОСТАНОВИТЬ ИИ"
+            SetThought("✅ ИИ активирован! Ищу путь...", "normal")
+            MoveTimer = 0
+            
+            if not isRunning then
+                isRunning = true
+                task.spawn(function()
+                    while AI_Enabled and isRunning do
+                        pcall(function()
+                            MoveAI()
+                            MoveTimer = MoveTimer + 0.05
+                        end)
+                        task.wait(0.05)
+                    end
+                end)
+            end
+        else
+            StartButton.BackgroundColor3 = Color3.fromRGB(0, 150, 50)
+            StartButton.Text = "▶️ ЗАПУСТИТЬ ИИ"
+            SetThought("⏸️ ИИ деактивирован", "normal")
+            isRunning = false
+            MoveTimer = 0
+        end
+    end)
+    
+    -- ========== ОЧИСТКА ПАМЯТИ ==========
+    ClearButton.MouseButton1Click:Connect(function()
+        DeathLocations = {}
+        SetThought("🧹 Память очищена! Бот переобучается...", "normal")
+        ClearButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+        task.wait(0.5)
+        ClearButton.BackgroundColor3 = Color3.fromRGB(150, 50, 0)
+    end)
+    
+    -- ========== ПОКАЗАТЬ ЦЕЛЬ ==========
+    TargetButton.MouseButton1Click:Connect(function()
+        local target = FindBestTarget()
+        if target then
+            SetThought("🎯 Найдена цель: " .. target.Name .. " на расстоянии " .. 
+                math.floor((LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and 
+                (LocalPlayer.Character.HumanoidRootPart.Position - target.Position).Magnitude) or 0), "normal")
+            
+            -- Создаем маркер на цели
+            local marker = Instance.new("Part")
+            marker.Size = Vector3.new(2, 2, 2)
+            marker.Position = target.Position + Vector3.new(0, 2, 0)
+            marker.BrickColor = BrickColor.new("Bright red")
+            marker.Material = Enum.Material.Neon
+            marker.Anchored = true
+            marker.CanCollide = false
+            marker.Parent = workspace
+            
+            -- Удаляем через 3 секунды
+            task.delay(3, function()
+                marker:Destroy()
+            end)
+        else
+            SetThought("❌ Цели не найдены!", "danger")
+        end
+    end)
+    
+    -- Фоновое обновление
+    task.spawn(function()
+        while true do
+            task.wait(2)
+            if AI_Enabled then
+                local targets = FindAllTargets()
+                if #targets > 0 then
+                    SetThought("🧠 Найдено целей: " .. #targets .. " | Ошибок: " .. #DeathLocations, "normal")
+                end
+            end
+        end
+    end)
+    
+    return {
+        SetThought = SetThought,
+        MainFrame = MainFrame,
+        ToggleButton = ToggleButton
+    }
+end
+
+-- ========== ЗАПУСК ==========
+local GUI = CreateGUI()
+print("✅ Самообучающийся ИИ загружен для Дельты!")
+print("📱 Нажми кнопку 🤖 в левом верхнем углу для управления")
