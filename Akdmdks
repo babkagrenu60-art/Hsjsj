@@ -1,0 +1,420 @@
+-- Исправленный скрипт для Дельты (Телефон)
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PathfindingService = game:GetService("PathfindingService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+-- Переменные
+local AI_Enabled = false
+local CurrentWaypoints = {}
+local CurrentWaypointIndex = 1
+local DeathLocations = {}
+local LastSafePosition = Vector3.new(0,0,0)
+local PanelVisible = true
+local isRunning = false
+
+-- ========== СОЗДАНИЕ GUI (БЕЗ БИБЛИОТЕКИ) ==========
+local function CreateGUI()
+    -- Создаем ScreenGui
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "AIMindMonitor"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    
+    -- ========== КНОПКА ОТКРЫТИЯ/ЗАКРЫТИЯ ==========
+    local ToggleButton = Instance.new("TextButton")
+    ToggleButton.Name = "ToggleMenu"
+    ToggleButton.Parent = ScreenGui
+    ToggleButton.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    ToggleButton.Position = UDim2.new(0.02, 0, 0.05, 0)
+    ToggleButton.Size = UDim2.new(0, 50, 0, 50)
+    ToggleButton.Font = Enum.Font.SourceSansBold
+    ToggleButton.Text = "🤖"
+    ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ToggleButton.TextSize = 24
+    
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 25)
+    btnCorner.Parent = ToggleButton
+    
+    -- ========== ГЛАВНАЯ ПАНЕЛЬ ==========
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Name = "MainFrame"
+    MainFrame.Parent = ScreenGui
+    MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    MainFrame.Position = UDim2.new(0.02, 0, 0.12, 0)
+    MainFrame.Size = UDim2.new(0, 300, 0, 180)
+    MainFrame.Active = true
+    MainFrame.Visible = true
+    
+    local frameCorner = Instance.new("UICorner")
+    frameCorner.CornerRadius = UDim.new(0, 12)
+    frameCorner.Parent = MainFrame
+    
+    local frameStroke = Instance.new("UIStroke")
+    frameStroke.Thickness = 2
+    frameStroke.Color = Color3.fromRGB(80, 80, 255)
+    frameStroke.Parent = MainFrame
+    
+    -- ========== ПЕРЕТАСКИВАНИЕ ДЛЯ ТЕЛЕФОНА ==========
+    local function makeDraggable(frame)
+        local dragging, dragInput, dragStart, startPos
+        local function update(input)
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+        end
+        frame.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+               input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPos = frame.Position
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                    end
+                end)
+            end
+        end)
+        frame.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement or 
+               input.UserInputType == Enum.UserInputType.Touch then
+                dragInput = input
+            end
+        end)
+        UserInputService.InputChanged:Connect(function(input)
+            if input == dragInput and dragging then
+                update(input)
+            end
+        end)
+    end
+    
+    makeDraggable(MainFrame)
+    makeDraggable(ToggleButton)
+    
+    -- ========== ЗАГОЛОВОК ==========
+    local TitleLabel = Instance.new("TextLabel")
+    TitleLabel.Parent = MainFrame
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.Position = UDim2.new(0, 10, 0, 5)
+    TitleLabel.Size = UDim2.new(1, -20, 0, 25)
+    TitleLabel.Font = Enum.Font.SourceSansBold
+    TitleLabel.Text = "🧠 САМООБУЧАЮЩИЙСЯ ПАРКУР-ИИ"
+    TitleLabel.TextColor3 = Color3.fromRGB(150, 150, 255)
+    TitleLabel.TextSize = 14
+    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    -- ========== СТАТУС ==========
+    local StatusLabel = Instance.new("TextLabel")
+    StatusLabel.Name = "StatusLabel"
+    StatusLabel.Parent = MainFrame
+    StatusLabel.BackgroundTransparency = 1
+    StatusLabel.Position = UDim2.new(0, 10, 0, 35)
+    StatusLabel.Size = UDim2.new(1, -20, 0, 50)
+    StatusLabel.Font = Enum.Font.SourceSans
+    StatusLabel.Text = "🤖 Бот ожидает запуска..."
+    StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    StatusLabel.TextSize = 13
+    StatusLabel.TextWrapped = true
+    StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    -- ========== КНОПКИ УПРАВЛЕНИЯ ==========
+    local function createButton(parent, text, yPos, color)
+        local btn = Instance.new("TextButton")
+        btn.Parent = parent
+        btn.BackgroundColor3 = color or Color3.fromRGB(50, 50, 80)
+        btn.Position = UDim2.new(0.03, 0, yPos, 0)
+        btn.Size = UDim2.new(0.94, 0, 0, 35)
+        btn.Font = Enum.Font.SourceSansBold
+        btn.Text = text
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.TextSize = 13
+        
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 8)
+        corner.Parent = btn
+        
+        return btn
+    end
+    
+    -- Кнопка включения ИИ
+    local StartButton = createButton(MainFrame, "▶️ ЗАПУСТИТЬ ИИ", 0.55, Color3.fromRGB(0, 150, 50))
+    
+    -- Кнопка очистки памяти
+    local ClearButton = createButton(MainFrame, "🗑️ ОЧИСТИТЬ ПАМЯТЬ ОШИБОК", 0.75, Color3.fromRGB(150, 50, 0))
+    
+    -- ========== ЛОГИКА КНОПКИ ПЕРЕКЛЮЧЕНИЯ ==========
+    ToggleButton.MouseButton1Click:Connect(function()
+        PanelVisible = not PanelVisible
+        MainFrame.Visible = PanelVisible
+        ToggleButton.BackgroundColor3 = PanelVisible and Color3.fromRGB(30, 30, 40) or Color3.fromRGB(60, 60, 80)
+    end)
+    
+    -- ========== ФУНКЦИЯ ОБНОВЛЕНИЯ СТАТУСА ==========
+    function SetThought(text, mode)
+        if StatusLabel then
+            if mode == "danger" then
+                StatusLabel.TextColor3 = Color3.fromRGB(255, 85, 85)
+            elseif mode == "learn" then
+                StatusLabel.TextColor3 = Color3.fromRGB(255, 170, 0)
+            else
+                StatusLabel.TextColor3 = Color3.fromRGB(85, 255, 140)
+            end
+            StatusLabel.Text = text
+        end
+    end
+    
+    -- ========== ФУНКЦИИ СКРИПТА ==========
+    
+    -- Система фиксации смертей
+    function SetupLearning(character)
+        if not character then return end
+        local humanoid = character:WaitForChild("Humanoid")
+        local root = character:WaitForChild("HumanoidRootPart")
+        
+        task.spawn(function()
+            while character and character.Parent and humanoid.Health > 0 do
+                pcall(function()
+                    if humanoid.FloorMaterial ~= Enum.Material.Air then
+                        LastSafePosition = root.Position
+                    end
+                end)
+                task.wait(0.2)
+            end
+        end)
+        
+        humanoid.Died:Connect(function()
+            if AI_Enabled and LastSafePosition ~= Vector3.new(0,0,0) then
+                table.insert(DeathLocations, LastSafePosition)
+                SetThought("💀 Упал! Запомнил это место. В следующий раз прыгну заранее!", "learn")
+            end
+        end)
+    end
+    
+    if LocalPlayer.Character then
+        SetupLearning(LocalPlayer.Character)
+    end
+    LocalPlayer.CharacterAdded:Connect(SetupLearning)
+    
+    -- Проверка преград
+    function CheckHazards(rootPart)
+        pcall(function()
+            for _, part in pairs(workspace:GetPartBoundsInRadius(rootPart.Position, 16)) do
+                if part and part:IsA("BasePart") then
+                    local model = part:FindFirstAncestorOfClass("Model")
+                    if model and not model:FindFirstChildOfClass("Humanoid") then
+                        local name = string.lower(part.Name or "")
+                        if string.find(name, "kill") or string.find(name, "lava") or 
+                           string.find(name, "laser") or string.find(name, "acid") or 
+                           string.find(name, "spike") then
+                            local relativePos = rootPart.CFrame:PointToObjectSpace(part.Position)
+                            if relativePos.Z < 0 and math.abs(relativePos.X) < 5 then
+                                return true
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+        return false
+    end
+    
+    -- Поиск чекпоинтов
+    function FindTarget()
+        local character = LocalPlayer.Character
+        if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+        
+        local target = nil
+        local minDistance = math.huge
+        local hrp = character.HumanoidRootPart
+        
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") then
+                local name = string.lower(obj.Name or "")
+                if string.find(name, "checkpoint") or 
+                   string.find(name, "finish") or 
+                   string.find(name, "stage") or
+                   string.find(name, "platform") then
+                    
+                    local dist = (hrp.Position - obj.Position).Magnitude
+                    if dist > 6 and dist < minDistance then
+                        minDistance = dist
+                        target = obj
+                    end
+                end
+            end
+        end
+        return target
+    end
+    
+    -- Цикл ИИ
+    function MoveAI()
+        local character = LocalPlayer.Character
+        if not character then return end
+        
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        local rootPart = character:FindFirstChild("HumanoidRootPart")
+        if not humanoid or not rootPart or humanoid.Health <= 0 then return end
+        
+        -- Проверяем места смерти
+        for _, deathPos in pairs(DeathLocations) do
+            if (rootPart.Position - deathPos).Magnitude < 13 then
+                SetThought("⚠️ Тут я уже падал! ПРЫГАЮ!", "learn")
+                humanoid.Jump = true
+                local jumpDirection = (rootPart.CFrame.LookVector * 20) + Vector3.new(0, 14, 0)
+                rootPart.AssemblyLinearVelocity = Vector3.new(jumpDirection.X, rootPart.AssemblyLinearVelocity.Y + 16, jumpDirection.Z)
+                task.wait(0.3)
+                return
+            end
+        end
+        
+        -- Проверка опасностей
+        if CheckHazards(rootPart) then
+            SetThought("⚠️ Опасность! Перепрыгиваю!", "danger")
+            humanoid.Jump = true
+            local jumpDirection = (rootPart.CFrame.LookVector * 18) + Vector3.new(0, 12, 0)
+            rootPart.AssemblyLinearVelocity = Vector3.new(jumpDirection.X, rootPart.AssemblyLinearVelocity.Y + 15, jumpDirection.Z)
+            task.wait(0.2)
+            return
+        end
+        
+        -- Поиск цели
+        local target = FindTarget()
+        if not target then
+            for _, part in pairs(workspace:GetChildren()) do
+                if part:IsA("BasePart") and part.Size.X < 60 then
+                    local dist = (rootPart.Position - part.Position).Magnitude
+                    if dist < 35 and part.Position.Y >= rootPart.Position.Y - 4 then
+                        target = part
+                        break
+                    end
+                end
+            end
+        end
+        
+        if not target then
+            SetThought("🔍 Ищу маршрут...", "normal")
+            return
+        end
+        
+        -- Построение пути
+        local path = PathfindingService:CreatePath({
+            AgentRadius = 2,
+            AgentHeight = 5,
+            AgentCanJump = true,
+            AgentCanClimb = true,
+            WaypointSpacing = 2.5
+        })
+        
+        local success, err = pcall(function()
+            path:ComputeAsync(rootPart.Position, target.Position)
+        end)
+        
+        if success and path.Status == Enum.PathStatus.Success then
+            CurrentWaypoints = path:GetWaypoints()
+            CurrentWaypointIndex = 1
+            
+            if CurrentWaypointIndex <= #CurrentWaypoints and AI_Enabled then
+                local waypoint = CurrentWaypoints[CurrentWaypointIndex]
+                
+                if waypoint.Action == Enum.PathWaypointAction.Jump or waypoint.Position.Y > rootPart.Position.Y + 1.2 then
+                    SetThought("🏃 Прыгаю на платформу выше", "normal")
+                    humanoid.Jump = true
+                    rootPart.AssemblyLinearVelocity = rootPart.AssemblyLinearVelocity + (rootPart.CFrame.LookVector * 12)
+                else
+                    SetThought("🏃 Бегу вперед. Ошибок не зафиксировано", "normal")
+                end
+                
+                humanoid:MoveTo(waypoint.Position)
+                
+                local timeout = task.delay(1.5, function()
+                    if humanoid.MoveToPoint == waypoint.Position and AI_Enabled then
+                        SetThought("⚠️ Застрял! Прыгаю!", "danger")
+                        humanoid.Jump = true
+                    end
+                end)
+                
+                local finished = humanoid.MoveToFinished:Wait(2)
+                task.cancel(timeout)
+                
+                if finished then
+                    CurrentWaypointIndex = CurrentWaypointIndex + 1
+                end
+            end
+        else
+            SetThought("🔀 Срезаю путь напрямую", "normal")
+            humanoid:MoveTo(target.Position)
+            if (target.Position - rootPart.Position).Magnitude < 18 then
+                humanoid.Jump = true
+            end
+        end
+    end
+    
+    -- ========== ЗАПУСК ИИ ==========
+    StartButton.MouseButton1Click:Connect(function()
+        AI_Enabled = not AI_Enabled
+        
+        if AI_Enabled then
+            StartButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+            StartButton.Text = "⏹️ ОСТАНОВИТЬ ИИ"
+            SetThought("✅ ИИ активирован! Начинаю обучение...", "normal")
+            
+            if not isRunning then
+                isRunning = true
+                task.spawn(function()
+                    while AI_Enabled and isRunning do
+                        pcall(MoveAI)
+                        task.wait(0.05)
+                    end
+                end)
+            end
+        else
+            StartButton.BackgroundColor3 = Color3.fromRGB(0, 150, 50)
+            StartButton.Text = "▶️ ЗАПУСТИТЬ ИИ"
+            SetThought("⏸️ ИИ деактивирован", "normal")
+            isRunning = false
+            
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChildOfClass("Humanoid") then
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    char:FindFirstChildOfClass("Humanoid"):MoveTo(hrp.Position)
+                end
+            end
+        end
+    end)
+    
+    -- ========== ОЧИСТКА ПАМЯТИ ==========
+    ClearButton.MouseButton1Click:Connect(function()
+        DeathLocations = {}
+        SetThought("🧹 Память очищена! Бот переобучается...", "normal")
+        ClearButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+        task.wait(0.5)
+        ClearButton.BackgroundColor3 = Color3.fromRGB(150, 50, 0)
+    end)
+    
+    -- ========== ФОНОВОЕ ОБНОВЛЕНИЕ ==========
+    task.spawn(function()
+        while true do
+            task.wait(2)
+            if AI_Enabled and #DeathLocations > 0 then
+                SetThought("🧠 Запомнено ошибок: " .. #DeathLocations, "normal")
+            end
+        end
+    end)
+    
+    return {
+        SetThought = SetThought,
+        MainFrame = MainFrame,
+        ToggleButton = ToggleButton
+    }
+end
+
+-- ========== ЗАПУСК ==========
+local GUI = CreateGUI()
+print("✅ Самообучающийся ИИ загружен для Дельты!")
+print("📱 Нажми кнопку 🤖 в левом верхнем углу для управления")
