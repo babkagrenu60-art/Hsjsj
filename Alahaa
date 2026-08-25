@@ -1,0 +1,286 @@
+-- ==========================================
+-- НАСТРОЙКА ИНТРО (ЭКРАН ЗАСТАВКИ)
+-- ==========================================
+local player = game.Players.LocalPlayer
+local pgui = player:WaitForChild("PlayerGui")
+
+-- Удаляем старые копии, если они были
+if pgui:FindFirstChild("EgorAndGravityGUI") then pgui.EgorAndGravityGUI:Destroy() end
+if pgui:FindFirstChild("IntroScreenGui") then pgui.IntroScreenGui:Destroy() end
+
+local IntroGui = Instance.new("ScreenGui")
+IntroGui.Name = "IntroScreenGui"
+IntroGui.Parent = pgui
+IntroGui.IgnoreGuiInset = true
+
+local BlackFrame = Instance.new("Frame")
+BlackFrame.Size = UDim2.new(1, 0, 1, 0)
+BlackFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+BlackFrame.BackgroundTransparency = 0
+BlackFrame.Parent = IntroGui
+
+local IntroText = Instance.new("TextLabel")
+IntroText.Size = UDim2.new(1, 0, 1, 0)
+IntroText.BackgroundTransparency = 1
+IntroText.Font = Enum.Font.SpecialElite
+IntroText.TextColor3 = Color3.fromRGB(255, 255, 255)
+IntroText.TextSize = 45
+IntroText.TextTransparency = 1
+IntroText.Text = "By: Gregoo"
+IntroText.Parent = BlackFrame
+
+-- Анимация плавного появления текста
+local function fadeText(textLabel, targetTransparency, duration)
+    local steps = 20
+    local current = textLabel.TextTransparency
+    local diff = targetTransparency - current
+    for i = 1, steps do
+        textLabel.TextTransparency = current + (diff * (i / steps))
+        task.wait(duration / steps)
+    end
+end
+
+-- Логика заставки (Интро последовательность)
+task.spawn(function()
+    task.wait(0.5)
+    fadeText(IntroText, 0, 0.8) -- Появление "By: Gregoo"
+    task.wait(4)
+    fadeText(IntroText, 1, 0.8) -- Плавное исчезновение "By: Gregoo"
+    
+    IntroText.Text = "Приятной игры!"
+    fadeText(IntroText, 0, 0.8) -- Появление "Приятной игры!"
+    task.wait(3)
+    fadeText(IntroText, 1, 0.8) -- Исчезновение "Приятной игры!"
+    
+    -- Плавное исчезновение черного фона
+    local steps = 20
+    for i = 1, steps do
+        BlackFrame.BackgroundTransparency = i / steps
+        task.wait(0.5 / steps)
+    end
+    IntroGui:Destroy() -- Уничтожаем интро, открываем чит-панель
+end)
+
+
+-- ==========================================
+-- ОСНОВНАЯ ЧИТ-ПАНЕЛЬ (СПУСТЯ ЗАСТАВКУ)
+-- ==========================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "EgorAndGravityGUI"
+ScreenGui.Parent = pgui
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Enabled = false -- Изначально выключено, пока идет интро
+
+task.spawn(function()
+    task.wait(9.5) -- Время, пока идет анимация заставки
+    ScreenGui.Enabled = true
+end)
+
+local MainFrame = Instance.new("Frame")
+local Title = Instance.new("TextLabel")
+local GravityInput = Instance.new("TextBox")
+local ApplyButton = Instance.new("TextButton")
+local EgorWalkButton = Instance.new("TextButton")
+local EgorGravButton = Instance.new("TextButton")
+local RagdollButton = Instance.new("TextButton")
+local OpenCloseButton = Instance.new("TextButton")
+
+local function addCorner(parent, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius)
+    corner.Parent = parent
+end
+
+-- Кнопка Открыть/Закрыть (Всегда видна на экране снаружи панели)
+OpenCloseButton.Name = "ToggleMenu"
+OpenCloseButton.Parent = ScreenGui
+OpenCloseButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+OpenCloseButton.Position = UDim2.new(0, 20, 0.85, 0)
+OpenCloseButton.Size = UDim2.new(0, 110, 0, 35)
+OpenCloseButton.Font = Enum.Font.SourceSansBold
+OpenCloseButton.Text = "МЕНЮ (ЗАКРЫТЬ)"
+OpenCloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+OpenCloseButton.TextSize = 13
+addCorner(OpenCloseButton, 6)
+
+-- Главное окно
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.Position = UDim2.new(0.35, 0, 0.25, 0)
+MainFrame.Size = UDim2.new(0, 260, 0, 350)
+MainFrame.Active = true
+MainFrame.Draggable = true
+addCorner(MainFrame, 12)
+
+-- Добавление обводки для RGB
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Thickness = 3
+UIStroke.Parent = MainFrame
+
+-- Заголовок меню
+Title.Name = "Title"
+Title.Parent = MainFrame
+Title.BackgroundTransparency = 1
+Title.Position = UDim2.new(0, 0, 0, 8)
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Font = Enum.Font.SourceSansBold
+Title.Text = "EGOR & GRAVITY MENU"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 16
+
+-- Поле ввода гравитации
+GravityInput.Name = "GravityInput"
+GravityInput.Parent = MainFrame
+GravityInput.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+GravityInput.Position = UDim2.new(0.05, 0, 0.13, 0)
+GravityInput.Size = UDim2.new(0.55, 0, 0, 35)
+GravityInput.Font = Enum.Font.SourceSans
+GravityInput.Text = "50"
+GravityInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+GravityInput.TextSize = 16
+addCorner(GravityInput, 6)
+
+-- Кнопка смены гравитации
+ApplyButton.Name = "ApplyButton"
+ApplyButton.Parent = MainFrame
+ApplyButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+ApplyButton.Position = UDim2.new(0.65, 0, 0.13, 0)
+ApplyButton.Size = UDim2.new(0.3, 0, 0, 35)
+ApplyButton.Font = Enum.Font.SourceSansBold
+ApplyButton.Text = "OK"
+ApplyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ApplyButton.TextSize = 14
+addCorner(ApplyButton, 6)
+
+-- Кнопки функций
+local buttons = {
+    {EgorWalkButton, "Роблокс Егор (Бег)", 0.28},
+    {EgorGravButton, "Егор Гравитация (Лаги)", 0.44},
+    {RagdollButton, "Регдолл (Упасть)", 0.60}
+}
+
+for _, bData in pairs(buttons) do
+    local b = bData[1]
+    b.Parent = MainFrame
+    b.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    b.Position = UDim2.new(0.05, 0, bData[3], 0)
+    b.Size = UDim2.new(0.9, 0, 0, 45)
+    b.Font = Enum.Font.SourceSansBold
+    b.Text = bData[2]
+    b.TextColor3 = Color3.fromRGB(255, 255, 255)
+    b.TextSize = 15
+    addCorner(b, 8)
+end
+
+-- ==========================================
+-- ЛОГИКА И СТРИМ-ФУНКЦИИ
+-- ==========================================
+
+-- 1. Скрипт RGB подсветки (Обводка плавно переливается цветами)
+task.spawn(function()
+    while true do
+        for hue = 0, 1, 0.001 do
+            UIStroke.Color = Color3.fromHSV(hue, 1, 1)
+            task.wait(0.01)
+        end
+    end
+end)
+
+-- 2. Свернуть / Развернуть менюшки
+OpenCloseButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+    if MainFrame.Visible then
+        OpenCloseButton.Text = "МЕНЮ (ЗАКРЫТЬ)"
+        OpenCloseButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    else
+        OpenCloseButton.Text = "МЕНЮ (ОТКРЫТЬ)"
+        OpenCloseButton.BackgroundColor3 = Color3.fromRGB(0, 170, 100)
+    end
+end)
+
+-- Смена гравитации
+ApplyButton.MouseButton1Click:Connect(function()
+    local tg = tonumber(GravityInput.Text)
+    if tg then workspace.Gravity = tg end
+end)
+
+-- Режим Егор-Бега
+local egorWalkActive = false
+EgorWalkButton.MouseButton1Click:Connect(function()
+    local char = player.Character or player.CharacterAdded:Wait()
+    local hum = char:WaitForChild("Humanoid")
+    egorWalkActive = not egorWalkActive
+    if egorWalkActive then
+        EgorWalkButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+        hum.WalkSpeed = 4
+        task.spawn(function()
+            while egorWalkActive and char and hum.Parent do
+                local animator = hum:FindFirstChildOfClass("Animator")
+                if animator then
+                    for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                        if track.Name:lower():find("walk") or track.Name:lower():find("run") then
+                            track:AdjustSpeed(25)
+                        end
+                    end
+                end
+                task.wait(0.05)
+            end
+        end)
+    else
+        EgorWalkButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+        hum.WalkSpeed = 16
+    end
+end)
+
+-- Режим Егор-Лага
+local egorGravActive = false
+EgorGravButton.MouseButton1Click:Connect(function()
+    local char = player.Character or player.CharacterAdded:Wait()
+    local hrp = char:WaitForChild("HumanoidRootPart")
+    egorGravActive = not egorGravActive
+    if egorGravActive then
+        EgorGravButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+        task.spawn(function()
+            while egorGravActive and char and hrp.Parent do
+                if hrp.AssemblyLinearVelocity.Y < -2 then
+                    hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, -3, hrp.AssemblyLinearVelocity.Z)
+                    hrp.CFrame = hrp.CFrame * CFrame.new(0, math.sin(tick() * 50) * 0.05, 0)
+                end
+                task.wait(0.02)
+            end
+        end)
+    else
+        EgorGravButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    end
+end)
+
+-- 3. Функция РЕГДОЛЛ (Физика тряпичной куклы / падение на землю)
+local ragdollActive = false
+RagdollButton.MouseButton1Click:Connect(function()
+    local char = player.Character or player.CharacterAdded:Wait()
+    local hum = char:WaitForChild("Humanoid")
+    ragdollActive = not ragdollActive
+    
+    if ragdollActive then
+        RagdollButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+        -- Переключаем состояние гуманоида в падение
+        hum:ChangeState(Enum.HumanoidStateType.Physics)
+        
+        -- Проходимся по частям тела персонажа и временно ослабляем соединение (или укладываем его)
+        for _, part in pairs(char:GetChildren()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                -- Отключаем жесткую анимацию, укладывая симуляцию физики
+                task.spawn(function()
+                    while ragdollActive do
+                        hum:ChangeState(Enum.HumanoidStateType.Physics)
+                        task.wait(0.1)
+                    end
+                end)
+            end
+        end
+    else
+        RagdollButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+        -- Возвращаем управление и поднимаем персонажа на ноги
+        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+        task.wait(0.1)
