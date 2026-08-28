@@ -1,0 +1,462 @@
+-- Загрузка библиотеки Fluent
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+
+-- Создание главного окна
+local Window = Fluent:CreateWindow({
+    Title = "MM2 Premium Hub",
+    SubTitle = "by AI Assistant",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(580, 460),
+    Acrylic = true,
+    Theme = "Dark",
+    MinimizeKey = Enum.KeyCode.LeftControl
+})
+
+-- Вкладки
+local Tabs = {
+    Main = Window:AddTab({ Title = "Видение ролей", Icon = "eye" }),
+    Combat = Window:AddTab({ Title = "Комбат", Icon = "sword" }),
+    Wallhack = Window:AddTab({ Title = "Wallhack", Icon = "wall" }),
+    Settings = Window:AddTab({ Title = "Настройки", Icon = "settings" })
+}
+
+-- Глобальные переменные
+local Settings = {
+    HitboxSize = 10,
+    ManceType = "Телепорт",
+    ShootWhenDrawn = false,
+    Wallbang = false,
+    GuardPistol = false,
+    ESPEnabled = true,
+    WallhackEnabled = false
+}
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+
+-- ========== ESP С ПОДСВЕТКОЙ (БЕЗ КВАДРАТИКОВ) ==========
+local ESPObjects = {}
+
+local function getPlayerRole(player)
+    if player == LocalPlayer then return "Вы" end
+    local char = player.Character
+    local backpack = player.Backpack
+    if not char then return "Неизвестно" end
+    local hasKnife = char:FindFirstChild("Knife") or backpack:FindFirstChild("Knife")
+    local hasGun = char:FindFirstChild("Gun") or backpack:FindFirstChild("Gun")
+    if hasKnife and hasGun then return "Убийца/Шериф"
+    elseif hasKnife then return "Убийца"
+    elseif hasGun then return "Шериф"
+    else return "Невиновный" end
+end
+
+local function createGlow(player)
+    if player == LocalPlayer then return end
+    local char = player.Character
+    if not char then return end
+    
+    if ESPObjects[player] then
+        for _, obj in pairs(ESPObjects[player]) do
+            obj:Destroy()
+        end
+        ESPObjects[player] = nil
+    end
+    
+    if not Settings.ESPEnabled then return end
+    
+    local role = getPlayerRole(player)
+    local color
+    
+    if role == "Убийца" then
+        color = Color3.fromRGB(255, 0, 0)
+    elseif role == "Шериф" then
+        color = Color3.fromRGB(0, 150, 255)
+    elseif role == "Невиновный" then
+        color = Color3.fromRGB(0, 255, 100)
+    else
+        color = Color3.fromRGB(255, 255, 255)
+    end
+    
+    -- ТОЛЬКО ПОДСВЕТКА (Highlight) - БЕЗ КВАДРАТИКОВ!
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "RoleGlow"
+    highlight.Adornee = char
+    highlight.FillColor = color
+    highlight.FillTransparency = 0.4
+    highlight.OutlineColor = color
+    highlight.OutlineTransparency = 0.1
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Parent = char
+    
+    ESPObjects[player] = {highlight}
+end
+
+local function updateESP()
+    for _, player in pairs(Players:GetPlayers()) do
+        createGlow(player)
+    end
+end
+
+local function clearESP()
+    for player, objects in pairs(ESPObjects) do
+        for _, obj in pairs(objects) do
+            obj:Destroy()
+        end
+    end
+    ESPObjects = {}
+end
+
+function toggleESP(state)
+    Settings.ESPEnabled = state
+    if state then
+        updateESP()
+    else
+        clearESP()
+    end
+end
+
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        task.wait(0.5)
+        createGlow(player)
+    end)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    if ESPObjects[player] then
+        for _, obj in pairs(ESPObjects[player]) do
+            obj:Destroy()
+        end
+        ESPObjects[player] = nil
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.5) do
+        if Settings.ESPEnabled then
+            updateESP()
+        end
+    end
+end)
+
+-- ========== WALLHACK (БЕЗ ИЗМЕНЕНИЯ КАЧЕСТВА) ==========
+local WallhackObjects = {}
+
+local function toggleWallhack(state)
+    Settings.WallhackEnabled = state
+    
+    if state then
+        -- Включаем Wallhack - делаем стены прозрачными ТОЛЬКО для игрока
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v:IsA("BasePart") and v.Name ~= "Handle" and v.Name ~= "Knife" and v.Name ~= "Gun" then
+                if v:FindFirstChild("OriginalTransparency") == nil then
+                    local orig = Instance.new("NumberValue")
+                    orig.Name = "OriginalTransparency"
+                    orig.Value = v.Transparency
+                    orig.Parent = v
+                end
+                v.Transparency = 0.5
+                v.Material = Enum.Material.SmoothPlastic -- Сохраняем качество
+            end
+        end
+        Fluent:Notify({ Title = "Wallhack", Content = "Включен!", Duration = 2 })
+    else
+        -- Выключаем Wallhack - возвращаем всё обратно
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v:IsA("BasePart") then
+                local orig = v:FindFirstChild("OriginalTransparency")
+                if orig then
+                    v.Transparency = orig.Value
+                    orig:Destroy()
+                end
+            end
+        end
+        Fluent:Notify({ Title = "Wallhack", Content = "Выключен!", Duration = 2 })
+    end
+end
+
+-- ========== ВКЛАДКИ ==========
+
+-- ВКЛАДКА 1: ВИДЕНИЕ РОЛЕЙ
+Tabs.Main:AddParagraph({
+    Title = "Информация о ролях",
+    Content = "🔴 Красный - Убийца\n🔵 Синий - Шериф\n🟢 Зеленый - Невиновный"
+})
+
+Tabs.Main:AddToggle("ESPToggle", {
+    Title = "Включить ESP",
+    Description = "Подсветка игроков цветом роли",
+    Default = true,
+    Callback = function(state)
+        toggleESP(state)
+    end
+})
+
+Tabs.Main:AddButton({
+    Title = "Обновить ESP",
+    Description = "Пересоздать подсветку",
+    Callback = function()
+        clearESP()
+        task.wait(0.1)
+        updateESP()
+        Fluent:Notify({ Title = "Готово", Content = "ESP обновлен!", Duration = 2 })
+    end
+})
+
+-- ВКЛАДКА 2: КОМБАТ
+local InnocentSection = Tabs.Combat:AddSection("Невиновный")
+
+InnocentSection:AddButton({
+    Title = "Авто-подбор пистолета",
+    Description = "ТП к упавшему пистолету",
+    Callback = function()
+        local gunDrop = workspace:FindFirstChild("GunDrop")
+        if gunDrop and LocalPlayer.Character then
+            local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local oldPos = hrp.CFrame
+                hrp.CFrame = gunDrop.CFrame * CFrame.new(0,2,0)
+                task.wait(0.3)
+                hrp.CFrame = oldPos
+                Fluent:Notify({ Title = "Успех", Content = "Пистолет подобран!", Duration = 2 })
+            end
+        else
+            Fluent:Notify({ Title = "Ошибка", Content = "Пистолет не найден!", Duration = 2 })
+        end
+    end
+})
+
+local manceEnabled = false
+InnocentSection:AddToggle("AutoMance", {
+    Title = "Авто-манс (Уклонение)",
+    Default = false,
+    Callback = function(state) manceEnabled = state end
+})
+
+task.spawn(function()
+    while task.wait(0.1) do
+        if manceEnabled and LocalPlayer.Character then
+            local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                for _, v in pairs(workspace:GetChildren()) do
+                    if v:IsA("BasePart") and v.Name == "Knife" then
+                        local dist = (v.Position - hrp.Position).Magnitude
+                        if dist < 15 then
+                            if Settings.ManceType == "Телепорт" then
+                                hrp.CFrame = CFrame.new(hrp.Position + Vector3.new(math.random(-20,20),0,math.random(-20,20)))
+                            else
+                                local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
+                                if humanoid then humanoid.Jump = true end
+                            end
+                            task.wait(0.5)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+InnocentSection:AddDropdown("ManceMode", {
+    Title = "Тип манса",
+    Values = {"Телепорт", "Прыжок"},
+    Default = "Телепорт",
+    Callback = function(value) Settings.ManceType = value end
+})
+
+-- Шериф
+local SheriffSection = Tabs.Combat:AddSection("Шериф")
+
+local autoShootEnabled = false
+SheriffSection:AddToggle("AutoShoot", {
+    Title = "Авто-выстрел в Убийцу",
+    Default = false,
+    Callback = function(state) autoShootEnabled = state end
+})
+
+local function findMurderer()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local char = player.Character
+            local backpack = player.Backpack
+            if char and (char:FindFirstChild("Knife") or backpack:FindFirstChild("Knife")) then
+                return player
+            end
+        end
+    end
+    return nil
+end
+
+task.spawn(function()
+    while task.wait(0.15) do
+        if autoShootEnabled and LocalPlayer.Character then
+            local gun = LocalPlayer.Character:FindFirstChild("Gun")
+            if gun then
+                local murderer = findMurderer()
+                if murderer and murderer.Character then
+                    local hrp = murderer.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        local hasKnifeOut = murderer.Character:FindFirstChild("Knife")
+                        if not Settings.ShootWhenDrawn or (Settings.ShootWhenDrawn and hasKnifeOut) then
+                            local mouse = LocalPlayer:GetMouse()
+                            if mouse then
+                                local screenPos, onScreen = workspace.CurrentCamera:WorldToScreenPoint(hrp.Position)
+                                if onScreen then
+                                    mouse.Hit = CFrame.new(hrp.Position)
+                                    UserInputService.InputBegan:Fire(mouse, Enum.UserInputType.MouseButton1)
+                                    task.wait(0.05)
+                                    UserInputService.InputEnded:Fire(mouse, Enum.UserInputType.MouseButton1)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+SheriffSection:AddToggle("ShootDrawn", {
+    Title = "Стрелять только когда убийца с ножом",
+    Default = false,
+    Callback = function(state) Settings.ShootWhenDrawn = state end
+})
+
+-- Убийца
+local MurdererSection = Tabs.Combat:AddSection("Убийца")
+
+local killAuraEnabled = false
+MurdererSection:AddToggle("KillAura", {
+    Title = "Килл-аура ножа",
+    Default = false,
+    Callback = function(state) killAuraEnabled = state end
+})
+
+task.spawn(function()
+    while task.wait(0.05) do
+        if killAuraEnabled and LocalPlayer.Character then
+            local knife = LocalPlayer.Character:FindFirstChild("Knife")
+            if knife then
+                local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    for _, player in pairs(Players:GetPlayers()) do
+                        if player ~= LocalPlayer and player.Character then
+                            local targetHrp = player.Character:FindFirstChild("HumanoidRootPart")
+                            if targetHrp then
+                                local dist = (hrp.Position - targetHrp.Position).Magnitude
+                                if dist <= Settings.HitboxSize then
+                                    local humanoid = player.Character:FindFirstChild("Humanoid")
+                                    if humanoid and humanoid.Health > 0 then humanoid.Health = 0 end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+MurdererSection:AddSlider("HitboxSlider", {
+    Title = "Дистанция килл-ауры",
+    Min = 5,
+    Max = 30,
+    Default = 10,
+    Rounding = 1,
+    Callback = function(value) Settings.HitboxSize = value end
+})
+
+local guardEnabled = false
+MurdererSection:AddToggle("GuardPistol", {
+    Title = "Охранять пистолет",
+    Default = false,
+    Callback = function(state) guardEnabled = state end
+})
+
+task.spawn(function()
+    local lastPos = nil
+    while task.wait(0.2) do
+        if guardEnabled and LocalPlayer.Character then
+            local gunDrop = workspace:FindFirstChild("GunDrop")
+            if gunDrop then
+                local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    for _, player in pairs(Players:GetPlayers()) do
+                        if player ~= LocalPlayer and player.Character then
+                            local targetHrp = player.Character:FindFirstChild("HumanoidRootPart")
+                            if targetHrp then
+                                local dist = (targetHrp.Position - gunDrop.Position).Magnitude
+                                if dist < 8 then
+                                    lastPos = hrp.CFrame
+                                    hrp.CFrame = targetHrp.CFrame
+                                    task.wait(0.3)
+                                    if lastPos then hrp.CFrame = lastPos end
+                                    break
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- ВКЛАДКА 3: WALLHACK
+Tabs.Wallhack:AddParagraph({
+    Title = "Wallhack (Просмотр сквозь стены)",
+    Content = "Делает стены полупрозрачными"
+})
+
+Tabs.Wallhack:AddToggle("WallhackToggle", {
+    Title = "Включить Wallhack",
+    Description = "Сделать стены прозрачными (без потери качества)",
+    Default = false,
+    Callback = function(state)
+        toggleWallhack(state)
+    end
+})
+
+Tabs.Wallhack:AddButton({
+    Title = "Восстановить стены",
+    Description = "Вернуть стенам исходный вид",
+    Callback = function()
+        if Settings.WallhackEnabled then
+            toggleWallhack(false)
+        else
+            for _, v in pairs(workspace:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    local orig = v:FindFirstChild("OriginalTransparency")
+                    if orig then
+                        v.Transparency = orig.Value
+                        orig:Destroy()
+                    end
+                end
+            end
+        end
+        Fluent:Notify({ Title = "Готово", Content = "Стены восстановлены!", Duration = 2 })
+    end
+})
+
+-- ВКЛАДКА 4: НАСТРОЙКИ
+Tabs.Settings:AddParagraph({
+    Title = "Управление",
+    Content = "🔄 Нажмите Left Control для скрытия/открытия меню\n📌 Перетаскивайте меню за заголовок"
+})
+
+Tabs.Settings:AddButton({
+    Title = "Закрыть хаб",
+    Description = "Закрыть интерфейс",
+    Callback = function()
+        Window:Close()
+        Fluent:Notify({ Title = "Хаб", Content = "Закрыт! Нажмите Left Control", Duration = 2 })
+    end
+})
+
+-- Уведомление
+Fluent:Notify({
+    Title = "MM2 Скрипт",
+    Content = "Интерфейс загружен! Нажмите Left Control",
+    Duration = 5
+})
