@@ -1,0 +1,315 @@
+-- Загрузка библиотеки Fluent
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+
+-- СОЗДАЕМ ГЛАВНОЕ ОКНО
+local Window = Fluent:CreateWindow({
+    Title = "MM2 ADMIN • TEST",
+    SubTitle = "by AI Assistant",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(580, 460),
+    Acrylic = true,
+    Theme = "Dark",
+    MinimizeKey = Enum.KeyCode.LeftControl
+})
+
+-- КНОПКА ДЛЯ ОТКРЫТИЯ/ЗАКРЫТИЯ
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Size = UDim2.new(0, 55, 0, 55)
+ToggleButton.Position = UDim2.new(0, 15, 0.5, -27)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+ToggleButton.BackgroundTransparency = 0.2
+ToggleButton.Text = "MM2"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.TextSize = 14
+ToggleButton.Font = Enum.Font.GothamBold
+ToggleButton.BorderSizePixel = 0
+ToggleButton.Visible = false
+ToggleButton.Parent = game.Players.LocalPlayer.PlayerGui
+
+-- Анимация кнопки
+local TweenService = game:GetService("TweenService")
+ToggleButton.MouseEnter:Connect(function()
+    TweenService:Create(ToggleButton, TweenInfo.new(0.2), {BackgroundTransparency = 0, Size = UDim2.new(0, 60, 0, 60)}):Play()
+end)
+ToggleButton.MouseLeave:Connect(function()
+    TweenService:Create(ToggleButton, TweenInfo.new(0.2), {BackgroundTransparency = 0.2, Size = UDim2.new(0, 55, 0, 55)}):Play()
+end)
+
+-- Функции открытия/закрытия
+local function OpenMenu()
+    Window:Show()
+    ToggleButton.Visible = false
+end
+local function CloseMenu()
+    Window:Hide()
+    ToggleButton.Visible = true
+end
+ToggleButton.MouseButton1Click:Connect(OpenMenu)
+
+-- Вкладки
+local Tabs = {
+    Innocent = Window:AddTab({ Title = "Невиновный", Icon = "shield" }),
+    Sheriff = Window:AddTab({ Title = "Шериф", Icon = "gun" }),
+    Murderer = Window:AddTab({ Title = "Убийца", Icon = "sword" }),
+    Troll = Window:AddTab({ Title = "Троль", Icon = "skull" }),
+    Settings = Window:AddTab({ Title = "Настройки", Icon = "settings" })
+}
+
+-- ========== НАСТРОЙКИ ==========
+local Settings = {
+    AutoGun = false, AutoDodge = false, DodgeMode = "Телепорт",
+    AutoShoot = false, ShootWithKnife = false, ShootThroughWalls = false,
+    KillAura = false, KillDistance = 10, GuardGun = false,
+    Push = false, PushDistance = 8, PushPower = 60,
+    NightVision = false
+}
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+
+-- ========== ESP НОЧНОЕ ЗРЕНИЕ ==========
+local ESPObjects = {}
+local function getPlayerRole(p)
+    if p == LocalPlayer then return end
+    local c = p.Character
+    if not c then return end
+    local knife = c:FindFirstChild("Knife") or p.Backpack:FindFirstChild("Knife")
+    local gun = c:FindFirstChild("Gun") or p.Backpack:FindFirstChild("Gun")
+    if knife and gun then return "Убийца/Шериф"
+    elseif knife then return "Убийца"
+    elseif gun then return "Шериф"
+    else return "Невиновный" end
+end
+
+local function createNightVision(p)
+    if p == LocalPlayer then return end
+    local c = p.Character
+    if not c then return end
+    if ESPObjects[p] then for _,o in pairs(ESPObjects[p]) do o:Destroy() end ESPObjects[p]=nil end
+    if not Settings.NightVision then return end
+    local role = getPlayerRole(p)
+    local color = role=="Убийца" and Color3.fromRGB(0,255,0) or role=="Шериф" and Color3.fromRGB(0,150,255) or Color3.fromRGB(255,255,255)
+    local h = Instance.new("Highlight")
+    h.Name = "NightVision"
+    h.Adornee = c
+    h.FillColor = color
+    h.FillTransparency = 0.3
+    h.OutlineColor = color
+    h.OutlineTransparency = 0.1
+    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    h.Parent = c
+    ESPObjects[p] = {h}
+end
+
+local function updateESP()
+    for _,p in pairs(Players:GetPlayers()) do createNightVision(p) end
+end
+local function clearESP()
+    for p,o in pairs(ESPObjects) do for _,obj in pairs(o) do obj:Destroy() end end ESPObjects={}
+end
+
+Players.PlayerAdded:Connect(function(p)
+    p.CharacterAdded:Connect(function() task.wait(.5) createNightVision(p) end)
+end)
+Players.PlayerRemoving:Connect(function(p)
+    if ESPObjects[p] then for _,o in pairs(ESPObjects[p]) do o:Destroy() end ESPObjects[p]=nil end
+end)
+
+-- ========== ФУНКЦИИ ==========
+local function findMurderer()
+    for _,p in pairs(Players:GetPlayers()) do
+        if p~=LocalPlayer then
+            local c = p.Character
+            if c and (c:FindFirstChild("Knife") or p.Backpack:FindFirstChild("Knife")) then return p end
+        end
+    end return nil
+end
+
+-- ========== ВКЛАДКА: НЕВИНОВНЫЙ ==========
+Tabs.Innocent:AddParagraph({Title="🟢 Невиновный", Content="Настройки для невиновного игрока"})
+Tabs.Innocent:AddToggle("AutoGun",{Title="Авто подбор пистолета",Default=false,Callback=function(s)Settings.AutoGun=s end})
+Tabs.Innocent:AddToggle("AutoDodge",{Title="Авто манс",Default=false,Callback=function(s)Settings.AutoDodge=s end})
+Tabs.Innocent:AddDropdown("DodgeMode",{Title="Режим уклонения",Values={"Телепорт","Прыжок"},Default="Телепорт",Callback=function(v)Settings.DodgeMode=v end})
+
+Tabs.Innocent:AddButton({Title="Подобрать пистолет",Description="ТП к упавшему пистолету",Callback=function()
+    local g=workspace:FindFirstChild("GunDrop")
+    if g and LocalPlayer.Character then
+        local h=LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if h then
+            local o=h.CFrame
+            h.CFrame=g.CFrame*CFrame.new(0,2,0)
+            task.wait(.3)
+            h.CFrame=o
+            Fluent:Notify({Title="Успех",Content="Пистолет подобран!",Duration=2})
+        end
+    end
+end})
+
+-- ========== ВКЛАДКА: ШЕРИФ ==========
+Tabs.Sheriff:AddParagraph({Title="🔵 Шериф", Content="Настройки для шерифа"})
+Tabs.Sheriff:AddToggle("AutoShoot",{Title="Авто выстрел",Default=false,Callback=function(s)Settings.AutoShoot=s end})
+Tabs.Sheriff:AddToggle("ShootWithKnife",{Title="Стрелять при ноже",Default=false,Callback=function(s)Settings.ShootWithKnife=s end})
+Tabs.Sheriff:AddToggle("ShootThroughWalls",{Title="Стрельба сквозь стены",Default=false,Callback=function(s)Settings.ShootThroughWalls=s end})
+
+-- ========== ВКЛАДКА: УБИЙЦА ==========
+Tabs.Murderer:AddParagraph({Title="🔴 Убийца", Content="Настройки для убийцы"})
+Tabs.Murderer:AddToggle("KillAura",{Title="Kill Aura ножа",Default=false,Callback=function(s)Settings.KillAura=s end})
+Tabs.Murderer:AddSlider("KillDistance",{Title="Дистанция Kill Aura",Min=1,Max=30,Default=10,Rounding=1,Callback=function(v)Settings.KillDistance=v end})
+Tabs.Murderer:AddToggle("GuardGun",{Title="Охранять пистолет",Default=false,Callback=function(s)Settings.GuardGun=s end})
+
+-- ========== ВКЛАДКА: ТРОЛЬ ==========
+Tabs.Troll:AddParagraph({Title="😈 Троль", Content="Настройки для троллинга"})
+Tabs.Troll:AddToggle("Push",{Title="Отталкивание",Default=false,Callback=function(s)Settings.Push=s end})
+Tabs.Troll:AddSlider("PushDistance",{Title="Дистанция отталкивания",Min=2,Max=20,Default=8,Rounding=1,Callback=function(v)Settings.PushDistance=v end})
+Tabs.Troll:AddSlider("PushPower",{Title="Сила отталкивания",Min=10,Max=200,Default=60,Rounding=10,Callback=function(v)Settings.PushPower=v end})
+Tabs.Troll:AddButton({Title="▶ Оттолкнуть сейчас",Callback=function()
+    local c=LocalPlayer.Character
+    if not c then return end
+    local r=c:FindFirstChild("HumanoidRootPart")
+    if not r then return end
+    for _,t in pairs(Players:GetPlayers()) do
+        if t~=LocalPlayer and t.Character then
+            local tr=t.Character:FindFirstChild("HumanoidRootPart")
+            if tr then
+                local o=tr.Position-r.Position
+                local d=o.Magnitude
+                if d<=Settings.PushDistance and d>0 then
+                    tr.AssemblyLinearVelocity=o.Unit*Settings.PushPower+Vector3.new(0,Settings.PushPower*.35,0)
+                end
+            end
+        end
+    end
+end})
+
+-- ========== ВКЛАДКА: НАСТРОЙКИ ==========
+Tabs.Settings:AddParagraph({Title="⚙️ Настройки", Content="Управление интерфейсом и ESP"})
+Tabs.Settings:AddToggle("NightVision",{Title="Ночное зрение (ESP)",Description="Подсветка игроков в темноте",Default=false,Callback=function(s)
+    Settings.NightVision=s
+    if s then updateESP() else clearESP() end
+end})
+Tabs.Settings:AddButton({Title="Обновить ESP",Callback=function() clearESP() task.wait(.1) updateESP() Fluent:Notify({Title="ESP",Content="Обновлен!",Duration=2}) end})
+Tabs.Settings:AddButton({Title="Закрыть меню",Callback=CloseMenu})
+Tabs.Settings:AddButton({Title="Открыть меню",Callback=OpenMenu})
+
+-- ========== ОСНОВНЫЕ ЦИКЛЫ ==========
+task.spawn(function()
+    while task.wait(.5) do
+        if Settings.NightVision then updateESP() end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(.1) do
+        if Settings.AutoDodge and LocalPlayer.Character then
+            local h=LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if h then
+                for _,v in pairs(workspace:GetChildren()) do
+                    if v:IsA("BasePart") and v.Name=="Knife" then
+                        if(v.Position-h.Position).Magnitude<15 then
+                            if Settings.DodgeMode=="Телепорт" then
+                                h.CFrame=CFrame.new(h.Position+Vector3.new(math.random(-20,20),0,math.random(-20,20)))
+                            else
+                                local hu=LocalPlayer.Character:FindFirstChild("Humanoid")
+                                if hu then hu.Jump=true end
+                            end
+                            task.wait(.5)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(.15) do
+        if Settings.AutoShoot and LocalPlayer.Character then
+            local g=LocalPlayer.Character:FindFirstChild("Gun")
+            if g then
+                local m=findMurderer()
+                if m and m.Character then
+                    local h=m.Character:FindFirstChild("HumanoidRootPart")
+                    if h then
+                        if not Settings.ShootWithKnife or(Settings.ShootWithKnife and m.Character:FindFirstChild("Knife"))then
+                            local mouse=LocalPlayer:GetMouse()
+                            if mouse then
+                                mouse.Hit=CFrame.new(h.Position)
+                                UserInputService.InputBegan:Fire(mouse,Enum.UserInputType.MouseButton1)
+                                task.wait(.05)
+                                UserInputService.InputEnded:Fire(mouse,Enum.UserInputType.MouseButton1)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(.05) do
+        if Settings.KillAura and LocalPlayer.Character then
+            local k=LocalPlayer.Character:FindFirstChild("Knife")
+            if k then
+                local h=LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if h then
+                    for _,p in pairs(Players:GetPlayers()) do
+                        if p~=LocalPlayer and p.Character then
+                            local th=p.Character:FindFirstChild("HumanoidRootPart")
+                            if th then
+                                if(h.Position-th.Position).Magnitude<=Settings.KillDistance then
+                                    local hu=p.Character:FindFirstChild("Humanoid")
+                                    if hu and hu.Health>0 then hu.Health=0 end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(.2) do
+        if Settings.GuardGun and LocalPlayer.Character then
+            local g=workspace:FindFirstChild("GunDrop")
+            if g then
+                local h=LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if h then
+                    for _,p in pairs(Players:GetPlayers()) do
+                        if p~=LocalPlayer and p.Character then
+                            local th=p.Character:FindFirstChild("HumanoidRootPart")
+                            if th then
+                                if(th.Position-g.Position).Magnitude<8 then
+                                    local l=h.CFrame
+                                    h.CFrame=th.CFrame
+                                    task.wait(.3)
+                                    h.CFrame=l
+                                    break
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- ========== УПРАВЛЕНИЕ ==========
+UserInputService.InputBegan:Connect(function(i,g)
+    if g then return end
+    if i.KeyCode==Enum.KeyCode.LeftControl then
+        if Window.Visible then CloseMenu() else OpenMenu() end
+    end
+end)
+
+-- Закрытие через крестик
+local oldClose = Window.Close
+Window.Close = function()
+    CloseMenu()
+end
+
+Fluent:Notify({Title="MM2 ADMIN",Content="Загружен! Нажмите Left Control",Duration=5})
