@@ -1,0 +1,140 @@
+local player = game.Players.LocalPlayer
+local gui = Instance.new("ScreenGui")
+gui.Name = "LogThrower"
+gui.Parent = player.PlayerGui
+gui.ResetOnSpawn = false
+
+-- === КНОПКА ОТКРЫТИЯ/ЗАКРЫТИЯ (всегда видна) ===
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0, 60, 0, 60)
+toggleBtn.Position = UDim2.new(0.02, 0, 0.5, -30)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 50)
+toggleBtn.Text = "🔥"
+toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleBtn.TextScaled = true
+toggleBtn.Font = Enum.Font.SourceSansBold
+toggleBtn.Parent = gui
+toggleBtn.ZIndex = 10
+
+-- === ГЛАВНОЕ МЕНЮ (можно двигать) ===
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 250, 0, 120)
+frame.Position = UDim2.new(0.5, -125, 0.3, 0)
+frame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+frame.BorderSizePixel = 0
+frame.BackgroundTransparency = 0.1
+frame.Active = true
+frame.Draggable = true -- РАЗРЕШАЕМ ПЕРЕТАСКИВАНИЕ
+frame.Parent = gui
+frame.Visible = true
+
+-- Заголовок "Caster"
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0.3, 0)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.BackgroundTransparency = 1
+title.Text = "🔥 CASTER"
+title.TextColor3 = Color3.fromRGB(255, 200, 100)
+title.TextScaled = true
+title.Font = Enum.Font.SourceSansBold
+title.Parent = frame
+
+-- Кнопка "LOG"
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0.8, 0, 0.4, 0)
+button.Position = UDim2.new(0.1, 0, 0.35, 0)
+button.BackgroundColor3 = Color3.fromRGB(200, 80, 50)
+button.Text = "📦 LOG"
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.TextScaled = true
+button.Font = Enum.Font.SourceSansBold
+button.Parent = frame
+
+-- Флаг для открытия/закрытия
+local isOpen = true
+
+-- Функция броска брёвен
+local function throwLogs()
+    print("🔍 Ищем костер...")
+    
+    local campfire = nil
+    local logs = {}
+    
+    for _, obj in ipairs(game.Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            local name = string.lower(obj.Name)
+            if string.find(name, "camp") or string.find(name, "fire") or string.find(name, "bonfire") then
+                if obj.Size.X > 2 and obj.Size.Z > 2 then
+                    campfire = obj
+                    break
+                end
+            end
+        end
+    end
+    
+    if not campfire then
+        button.Text = "❌ НЕТ КОСТРА"
+        wait(1.5)
+        button.Text = "📦 LOG"
+        print("❌ Костер не найден!")
+        return
+    end
+    
+    print("✅ Костер найден: " .. campfire.Name)
+    
+    for _, obj in ipairs(game.Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            local name = string.lower(obj.Name)
+            if string.find(name, "log") or string.find(name, "wood") or string.find(name, "tree") then
+                if obj.Size.X > 1 and obj.Size.Y > 1 and obj.Size.Z > 1 then
+                    table.insert(logs, obj)
+                end
+            end
+        end
+    end
+    
+    if #logs == 0 then
+        button.Text = "❌ НЕТ БРЁВЕН"
+        wait(1.5)
+        button.Text = "📦 LOG"
+        print("❌ Бревна не найдены!")
+        return
+    end
+    
+    print("✅ Найдено брёвен: " .. #logs)
+    
+    local thrown = 0
+    for _, log in ipairs(logs) do
+        local bv = Instance.new("BodyVelocity")
+        bv.MaxForce = Vector3.new(40000, 40000, 40000)
+        bv.Velocity = (campfire.Position - log.Position).Unit * 40
+        bv.Parent = log
+        thrown = thrown + 1
+        wait(0.05)
+        game:GetService("Debris"):AddItem(bv, 1)
+    end
+    
+    button.Text = "✅ " .. thrown .. " БРЁВЕН"
+    wait(1.5)
+    button.Text = "📦 LOG"
+    print("✅ Кинуто " .. thrown .. " бревен!")
+end
+
+-- === ОТКРЫТИЕ/ЗАКРЫТИЕ МЕНЮ ===
+toggleBtn.MouseButton1Click:Connect(function()
+    isOpen = not isOpen
+    frame.Visible = isOpen
+    toggleBtn.Text = isOpen and "🔥" or "❌"
+end)
+
+toggleBtn.TouchTap:Connect(function()
+    isOpen = not isOpen
+    frame.Visible = isOpen
+    toggleBtn.Text = isOpen and "🔥" or "❌"
+end)
+
+-- === НАЖАТИЕ НА КНОПКУ LOG ===
+button.MouseButton1Click:Connect(throwLogs)
+button.TouchTap:Connect(throwLogs)
+
+print("✅ GUI загружен! Кнопка 🔥 - открыть/закрыть. Меню можно двигать пальцем.")
