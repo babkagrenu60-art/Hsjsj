@@ -1,0 +1,60 @@
+-- Подключаем библиотеку для GUI (используем готовую)
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/7GrandDadPGN/VapeV4ForRoblox/main/UI/UiLib"))()
+
+-- Создаём окно
+local Window = Library:CreateWindow("99 НОЧЕЙ", Vector2.new(400, 500))
+
+-- Создаём вкладку "Caster"
+local CasterTab = Window:CreateTab("🔥 Caster")
+
+-- Кнопка "Log"
+CasterTab:CreateButton("📦 LOG", function()
+    local campfire = nil
+    local logs = {}
+    
+    -- Ищем костер
+    for _, obj in ipairs(game.Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and string.find(string.lower(obj.Name), "campfire") then
+            campfire = obj
+            break
+        end
+    end
+    
+    if not campfire then
+        print("❌ Костер не найден!")
+        return
+    end
+    
+    -- Ищем все бревна
+    for _, obj in ipairs(game.Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and (
+            string.find(string.lower(obj.Name), "log") or
+            string.find(string.lower(obj.Name), "wood") or
+            string.find(string.lower(obj.Name), "tree")
+        ) then
+            if obj.Size.X > 1 and obj.Size.Y > 1 then
+                table.insert(logs, obj)
+            end
+        end
+    end
+    
+    if #logs == 0 then
+        print("❌ Бревна не найдены!")
+        return
+    end
+    
+    -- Кидаем бревна в костер
+    for _, log in ipairs(logs) do
+        local bv = Instance.new("BodyVelocity")
+        bv.MaxForce = Vector3.new(100000, 100000, 100000)
+        bv.Velocity = (campfire.Position - log.Position).Unit * 50
+        bv.Parent = log
+        
+        wait(0.1)
+        bv:Destroy()
+    end
+    
+    print("✅ Кинуто " .. #logs .. " бревен в костер!")
+end)
+
+print("✅ GUI загружен! Найди костер и бревна.")
