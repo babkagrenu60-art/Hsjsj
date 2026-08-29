@@ -1,0 +1,79 @@
+-- Создаём GUI
+local player = game.Players.LocalPlayer
+local gui = Instance.new("ScreenGui")
+gui.Name = "CoolKidGUI"
+gui.Parent = player.PlayerGui
+
+-- Главное окно
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 300, 0, 150)
+frame.Position = UDim2.new(0.5, -150, 0.8, -75)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BackgroundTransparency = 0.2
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+frame.Parent = gui
+
+-- Кнопка
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0.9, 0, 0.6, 0)
+button.Position = UDim2.new(0.05, 0, 0.2, 0)
+button.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+button.Text = "🎉 COOLKID PARTY"
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.TextScaled = true
+button.Font = Enum.Font.SourceSansBold
+button.Parent = frame
+
+-- Функция изменения платформ
+local function coolkidParty()
+    local found = 0
+    -- Ищем все объекты с именем "PlatformParty" во всей игре
+    for _, obj in ipairs(game.Workspace:GetDescendants()) do
+        if obj.Name == "PlatformParty" and obj:IsA("BasePart") then
+            found = found + 1
+            -- Меняем цвет на чёрный
+            obj.Color = Color3.new(0, 0, 0)
+            obj.Material = Enum.Material.SmoothPlastic
+
+            -- Удаляем старые SurfaceGui, чтобы не плодить
+            for _, child in ipairs(obj:GetChildren()) do
+                if child:IsA("SurfaceGui") then
+                    child:Destroy()
+                end
+            end
+
+            -- Создаём новую SurfaceGui с надписью
+            local surfaceGui = Instance.new("SurfaceGui")
+            surfaceGui.Parent = obj
+            surfaceGui.Face = Enum.NormalId.Top -- надпись сверху
+            surfaceGui.AlwaysOnTop = true
+
+            local textLabel = Instance.new("TextLabel")
+            textLabel.Size = UDim2.new(1, 0, 1, 0)
+            textLabel.BackgroundTransparency = 1
+            textLabel.Text = "coolkid"
+            textLabel.TextColor3 = Color3.new(1, 0, 0) -- красный
+            textLabel.TextScaled = true
+            textLabel.Font = Enum.Font.BrickSans
+            textLabel.Parent = surfaceGui
+        end
+    end
+    if found > 0 then
+        button.Text = "✅ Изменено " .. found .. " платформ"
+        wait(2)
+        button.Text = "🎉 COOLKID PARTY"
+    else
+        button.Text = "❌ Платформ не найдено"
+        wait(2)
+        button.Text = "🎉 COOLKID PARTY"
+    end
+end
+
+button.MouseButton1Click:Connect(coolkidParty)
+
+-- Чтобы кнопка не исчезала при респавне
+gui.ResetOnSpawn = false
+
+print("✅ GUI загружен! Нажми на красную кнопку.")
