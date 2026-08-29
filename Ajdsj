@@ -1,0 +1,87 @@
+-- Создаём GUI
+local player = game.Players.LocalPlayer
+local gui = Instance.new("ScreenGui")
+gui.Name = "CoolKidGUI"
+gui.Parent = player.PlayerGui
+
+-- Главное окно
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 300, 0, 150)
+frame.Position = UDim2.new(0.5, -150, 0.8, -75)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BackgroundTransparency = 0.2
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+frame.Parent = gui
+
+-- Кнопка
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0.9, 0, 0.6, 0)
+button.Position = UDim2.new(0.05, 0, 0.2, 0)
+button.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+button.Text = "🎉 COOLKID PARTY"
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.TextScaled = true
+button.Font = Enum.Font.SourceSansBold
+button.Parent = frame
+button.AutoButtonColor = false
+
+-- Функция изменения ВСЕХ платформ
+local function coolkidParty()
+    local found = 0
+    print("🔍 Ищем ВСЕ платформы...")
+    
+    for _, obj in ipairs(game.Workspace:GetDescendants()) do
+        -- Ищем ЛЮБЫЕ объекты с "Part" в названии ИЛИ платформы
+        if obj:IsA("BasePart") and (
+            string.find(string.lower(obj.Name), "part") or 
+            string.find(string.lower(obj.Name), "platform") or
+            string.find(string.lower(obj.Name), "floor")
+        ) then
+            -- Пропускаем мелкие объекты типа стен, чтобы не трогать всё подряд
+            if obj.Size.X > 5 and obj.Size.Z > 5 then
+                found = found + 1
+                obj.Color = Color3.new(0, 0, 0)
+                obj.Material = Enum.Material.SmoothPlastic
+
+                for _, child in ipairs(obj:GetChildren()) do
+                    if child:IsA("SurfaceGui") then
+                        child:Destroy()
+                    end
+                end
+
+                local surfaceGui = Instance.new("SurfaceGui")
+                surfaceGui.Parent = obj
+                surfaceGui.Face = Enum.NormalId.Top
+                surfaceGui.AlwaysOnTop = true
+
+                local textLabel = Instance.new("TextLabel")
+                textLabel.Size = UDim2.new(1, 0, 1, 0)
+                textLabel.BackgroundTransparency = 1
+                textLabel.Text = "coolkid"
+                textLabel.TextColor3 = Color3.new(1, 0, 0)
+                textLabel.TextScaled = true
+                textLabel.Font = Enum.Font.BrickSans
+                textLabel.Parent = surfaceGui
+            end
+        end
+    end
+    
+    if found > 0 then
+        button.Text = "✅ Изменено " .. found .. " платформ"
+        wait(2)
+        button.Text = "🎉 COOLKID PARTY"
+    else
+        button.Text = "❌ Платформ не найдено"
+        wait(2)
+        button.Text = "🎉 COOLKID PARTY"
+    end
+end
+
+button.MouseButton1Click:Connect(coolkidParty)
+button.TouchTap:Connect(coolkidParty)
+
+gui.ResetOnSpawn = false
+
+print("✅ GUI загружен! Будет красить ВСЕ большие платформы.")
