@@ -1,0 +1,203 @@
+--// TTD Trading Plaza Auto Buy
+--// LocalScript -> StarterPlayerScripts
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "TradingPlazaAutoBuy"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local main = Instance.new("Frame")
+main.Size = UDim2.fromOffset(320, 360)
+main.Position = UDim2.fromScale(.5,.5)
+main.AnchorPoint = Vector2.new(.5,.5)
+main.BackgroundColor3 = Color3.fromRGB(18,18,22)
+main.BorderSizePixel = 0
+main.Parent = gui
+
+Instance.new("UICorner",main).CornerRadius = UDim.new(0,14)
+
+local stroke = Instance.new("UIStroke")
+stroke.Thickness = 2
+stroke.Parent = main
+
+-- RGB рамка
+task.spawn(function()
+	while main.Parent do
+		for h = 0,1,.01 do
+			stroke.Color = Color3.fromHSV(h,1,1)
+			task.wait(.03)
+		end
+	end
+end)
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,-20,0,45)
+title.Position = UDim2.fromOffset(10,5)
+title.BackgroundTransparency = 1
+title.Text = "🛒 TRADING PLAZA"
+title.TextColor3 = Color3.new(1,1,1)
+title.TextScaled = true
+title.Font = Enum.Font.GothamBold
+title.Parent = main
+
+local price = Instance.new("TextBox")
+price.Size = UDim2.new(1,-30,0,42)
+price.Position = UDim2.fromOffset(15,55)
+price.BackgroundColor3 = Color3.fromRGB(32,32,38)
+price.TextColor3 = Color3.new(1,1,1)
+price.PlaceholderText = "Макс. цена в гемах"
+price.Text = "0"
+price.TextScaled = true
+price.Font = Enum.Font.Gotham
+price.Parent = main
+Instance.new("UICorner",price).CornerRadius = UDim.new(0,8)
+
+local rarityButton = Instance.new("TextButton")
+rarityButton.Size = UDim2.new(1,-30,0,42)
+rarityButton.Position = UDim2.fromOffset(15,107)
+rarityButton.BackgroundColor3 = Color3.fromRGB(32,32,38)
+rarityButton.TextColor3 = Color3.new(1,1,1)
+rarityButton.Text = "Редкость: ВСЕ"
+rarityButton.TextScaled = true
+rarityButton.Font = Enum.Font.Gotham
+rarityButton.Parent = main
+Instance.new("UICorner",rarityButton).CornerRadius = UDim.new(0,8)
+
+-- Все основные редкости
+local rarities = {
+	"ВСЕ",
+	"Common",
+	"Uncommon",
+	"Rare",
+	"Epic",
+	"Legendary",
+	"Mythic",
+	"Ultimate",
+	"Secret",
+	"Godly",
+	"Exclusive",
+	"Divine"
+}
+
+local rarityIndex = 1
+
+rarityButton.MouseButton1Click:Connect(function()
+	rarityIndex += 1
+
+	if rarityIndex > #rarities then
+		rarityIndex = 1
+	end
+
+	rarityButton.Text = "Редкость: " .. rarities[rarityIndex]
+end)
+
+local autoButton = Instance.new("TextButton")
+autoButton.Size = UDim2.new(1,-30,0,50)
+autoButton.Position = UDim2.fromOffset(15,160)
+autoButton.BackgroundColor3 = Color3.fromRGB(35,35,42)
+autoButton.TextColor3 = Color3.new(1,1,1)
+autoButton.Text = "AUTO BUY: OFF"
+autoButton.TextScaled = true
+autoButton.Font = Enum.Font.GothamBold
+autoButton.Parent = main
+Instance.new("UICorner",autoButton).CornerRadius = UDim.new(0,10)
+
+local delayBox = Instance.new("TextBox")
+delayBox.Size = UDim2.new(1,-30,0,42)
+delayBox.Position = UDim2.fromOffset(15,222)
+delayBox.BackgroundColor3 = Color3.fromRGB(32,32,38)
+delayBox.TextColor3 = Color3.new(1,1,1)
+delayBox.PlaceholderText = "Задержка (сек)"
+delayBox.Text = "0.5"
+delayBox.TextScaled = true
+delayBox.Font = Enum.Font.Gotham
+delayBox.Parent = main
+Instance.new("UICorner",delayBox).CornerRadius = UDim.new(0,8)
+
+local status = Instance.new("TextLabel")
+status.Size = UDim2.new(1,-30,0,45)
+status.Position = UDim2.fromOffset(15,280)
+status.BackgroundTransparency = 1
+status.Text = "Статус: выключено"
+status.TextColor3 = Color3.fromRGB(180,180,180)
+status.TextScaled = true
+status.Font = Enum.Font.Gotham
+status.Parent = main
+
+-- Перетаскивание
+local dragging = false
+local dragStart
+local startPos
+
+main.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+	or input.UserInputType == Enum.UserInputType.Touch then
+
+		dragging = true
+		dragStart = input.Position
+		startPos = main.Position
+
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+main.InputChanged:Connect(function(input)
+	if dragging and
+		(input.UserInputType == Enum.UserInputType.MouseMovement
+		or input.UserInputType == Enum.UserInputType.Touch) then
+
+		local delta = input.Position - dragStart
+
+		main.Position = UDim2.new(
+			startPos.X.Scale,
+			startPos.X.Offset + delta.X,
+			startPos.Y.Scale,
+			startPos.Y.Offset + delta.Y
+		)
+	end
+end)
+
+-- AUTO BUY
+local enabled = false
+
+autoButton.MouseButton1Click:Connect(function()
+	enabled = not enabled
+
+	autoButton.Text = enabled and "AUTO BUY: ON" or "AUTO BUY: OFF"
+	status.Text = enabled
+		and "Статус: покупка включена"
+		or "Статус: выключено"
+
+	if enabled then
+		task.spawn(function()
+			while enabled do
+
+				local maxGems = tonumber(price.Text) or 0
+				local selectedRarity = rarities[rarityIndex]
+
+				-- Здесь подключается серверная система покупки
+				-- твоей игры.
+				--
+				-- Например:
+				-- game.ReplicatedStorage.BuyUnit:FireServer(
+				--     selectedRarity,
+				--     maxGems
+				-- )
+
+				task.wait(
+					math.max(
+						0.1,
+						tonumber(delayBox.Text) or 0.5
+					)
+				)
+			end
+		end)
+	end
+end)
