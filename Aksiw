@@ -1,0 +1,528 @@
+--[[
+    MM2 Advanced Script for Delta Executor
+    Features: ESP, Auto Gun Pickup, Aimbot, Silent Aim, Kill Aura, Speed/Fly
+]]
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
+
+-- Variables
+local ESPEnabled = false
+local GunAutoPickup = false
+local AimbotEnabled = false
+local SilentAimEnabled = false
+local KillAuraEnabled = false
+local SpeedEnabled = false
+local FlyEnabled = false
+local Smoothing = 10
+local KillAuraRange = 15
+local SpeedValue = 100
+local FlySpeed = 50
+
+-- ESP Storage
+local ESPObjects = {}
+
+-- Cleanup functions
+local function clearESP()
+    for _, obj in pairs(ESPObjects) do
+        if obj then
+            obj:Remove()
+        end
+    end
+    ESPObjects = {}
+end
+
+-- Get player role
+local function getPlayerRole(player)
+    local character = player.Character
+    if not character then return nil end
+    
+    local backpack = player.Backpack
+    local tools = {}
+    
+    if character:FindFirstChildOfClass("Tool") then
+        table.insert(tools, character:FindFirstChildOfClass("Tool"))
+    end
+    if backpack then
+        for _, item in pairs(backpack:GetChildren()) do
+            if item:IsA("Tool") then
+                table.insert(tools, item)
+            end
+        end
+    end
+    
+    for _, tool in pairs(tools) do
+        if tool.Name:lower():find("knife") or tool.Name:lower():find("murder") then
+            return "Murderer"
+        elseif tool.Name:lower():find("gun") or tool.Name:lower():find("sheriff") or tool.Name:lower():find("pistol") then
+            return "Sheriff"
+        end
+    end
+    
+    -- Check for role values
+    if character:FindFirstChild("Murderer") then return "Murderer" end
+    if character:FindFirstChild("Sheriff") then return "Sheriff" end
+    
+    return "Innocent"
+end
+
+-- Get my role
+local function getMyRole()
+    return getPlayerRole(LocalPlayer)
+end
+
+-- ESP Function
+local function updateESP()
+    clearESP()
+    
+    if not ESPEnabled then return end
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character:FindFirstChild("HumanoidRootPart") then
+            local character = player.Character
+            local humanoid = character.Humanoid
+            local rootPart = character.HumanoidRootPart
+            local role = getPlayerRole(player)
+            
+            local highlight = Instance.new("Highlight")
+            highlight.Name = "ESP_" .. player.Name
+            highlight.Parent = character
+            highlight.Adornee = character
+            highlight.FillTransparency = 0.7
+            highlight.OutlineTransparency = 0
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            
+            if role == "Murderer" then
+                highlight.FillColor = Color3.new(1, 0, 0)
+                highlight.OutlineColor = Color3.new(1, 0, 0)
+            elseif role == "Sheriff" then
+                highlight.FillColor = Color3.new(0, 0, 1)
+                highlight.OutlineColor = Color3.new(0, 0, 1)
+            else
+                highlight.FillColor = Color3.new(0, 1, 0)
+                highlight.OutlineColor = Color3.new(0, 0, 1)
+            end
+            
+            -- Distance label
+            local billboard = Instance.new("BillboardGui")
+            billboard.Name = "ESPDist_" .. player.Name
+            billboard.Parent = character
+            billboard.Adornee = rootPart
+            billboard.Size = UDim2.new(0, 100, 0, 30)
+            billboard.StudsOffset = Vector3.new(0, 3, 0)
+            billboard.AlwaysOnTop = true
+            
+            local textLabel = Instance.new("TextLabel")
+            textLabel.Parent = billboard
+            textLabel.Size = UDim2.new(1, 0, 1, 0)
+            textLabel.BackgroundTransparency = 1
+            textLabel.TextColor3 = Color3.new(1, 1, 1)
+            textLabel.TextStrokeTransparency = 0
+            textLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+            textLabel.Font = Enum.Font.SourceSansBold
+            textLabel.TextSize = 16
+            textLabel.Text = player.Name .. "\n" .. role
+            
+            table.insert(ESPObjects, highlight)
+            table.insert(ESPObjects, billboard)
+            
+            -- Update distance
+            task.spawn(function()
+                while ESPEnabled and character and character.Parent do
+                    local distance = (LocalPlayer.Character.HumanoidRootPart.Position - rootPart.Position).Magnitude
+                    textLabel.Text = player.Name .. " [" .. role .. "]\n" .. math.floor(distance) .. "m"
+                    task.wait(0.1)
+                end
+            end)
+        end
+    end
+end
+
+-- Auto Gun Pickup
+local function findGun()
+    for _, item in pairs(Workspace:GetDescendants()) do
+        if item:IsA("Tool") and (item.Name:lower():find("gun") or item.Name:lower():find("pistol")) and item.Parent ~= LocalPlayer.Character then
+            return item
+        end
+    end
+    return nil
+end
+
+local function autoGunPickup()
+    if not GunAutoPickup then return end
+    
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local gun = findGun()
+    if gun and gun.Parent and gun.Parent:FindFirstChild("CFrame") then
+        local originalCFrame = character.HumanoidRootPart.CFrame
+        local gunCFrame = gun.Parent.CFrame
+        
+        character.HumanoidRootPart.CFrame = gunCFrame
+        task.wait(0.05)
+        character.HumanoidRootPart.CFrame = originalCFrame
+    end
+end
+
+-- Get closest player for aimbot
+local function getClosestPlayerToAim()
+    local myRole = getMyRole()
+    local myCharacter = LocalPlayer.Character
+    if not myCharacter or not myCharacter:FindFirstChild("HumanoidRootPart") then return nil end
+    
+    local closestPlayer = nil
+    local closestDistance = math.huge
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character:FindFirstChild("HumanoidRootPart") then
+            local humanoid = player.Character.Humanoid
+            if humanoid.Health > 0 then
+                local role = getPlayerRole(player)
+                local isPriority = false
+                
+                -- Priority targeting
+                if myRole == "Sheriff" and role == "Murderer" then
+                    isPriority = true
+                elseif myRole == "Murderer" and role == "Sheriff" then
+                    isPriority = true
+                end
+                
+                if isPriority then
+                    local distance = (myCharacter.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                    if distance < closestDistance then
+                        closestPlayer = player
+                        closestDistance = distance
+                    end
+                end
+            end
+        end
+    end
+    
+    -- If no priority targets, get closest player
+    if not closestPlayer then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character:FindFirstChild("HumanoidRootPart") then
+                local humanoid = player.Character.Humanoid
+                if humanoid.Health > 0 then
+                    local distance = (myCharacter.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                    if distance < closestDistance then
+                        closestPlayer = player
+                        closestDistance = distance
+                    end
+                end
+            end
+        end
+    end
+    
+    return closestPlayer
+end
+
+-- Aimbot
+local function aimbot()
+    if not AimbotEnabled then return end
+    
+    local target = getClosestPlayerToAim()
+    if not target or not target.Character or not target.Character:FindFirstChild("Head") then return end
+    
+    local myCharacter = LocalPlayer.Character
+    if not myCharacter or not myCharacter:FindFirstChild("HumanoidRootPart") then return end
+    
+    local targetPosition = target.Character.Head.Position
+    local aimDirection = (targetPosition - Camera.CFrame.Position).Unit
+    local targetCFrame = CFrame.lookAt(Camera.CFrame.Position, Camera.CFrame.Position + aimDirection)
+    
+    local smoothCFrame = Camera.CFrame:Lerp(targetCFrame, Smoothing / 100)
+    Camera.CFrame = smoothCFrame
+end
+
+-- Silent Aim
+local function applySilentAim(projectile)
+    if not SilentAimEnabled then return end
+    
+    local target = getClosestPlayerToAim()
+    if not target or not target.Character or not target.Character:FindFirstChild("Head") then return end
+    
+    local head = target.Character.Head
+    projectile.CFrame = CFrame.new(projectile.Position, head.Position)
+end
+
+-- Kill Aura
+local function killAura()
+    if not KillAuraEnabled then return end
+    
+    local myCharacter = LocalPlayer.Character
+    if not myCharacter or not myCharacter:FindFirstChild("HumanoidRootPart") then return end
+    
+    local myRole = getMyRole()
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character:FindFirstChild("HumanoidRootPart") then
+            local humanoid = player.Character.Humanoid
+            if humanoid.Health > 0 then
+                local distance = (myCharacter.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                
+                if distance <= KillAuraRange then
+                    local targetRole = getPlayerRole(player)
+                    
+                    if myRole == "Murderer" and targetRole ~= "Murderer" then
+                        -- Kill innocents and sheriff
+                        if myCharacter:FindFirstChildOfClass("Tool") and myCharacter:FindFirstChildOfClass("Tool"):FindFirstChild("Handle") then
+                            local tool = myCharacter:FindFirstChildOfClass("Tool")
+                            local handle = tool.Handle
+                            handle.Position = player.Character.HumanoidRootPart.Position
+                            tool:Activate()
+                        else
+                            -- Direct damage
+                            humanoid:TakeDamage(9999)
+                        end
+                    elseif myRole == "Sheriff" and targetRole == "Murderer" then
+                        -- Shoot murderer
+                        if myCharacter:FindFirstChildOfClass("Tool") then
+                            local tool = myCharacter:FindFirstChildOfClass("Tool")
+                            tool:Activate()
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Speed and Fly
+local function updateSpeed()
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("Humanoid") then return end
+    local humanoid = LocalPlayer.Character.Humanoid
+    
+    if SpeedEnabled then
+        humanoid.WalkSpeed = SpeedValue
+    else
+        humanoid.WalkSpeed = 16
+    end
+end
+
+local function updateFly()
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("Humanoid") or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local humanoid = LocalPlayer.Character.Humanoid
+    local rootPart = LocalPlayer.Character.HumanoidRootPart
+    
+    if FlyEnabled then
+        humanoid:ChangeState(Enum.HumanoidStateType.Flying)
+        rootPart.Velocity = Vector3.new(0, 0, 0)
+        
+        -- Flight controls
+        local direction = Vector3.new()
+        
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            direction += Camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            direction -= Camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            direction -= Camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            direction += Camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            direction += Vector3.new(0, 1, 0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+            direction -= Vector3.new(0, 1, 0)
+        end
+        
+        rootPart.Velocity = direction.Unit * FlySpeed
+    else
+        humanoid:ChangeState(Enum.HumanoidStateType.Running)
+    end
+end
+
+-- UI Menu
+local function createUI()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "MM2Advanced"
+    screenGui.Parent = game.CoreGui
+    
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.new(0, 400, 0, 500)
+    mainFrame.Position = UDim2.new(0.5, -200, 0.5, -250)
+    mainFrame.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    mainFrame.Active = true
+    mainFrame.Draggable = true
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 40)
+    title.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+    title.BorderSizePixel = 0
+    title.Text = "MM2 Advanced Script"
+    title.TextColor3 = Color3.new(1, 1, 1)
+    title.TextSize = 20
+    title.Font = Enum.Font.SourceSansBold
+    title.Parent = mainFrame
+    
+    local tabFrame = Instance.new("Frame")
+    tabFrame.Size = UDim2.new(1, 0, 0, 30)
+    tabFrame.Position = UDim2.new(0, 0, 0, 40)
+    tabFrame.BackgroundColor3 = Color3.new(0.15, 0.15, 0.15)
+    tabFrame.BorderSizePixel = 0
+    tabFrame.Parent = mainFrame
+    
+    local contentFrame = Instance.new("Frame")
+    contentFrame.Size = UDim2.new(1, 0, 1, -70)
+    contentFrame.Position = UDim2.new(0, 0, 0, 70)
+    contentFrame.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+    contentFrame.BorderSizePixel = 0
+    contentFrame.Parent = mainFrame
+    
+    local tabs = {"Visuals", "Combat", "Blatant"}
+    local tabButtons = {}
+    
+    local function createToggle(name, yPos, callback, parent)
+        local toggleButton = Instance.new("TextButton")
+        toggleButton.Size = UDim2.new(1, -20, 0, 35)
+        toggleButton.Position = UDim2.new(0, 10, 0, yPos)
+        toggleButton.BackgroundColor3 = Color3.new(0.3, 0.3, 0.3)
+        toggleButton.BorderSizePixel = 0
+        toggleButton.Text = name .. ": OFF"
+        toggleButton.TextColor3 = Color3.new(1, 1, 1)
+        toggleButton.Font = Enum.Font.SourceSansBold
+        toggleButton.TextSize = 16
+        toggleButton.Parent = parent
+        
+        local enabled = false
+        toggleButton.MouseButton1Click:Connect(function()
+            enabled = not enabled
+            toggleButton.Text = name .. ": " .. (enabled and "ON" or "OFF")
+            toggleButton.BackgroundColor3 = enabled and Color3.new(0, 1, 0) or Color3.new(0.3, 0.3, 0.3)
+            callback(enabled)
+        end)
+        
+        return toggleButton
+    end
+    
+    -- Visuals Tab
+    local function showVisuals()
+        for _, child in pairs(contentFrame:GetChildren()) do
+            child:Destroy()
+        end
+        
+        createToggle("ESP", 10, function(value)
+            ESPEnabled = value
+            if value then
+                updateESP()
+            else
+                clearESP()
+            end
+        end, contentFrame)
+    end
+    
+    -- Combat Tab
+    local function showCombat()
+        for _, child in pairs(contentFrame:GetChildren()) do
+            child:Destroy()
+        end
+        
+        createToggle("Aimbot", 10, function(value)
+            AimbotEnabled = value
+        end, contentFrame)
+        
+        createToggle("Silent Aim", 55, function(value)
+            SilentAimEnabled = value
+        end, contentFrame)
+        
+        createToggle("Kill Aura", 100, function(value)
+            KillAuraEnabled = value
+        end, contentFrame)
+        
+        local smoothingLabel = Instance.new("TextLabel")
+        smoothingLabel.Size = UDim2.new(1, -20, 0, 25)
+        smoothingLabel.Position = UDim2.new(0, 10, 0, 145)
+        smoothingLabel.BackgroundTransparency = 1
+        smoothingLabel.Text = "Smoothing: " .. Smoothing
+        smoothingLabel.TextColor3 = Color3.new(1, 1, 1)
+        smoothingLabel.Font = Enum.Font.SourceSansBold
+        smoothingLabel.Parent = contentFrame
+        
+        local smoothingSlider = Instance.new("TextButton")
+        smoothingSlider.Size = UDim2.new(1, -20, 0, 20)
+        smoothingSlider.Position = UDim2.new(0, 10, 0, 170)
+        smoothingSlider.BackgroundColor3 = Color3.new(0.3, 0.3, 0.3)
+        smoothingSlider.BorderSizePixel = 0
+        smoothingSlider.Text = "Click to adjust smoothing"
+        smoothingSlider.TextColor3 = Color3.new(1, 1, 1)
+        smoothingSlider.Font = Enum.Font.SourceSans
+        smoothingSlider.TextSize = 14
+        smoothingSlider.Parent = contentFrame
+        
+        smoothingSlider.MouseButton1Click:Connect(function()
+            local value = tonumber(prompt("Enter smoothing (1-100):", tostring(Smoothing)))
+            if value and value >= 1 and value <= 100 then
+                Smoothing = value
+                smoothingLabel.Text = "Smoothing: " .. Smoothing
+            end
+        end)
+        
+        local rangeLabel = Instance.new("TextLabel")
+        rangeLabel.Size = UDim2.new(1, -20, 0, 25)
+        rangeLabel.Position = UDim2.new(0, 10, 0, 200)
+        rangeLabel.BackgroundTransparency = 1
+        rangeLabel.Text = "Kill Aura Range: " .. KillAuraRange
+        rangeLabel.TextColor3 = Color3.new(1, 1, 1)
+        rangeLabel.Font = Enum.Font.SourceSansBold
+        rangeLabel.Parent = contentFrame
+        
+        local rangeSlider = Instance.new("TextButton")
+        rangeSlider.Size = UDim2.new(1, -20, 0, 20)
+        rangeSlider.Position = UDim2.new(0, 10, 0, 225)
+        rangeSlider.BackgroundColor3 = Color3.new(0.3, 0.3, 0.3)
+        rangeSlider.BorderSizePixel = 0
+        rangeSlider.Text = "Click to adjust range"
+        rangeSlider.TextColor3 = Color3.new(1, 1, 1)
+        rangeSlider.Font = Enum.Font.SourceSans
+        rangeSlider.TextSize = 14
+        rangeSlider.Parent = contentFrame
+        
+        rangeSlider.MouseButton1Click:Connect(function()
+            local value = tonumber(prompt("Enter range (1-50):", tostring(KillAuraRange)))
+            if value and value >= 1 and value <= 50 then
+                KillAuraRange = value
+                rangeLabel.Text = "Kill Aura Range: " .. KillAuraRange
+            end
+        end)
+    end
+    
+    -- Blatant Tab
+    local function showBlatant()
+        for _, child in pairs(contentFrame:GetChildren()) do
+            child:Destroy()
+        end
+        
+        createToggle("Gun Auto-Pickup", 10, function(value)
+            GunAutoPickup = value
+        end, contentFrame)
+        
+        createToggle("Speed", 55, function(value)
+            SpeedEnabled = value
+            updateSpeed()
+        end, contentFrame)
+        
+        createToggle("Infinite Fly", 100, function(value)
+            FlyEnabled = value
+            if value then
+                if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("Humanoid") then return end
+                LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Flying)
+            else
+                if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("Humanoid") then return end
+                LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Runni
