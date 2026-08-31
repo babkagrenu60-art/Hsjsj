@@ -1,0 +1,113 @@
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local player = Players.LocalPlayer
+
+local function setupCharacter(character)
+    local hrp = character:WaitForChild("HumanoidRootPart")
+    local humanoid = character:WaitForChild("Humanoid")
+    local camera = workspace.CurrentCamera
+
+    -- Создаем интерфейс кнопки
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "MobileJoystickFlyGui"
+    pcall(function() screenGui.Parent = CoreGui end) 
+    if not screenGui.Parent then screenGui.Parent = player:WaitForChild("PlayerGui") end
+
+    local flyButton = Instance.new("TextButton")
+    flyButton.Size = UDim2.new(0, 100, 0, 50)
+    flyButton.Position = UDim2.new(0.75, 0, 0.5, 0) -- Кнопка справа на экране
+    flyButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    flyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    flyButton.TextSize = 18
+    flyButton.Text = "FLY: OFF"
+    flyButton.Font = Enum.Font.SourceSansBold
+    flyButton.Parent = screenGui
+
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(0, 12)
+    uiCorner.Parent = flyButton
+
+    local flying = false
+    local speed = 50 -- Скорость полета при зажатом джойстике
+
+    -- Создаем анимации
+    -- 1. Анимация зависания в воздухе (когда джойстик отпущен)
+    local idleAnim = Instance.new("Animation")
+    idleAnim.AnimationId = "rbxassetid://507767914" 
+    local idleTrack = humanoid:LoadAnimation(idleAnim)
+
+    -- 2. Анимация быстрого полета (когда джойстик зажат)
+    local flyAnim = Instance.new("Animation")
+    flyAnim.AnimationId = "rbxassetid://507767714" 
+    local flyTrack = humanoid:LoadAnimation(flyAnim)
+
+    flyButton.MouseButton1Click:Connect(function()
+        flying = not flying
+        
+        if flying then
+            flyButton.Text = "FLY: ON"
+            flyButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+            
+            humanoid.PlatformStand = true -- Выключаем стандартную физику
+
+            -- Сила, удерживающая вес персонажа
+            local bv = Instance.new("BodyVelocity")
+            bv.Name = "MobileFlyVelocity"
+            bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+            bv.Velocity = Vector3.new(0, 0, 0)
+            bv.Parent = hrp
+
+            -- Принудительно разворачиваем персонажа по камере
+            local bg = Instance.new("BodyGyro")
+            bg.Name = "MobileFlyGyro"
+            bg.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+            bg.CFrame = hrp.CFrame
+            bg.Parent = hrp
+
+            task.spawn(function()
+                while flying and character:IsDescendantOf(workspace) do
+                    -- Считываем, куда направлен джойстик (от 0 до 1)
+                    local joystickDirection = humanoid.MoveDirection
+                    
+                    -- Поворачиваем персонажа вслед за взглядом камеры
+                    bg.CFrame = camera.CFrame
+
+                    if joystickDirection.Magnitude > 0 then
+                        -- ЕСЛИ ДЖОЙСТИК ЗАЖАТ: летим по направлению камеры
+                        if idleTrack.IsPlaying then idleTrack:Stop() end
+                        if not flyTrack.IsPlaying then flyTrack:Play() end
+                        
+                        -- Рассчитываем вектор полета (куда смотрим + куда жмем джойстик)
+                        bv.Velocity = camera.CFrame:VectorToWorldSpace(Vector3.new(joystickDirection.X, 0, -joystickDirection.Z).Unit) * speed
+                    else
+                        -- ЕСЛИ ДЖОЙСТИК ОТПУЩЕН: просто зависаем на месте
+                        if flyTrack.IsPlaying then flyTrack:Stop() end
+                        if not idleTrack.IsPlaying then idleTrack:Play() end
+                        
+                        bv.Velocity = Vector3.new(0, 0, 0)
+                    end
+                    task.wait()
+                end
+            end)
+        else
+            -- Выключение полета
+            flyButton.Text = "FLY: OFF"
+            flyButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+            
+            if flyTrack.IsPlaying then flyTrack:Stop() end
+            if idleTrack.IsPlaying then idleTrack:Stop() end
+            
+            humanoid.PlatformStand = false
+            if hrp:FindFirstChild("MobileFlyVelocity") then hrp.MobileFlyVelocity:Destroy() end
+            if hrp:FindFirstChild("MobileFlyGyro") then hrp.MobileFlyGyro:Destroy() end
+        end
+    end)
+
+    humanoid.Died:Connect(function()
+        flying = false
+        screenGui:Destroy()
+    end)
+end
+
+if player.Character then setupCharacter(player.Character) end
+player.CharacterAdded:Connect(setupCharacter)
