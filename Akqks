@@ -1,0 +1,170 @@
+```lua
+--// FREE UNIT MARKET NOTIFIER
+--// Помести этот Script в ServerScriptService
+--// Ожидаемая структура лота, например:
+--
+-- Workspace
+--   TradingPlaza
+--      Lot
+--         Price   (IntValue / NumberValue / Attribute)
+--         Rarity  (StringValue / Attribute)
+--
+-- Скрипт НЕ покупает лоты. Он только обнаруживает бесплатные.
+
+local Workspace = game:GetService("Workspace")
+local StarterGui = game:GetService("StarterGui")
+
+-- Папка/объект рынка.
+-- Если у тебя рынок называется иначе — измени это название.
+local MARKET_NAME = "TradingPlaza"
+
+local market = Workspace:FindFirstChild(MARKET_NAME)
+
+if not market then
+	warn("[Рынок] Объект '" .. MARKET_NAME .. "' не найден в Workspace.")
+	return
+end
+
+-- Запоминаем уже обработанные лоты,
+-- чтобы одно объявление не появлялось много раз.
+local processedLots = {}
+
+--------------------------------------------------
+-- Получение значения цены
+--------------------------------------------------
+
+local function getPrice(lot)
+	-- Сначала пробуем Attribute "Price"
+	local attributePrice = lot:GetAttribute("Price")
+
+	if attributePrice ~= nil then
+		return tonumber(attributePrice)
+	end
+
+	-- Затем ищем Value-объект Price
+	local priceObject = lot:FindFirstChild("Price")
+
+	if priceObject and priceObject:IsA("ValueBase") then
+		return tonumber(priceObject.Value)
+	end
+
+	return nil
+end
+
+--------------------------------------------------
+-- Получение редкости
+--------------------------------------------------
+
+local function getRarity(lot)
+	-- Пробуем Attribute Rarity
+	local rarity = lot:GetAttribute("Rarity")
+
+	if rarity ~= nil then
+		return tostring(rarity)
+	end
+
+	-- Пробуем Attribute Tier
+	local tier = lot:GetAttribute("Tier")
+
+	if tier ~= nil then
+		return tostring(tier)
+	end
+
+	-- Ищем StringValue Rarity
+	local rarityObject = lot:FindFirstChild("Rarity")
+
+	if rarityObject and rarityObject:IsA("StringValue") then
+		return rarityObject.Value
+	end
+
+	-- Ищем StringValue Tier
+	local tierObject = lot:FindFirstChild("Tier")
+
+	if tierObject and tierObject:IsA("StringValue") then
+		return tierObject.Value
+	end
+
+	return "Неизвестно"
+end
+
+--------------------------------------------------
+-- Отправка уведомления
+--------------------------------------------------
+
+local function notifyFreeUnit(lot)
+	local rarity = getRarity(lot)
+
+	local message =
+		"[Рынок] Обнаружен бесплатный юнит! Редкость: "
+		.. rarity
+
+	-- Консоль
+	print(message)
+
+	-- Игровое системное сообщение
+	pcall(function()
+		StarterGui:SetCore("ChatMakeSystemMessage", {
+			Text = message,
+			Font = Enum.Font.SourceSansBold,
+			TextSize = 18
+		})
+	end)
+end
+
+--------------------------------------------------
+-- Проверка одного лота
+--------------------------------------------------
+
+local function checkLot(lot)
+	if processedLots[lot] then
+		return
+	end
+
+	local price = getPrice(lot)
+
+	-- Если цена существует и равна 0,
+	-- считаем лот бесплатным.
+	if price ~= nil and price == 0 then
+		processedLots[lot] = true
+		notifyFreeUnit(lot)
+	end
+end
+
+--------------------------------------------------
+-- Проверяем уже существующие лоты
+--------------------------------------------------
+
+task.spawn(function()
+	for _, object in ipairs(market:GetDescendants()) do
+		checkLot(object)
+	end
+end)
+
+--------------------------------------------------
+-- Следим только за появлением новых объектов
+--------------------------------------------------
+
+market.DescendantAdded:Connect(function(object)
+	-- Небольшая задержка нужна на случай,
+	-- если Price/Rarity добавляются сразу после самого лота.
+	task.defer(function()
+		checkLot(object)
+	end)
+end)
+
+--------------------------------------------------
+-- Очистка памяти
+--------------------------------------------------
+
+task.spawn(function()
+	while task.wait(30) do
+		for lot in pairs(processedLots) do
+			if not lot:IsDescendantOf(market) then
+				processedLots[lot] = nil
+			end
+		end
+	end
+end)
+
+print("[Рынок] Notifier запущен.")
+```
