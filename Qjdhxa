@@ -1,0 +1,409 @@
+-- Строгий монохромный скрипт без RGB и цветных кнопок (ДЛЯ ТЕЛЕФОНОВ)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- ПЕРЕМЕННЫЕ НАСТРОЕК
+local AimActive = false
+local EspActive = false
+local AimTargetPart = "Head" 
+local ToggleKey = Enum.KeyCode.Insert 
+
+-- ==========================================
+-- 1. GUI ДЛЯ ТЕЛЕФОНА (КРУПНЫЕ КНОПКИ)
+-- ==========================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "StrictCustomMenu"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Главная панель
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 320, 0, 380) -- Увеличен для телефона
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -190)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true 
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 12)
+MainCorner.Parent = MainFrame
+
+-- Верхняя панель
+local HeaderFrame = Instance.new("Frame")
+HeaderFrame.Size = UDim2.new(1, 0, 0, 50)
+HeaderFrame.BackgroundTransparency = 1
+HeaderFrame.Parent = MainFrame
+
+-- Кнопка закрытия
+local CloseButton = Instance.new("TextButton")
+CloseButton.Name = "CloseButton"
+CloseButton.Size = UDim2.new(0, 40, 0, 40)
+CloseButton.Position = UDim2.new(0, 15, 0, 5)
+CloseButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+CloseButton.Text = "✕"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.TextSize = 18
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.Parent = HeaderFrame
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 6)
+CloseCorner.Parent = CloseButton
+
+-- Название
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -70, 1, 0)
+Title.Position = UDim2.new(0, 65, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "⚡ МЕНЮ"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 18
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = HeaderFrame
+
+-- Разделитель
+local Devider = Instance.new("Frame")
+Devider.Size = UDim2.new(1, -30, 0, 2)
+Devider.Position = UDim2.new(0, 15, 0, 52)
+Devider.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+Devider.BorderSizePixel = 0
+Devider.Parent = MainFrame
+
+-- ==========================================
+-- 2. КНОПКИ (УВЕЛИЧЕННЫЕ ДЛЯ ПАЛЬЦЕВ)
+-- ==========================================
+
+-- AIMBOT
+local AimLabel = Instance.new("TextLabel")
+AimLabel.Size = UDim2.new(0, 140, 0, 45)
+AimLabel.Position = UDim2.new(0, 20, 0, 65)
+AimLabel.BackgroundTransparency = 1
+AimLabel.Text = "🎯 AIMBOT"
+AimLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+AimLabel.TextSize = 16
+AimLabel.Font = Enum.Font.GothamSemibold
+AimLabel.TextXAlignment = Enum.TextXAlignment.Left
+AimLabel.Parent = MainFrame
+
+local AimToggleBtn = Instance.new("TextButton")
+AimToggleBtn.Size = UDim2.new(0, 130, 0, 45)
+AimToggleBtn.Position = UDim2.new(1, -150, 0, 65)
+AimToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+AimToggleBtn.Text = "ВЫКЛ"
+AimToggleBtn.TextColor3 = Color3.fromRGB(130, 130, 130)
+AimToggleBtn.TextSize = 16
+AimToggleBtn.Font = Enum.Font.GothamBold
+AimToggleBtn.Parent = MainFrame
+
+local AimToggleCorner = Instance.new("UICorner")
+AimToggleCorner.CornerRadius = UDim.new(0, 6)
+AimToggleCorner.Parent = AimToggleBtn
+
+-- Выбор цели
+local TargetLabel = Instance.new("TextLabel")
+TargetLabel.Size = UDim2.new(0, 140, 0, 45)
+TargetLabel.Position = UDim2.new(0, 20, 0, 125)
+TargetLabel.BackgroundTransparency = 1
+TargetLabel.Text = "👤 ЦЕЛЬ"
+TargetLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+TargetLabel.TextSize = 16
+TargetLabel.Font = Enum.Font.GothamSemibold
+TargetLabel.TextXAlignment = Enum.TextXAlignment.Left
+TargetLabel.Parent = MainFrame
+
+-- Кнопка HEAD
+local HeadBtn = Instance.new("TextButton")
+HeadBtn.Size = UDim2.new(0, 65, 0, 45)
+HeadBtn.Position = UDim2.new(1, -150, 0, 125)
+HeadBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+HeadBtn.Text = "ГОЛОВА"
+HeadBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+HeadBtn.TextSize = 14
+HeadBtn.Font = Enum.Font.GothamBold
+HeadBtn.Parent = MainFrame
+
+local HeadCorner = Instance.new("UICorner")
+HeadCorner.CornerRadius = UDim.new(0, 6)
+HeadCorner.Parent = HeadBtn
+
+-- Кнопка TORSO
+local TorsoBtn = Instance.new("TextButton")
+TorsoBtn.Size = UDim2.new(0, 65, 0, 45)
+TorsoBtn.Position = UDim2.new(1, -80, 0, 125)
+TorsoBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+TorsoBtn.Text = "ТОРС"
+TorsoBtn.TextColor3 = Color3.fromRGB(130, 130, 130)
+TorsoBtn.TextSize = 14
+TorsoBtn.Font = Enum.Font.GothamBold
+TorsoBtn.Parent = MainFrame
+
+local TorsoCorner = Instance.new("UICorner")
+TorsoCorner.CornerRadius = UDim.new(0, 6)
+TorsoCorner.Parent = TorsoBtn
+
+-- ESP
+local EspLabel = Instance.new("TextLabel")
+EspLabel.Size = UDim2.new(0, 140, 0, 45)
+EspLabel.Position = UDim2.new(0, 20, 0, 185)
+EspLabel.BackgroundTransparency = 1
+EspLabel.Text = "👁️ ESP"
+EspLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+EspLabel.TextSize = 16
+EspLabel.Font = Enum.Font.GothamSemibold
+EspLabel.TextXAlignment = Enum.TextXAlignment.Left
+EspLabel.Parent = MainFrame
+
+local EspToggleBtn = Instance.new("TextButton")
+EspToggleBtn.Size = UDim2.new(0, 130, 0, 45)
+EspToggleBtn.Position = UDim2.new(1, -150, 0, 185)
+EspToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+EspToggleBtn.Text = "ВЫКЛ"
+EspToggleBtn.TextColor3 = Color3.fromRGB(130, 130, 130)
+EspToggleBtn.TextSize = 16
+EspToggleBtn.Font = Enum.Font.GothamBold
+EspToggleBtn.Parent = MainFrame
+
+local EspToggleCorner = Instance.new("UICorner")
+EspToggleCorner.CornerRadius = UDim.new(0, 6)
+EspToggleCorner.Parent = EspToggleBtn
+
+-- Кнопка скрыть меню (для телефона)
+local HideBtn = Instance.new("TextButton")
+HideBtn.Size = UDim2.new(1, -30, 0, 50)
+HideBtn.Position = UDim2.new(0, 15, 0, 310)
+HideBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+HideBtn.Text = "📱 СВЕРНУТЬ"
+HideBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+HideBtn.TextSize = 16
+HideBtn.Font = Enum.Font.GothamBold
+HideBtn.Parent = MainFrame
+
+local HideCorner = Instance.new("UICorner")
+HideCorner.CornerRadius = UDim.new(0, 6)
+HideCorner.Parent = HideBtn
+
+-- Кнопка открытия (плавающая)
+local OpenMenuBtn = Instance.new("TextButton")
+OpenMenuBtn.Name = "OpenMenuBtn"
+OpenMenuBtn.Size = UDim2.new(0, 140, 0, 50)
+OpenMenuBtn.Position = UDim2.new(0.5, -70, 0.9, 0)
+OpenMenuBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+OpenMenuBtn.Text = "⚡ ОТКРЫТЬ"
+OpenMenuBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+OpenMenuBtn.TextSize = 16
+OpenMenuBtn.Font = Enum.Font.GothamBold
+OpenMenuBtn.Visible = false
+OpenMenuBtn.Parent = ScreenGui
+
+local OpenCorner = Instance.new("UICorner")
+OpenCorner.CornerRadius = UDim.new(0, 10)
+OpenCorner.Parent = OpenMenuBtn
+
+-- ==========================================
+-- 3. ЛОГИКА УПРАВЛЕНИЯ (ДЛЯ ТЕЛЕФОНА)
+-- ==========================================
+local function ShowMenu()
+	MainFrame.Visible = true
+	OpenMenuBtn.Visible = false
+end
+
+local function HideMenu()
+	MainFrame.Visible = false
+	OpenMenuBtn.Visible = true
+end
+
+-- Закрытие через кнопки
+CloseButton.MouseButton1Click:Connect(HideMenu)
+HideBtn.MouseButton1Click:Connect(HideMenu)
+OpenMenuBtn.MouseButton1Click:Connect(ShowMenu)
+
+-- Закрытие по кнопке Insert (для ПК)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if not gameProcessed and input.KeyCode == ToggleKey then
+		if MainFrame.Visible then HideMenu() else ShowMenu() end
+	end
+end)
+
+-- Закрытие/открытие по долгому нажатию на экран (для телефона)
+local touchStartTime = 0
+UserInputService.TouchStarted:Connect(function(touch, gameProcessed)
+	if gameProcessed then return end
+	touchStartTime = tick()
+end)
+
+UserInputService.TouchEnded:Connect(function(touch, gameProcessed)
+	if gameProcessed then return end
+	if tick() - touchStartTime > 0.5 then -- Долгое нажатие
+		if MainFrame.Visible then HideMenu() else ShowMenu() end
+	end
+end)
+
+-- ==========================================
+-- 4. ПЕРЕКЛЮЧЕНИЕ ЦЕЛЕЙ
+-- ==========================================
+HeadBtn.MouseButton1Click:Connect(function()
+	AimTargetPart = "Head"
+	HeadBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+	HeadBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	
+	TorsoBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+	TorsoBtn.TextColor3 = Color3.fromRGB(130, 130, 130)
+end)
+
+TorsoBtn.MouseButton1Click:Connect(function()
+	AimTargetPart = "HumanoidRootPart"
+	TorsoBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+	TorsoBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	
+	HeadBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+	HeadBtn.TextColor3 = Color3.fromRGB(130, 130, 130)
+end)
+
+-- ==========================================
+-- 5. AIMBOT
+-- ==========================================
+local function GetClosestPlayer()
+	local closestPlayer = nil
+	local shortestDistance = math.huge
+
+	for _, player in pairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+			local pos, onScreen = Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+			if onScreen then
+				local mousePos = UserInputService:GetMouseLocation()
+				local distance = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
+				if distance < shortestDistance then
+					closestPlayer = player
+					shortestDistance = distance
+				end
+			end
+		end
+	end
+	return closestPlayer
+end
+
+RunService.RenderStepped:Connect(function()
+	if AimActive then
+		local target = GetClosestPlayer()
+		if target and target.Character and target.Character:FindFirstChild(AimTargetPart) then
+			Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Character[AimTargetPart].Position)
+		end
+	end
+end)
+
+AimToggleBtn.MouseButton1Click:Connect(function()
+	AimActive = not AimActive
+	if AimActive then
+		AimToggleBtn.Text = "ВКЛ"
+		AimToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		AimToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+	else
+		AimToggleBtn.Text = "ВЫКЛ"
+		AimToggleBtn.TextColor3 = Color3.fromRGB(130, 130, 130)
+		AimToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+	end
+end)
+
+-- ==========================================
+-- 6. ESP (ИСПРАВЛЕННЫЙ)
+-- ==========================================
+local espHighlights = {}
+
+local function ApplyEsp(player)
+	if player == LocalPlayer then return end
+	
+	local function addHighlight(character)
+		if character and not character:FindFirstChild("ESPHighlight") then
+			local highlight = Instance.new("Highlight")
+			highlight.Name = "ESPHighlight"
+			highlight.FillColor = Color3.fromRGB(120, 120, 120) -- Серый
+			highlight.FillTransparency = 0.5
+			highlight.OutlineColor = Color3.fromRGB(200, 200, 200)
+			highlight.OutlineTransparency = 0.3
+			highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+			highlight.Adornee = character
+			highlight.Parent = character
+			espHighlights[player] = highlight
+		end
+	end
+	
+	local function removeHighlight()
+		if espHighlights[player] then
+			espHighlights[player]:Destroy()
+			espHighlights[player] = nil
+		end
+	end
+	
+	-- Подключаемся к изменениям персонажа
+	if player.Character then
+		addHighlight(player.Character)
+	end
+	
+	player.CharacterAdded:Connect(function(character)
+		task.wait(0.1)
+		addHighlight(character)
+	end)
+	
+	player.CharacterRemoving:Connect(function()
+		removeHighlight()
+	end)
+end
+
+-- Включаем/выключаем ESP
+local function UpdateEsp()
+	for _, player in pairs(Players:GetPlayers()) do
+		if EspActive then
+			ApplyEsp(player)
+		else
+			if espHighlights[player] then
+				espHighlights[player]:Destroy()
+				espHighlights[player] = nil
+			end
+		end
+	end
+end
+
+EspToggleBtn.MouseButton1Click:Connect(function()
+	EspActive = not EspActive
+	if EspActive then
+		EspToggleBtn.Text = "ВКЛ"
+		EspToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		EspToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+	else
+		EspToggleBtn.Text = "ВЫКЛ"
+		EspToggleBtn.TextColor3 = Color3.fromRGB(130, 130, 130)
+		EspToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+	end
+	UpdateEsp()
+end)
+
+-- Обработка новых игроков
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function()
+		if EspActive then
+			task.wait(0.2)
+			ApplyEsp(player)
+		end
+	end)
+end)
+
+-- Очистка при отключении игрока
+Players.PlayerRemoving:Connect(function(player)
+	if espHighlights[player] then
+		espHighlights[player]:Destroy()
+		espHighlights[player] = nil
+	end
+end)
+
+-- Первоначальное применение ESP
+task.wait(1)
+UpdateEsp()
+
+print("✅ Меню загружено (телефонная версия)")
