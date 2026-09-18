@@ -1,0 +1,179 @@
+-- Создание интерфейса кнопки
+local ScreenGui = Instance.new("ScreenGui")
+local ToggleBtn = Instance.new("TextButton")
+local UICorner = Instance.new("UICorner")
+
+ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+
+ToggleBtn.Size = UDim2.new(0, 150, 0, 50)
+ToggleBtn.Position = UDim2.new(0.05, 0, 0.4, 0)
+ToggleBtn.Text = "FE Plane: OFF"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+ToggleBtn.Font = Enum.Font.SourceSansBold
+ToggleBtn.TextSize = 18
+ToggleBtn.Parent = ScreenGui
+
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = ToggleBtn
+
+-- Настройки механики
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local localPlayer = Players.LocalPlayer
+local isPlaneMode = false
+local renderConnection = nil
+
+local KNOCKBACK_RADIUS = 12 -- Дистанция откидывания
+local KNOCKBACK_FORCE = 85 -- Сила откидывания
+
+-- Сохранение оригинальных положений суставов для возврата в норму
+local originalJoints = {}
+
+local function saveOriginals(char, rigType)
+    originalJoints = {}
+    if rigType == Enum.HumanoidRigType.R6 then
+        local torso = char:FindFirstChild("Torso")
+        if torso then
+            if torso:FindFirstChild("Right Shoulder") then originalJoints["Right Shoulder"] = torso["Right Shoulder"].C1 end
+            if torso:FindFirstChild("Left Shoulder") then originalJoints["Left Shoulder"] = torso["Left Shoulder"].C1 end
+        end
+    else -- R15
+        local rShoulder = char:FindFirstChild("RightUpperArm") and char.RightUpperArm:FindFirstChild("RightShoulder")
+        local lShoulder = char:FindFirstChild("LeftUpperArm") and char.LeftUpperArm:FindFirstChild("LeftShoulder")
+        if rShoulder then originalJoints["RightShoulder"] = rShoulder.C1 end
+        if lShoulder then originalJoints["LeftShoulder"] = lShoulder.C1 end
+    end
+end
+
+-- Функция отталкивания игроков
+local function pushPlayer(targetChar, rootPart)
+    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+    local targetHum = targetChar:FindFirstChildOfClass("Humanoid")
+    
+    if targetRoot and targetHum and not targetRoot:FindFirstChild("KnockbackImpulse") then
+        local direction = (targetRoot.Position - rootPart.Position).Unit
+        if direction.Magnitude == 0 then direction = Vector3.new(0, 1, 0) end
+        
+        local attachment = Instance.new("Attachment")
+        attachment.Name = "KnockbackAttachment"
+        attachment.Parent = targetRoot
+        
+        local lVel = Instance.new("LinearVelocity")
+        lVel.Name = "KnockbackImpulse"
+        lVel.MaxForce = 999999
+        lVel.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
+        lVel.VectorVelocity = (direction * KNOCKBACK_FORCE) + Vector3.new(0, 18, 0) -- В сторону и вверх
+        lVel.Attachment0 = attachment
+        lVel.Parent = targetRoot
+        
+        task.delay(0.15, function()
+            if lVel then lVel:Destroy() end
+            if attachment then attachment:Destroy() end
+        end)
+    end
+end
+
+-- Логика удержания рук в стороны (выполняется каждый кадр)
+local function transformToPlane(char, rigType)
+    if rigType == Enum.HumanoidRigType.R6 then
+        local torso = char:FindFirstChild("Torso")
+        if torso then
+            local rShoulder = torso:FindFirstChild("Right Shoulder")
+            local lShoulder = torso:FindFirstChild("Left Shoulder")
+            -- Разворачиваем руки горизонтально по бокам (C1 смещение)
+            if rShoulder then rShoulder.C1 = CFrame.new(-0.5, 0.5, 0) * CFrame.Angles(0, 0, math.rad(90)) end
+            if lShoulder then lShoulder.C1 = CFrame.new(0.5, 0.5, 0) * CFrame.Angles(0, 0, math.rad(-90)) end
+        end
+    else -- R15
+        local rUpper = char:FindFirstChild("RightUpperArm")
+        local lUpper = char:FindFirstChild("LeftUpperArm")
+        local rShoulder = rUpper and rUpper:FindFirstChild("RightShoulder")
+        local lShoulder = lUpper and lUpper:FindFirstChild("LeftShoulder")
+        
+        if rShoulder then rShoulder.C1 = CFrame.new(-0.5, 0.5, 0) * CFrame.Angles(0, 0, math.rad(90)) end
+        if lShoulder then lShoulder.C1 = CFrame.new(0.5, 0.5, 0) * CFrame.Angles(0, 0, math.rad(-90)) end
+    end
+end
+
+-- Восстановление обычного положения рук
+local function resetJoints(char, rigType)
+    if rigType == Enum.HumanoidRigType.R6 then
+        local torso = char:FindFirstChild("Torso")
+        if torso then
+            if torso:FindFirstChild("Right Shoulder") and originalJoints["Right Shoulder"] then torso["Right Shoulder"].C1 = originalJoints["Right Shoulder"] end
+            if torso:FindFirstChild("Left Shoulder") and originalJoints["Left Shoulder"] then torso["Left Shoulder"].C1 = originalJoints["Left Shoulder"] end
+        end
+    else
+        local rUpper = char:FindFirstChild("RightUpperArm")
+        local lUpper = char:FindFirstChild("LeftUpperArm")
+        local rShoulder = rUpper and rUpper:FindFirstChild("RightShoulder")
+        local lShoulder = lUpper and lUpper:FindFirstChild("LeftShoulder")
+        
+        if rShoulder and originalJoints["RightShoulder"] then rShoulder.C1 = originalJoints["RightShoulder"] end
+        if lShoulder and originalJoints["LeftShoulder"] then lShoulder.C1 = originalJoints["LeftShoulder"] end
+    end
+end
+
+-- Клик по кнопке активации
+ToggleBtn.MouseButton1Click:Connect(function()
+    isPlaneMode = not isPlaneMode
+    local char = localPlayer.Character
+    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+    
+    if not char or not humanoid then isPlaneMode = false return end
+    local rigType = humanoid.RigType
+    
+    if isPlaneMode then
+        ToggleBtn.Text = "FE Plane: ON"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+        
+        saveOriginals(char, rigType)
+        
+        -- Постоянно форсируем позу и проверяем коллизии для откидывания
+        renderConnection = RunService.RenderStepped:Connect(function()
+            if char and humanoid then
+                transformToPlane(char, rigType)
+                
+                -- Аура откидывания игроков
+                local myRoot = char:FindFirstChild("HumanoidRootPart")
+                if myRoot then
+                    for _, player in ipairs(Players:GetPlayers()) do
+                        if player ~= localPlayer and player.Character then
+                            local tRoot = player.Character:FindFirstChild("HumanoidRootPart")
+                            if tRoot then
+                                local distance = (myRoot.Position - tRoot.Position).Magnitude
+                                if distance <= KNOCKBACK_RADIUS then
+                                    pcall(function() pushPlayer(player.Character, myRoot) end)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    else
+        ToggleBtn.Text = "FE Plane: OFF"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        
+        if renderConnection then
+            renderConnection:Disconnect()
+            renderConnection = nil
+        end
+        resetJoints(char, rigType)
+    end
+end)
+
+-- Сброс состояния при смерти/респавне
+localPlayer.CharacterAdded:Connect(function()
+    if isPlaneMode then
+        isPlaneMode = false
+        ToggleBtn.Text = "FE Plane: OFF"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        if renderConnection then
+            renderConnection:Disconnect()
+            renderConnection = nil
+        end
+    end
+end)
