@@ -1,0 +1,210 @@
+-- Создание общего интерфейса
+local ScreenGui = Instance.new("ScreenGui")
+local PlaneBtn = Instance.new("TextButton")
+local PlaneCorner = Instance.new("UICorner")
+local DroneBtn = Instance.new("TextButton")
+local DroneCorner = Instance.new("UICorner")
+
+ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+
+-- Настройка кнопки Самолёта (Твой прошлый режим)
+PlaneBtn.Size = UDim2.new(0, 160, 0, 50)
+PlaneBtn.Position = UDim2.new(0.05, 0, 0.4, 0) -- Слева по центру
+PlaneBtn.Text = "Shahed Mode: OFF"
+PlaneBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+PlaneBtn.BackgroundColor3 = Color3.fromRGB(150, 40, 40)
+PlaneBtn.Font = Enum.Font.SourceSansBold
+PlaneBtn.TextSize = 16
+PlaneBtn.Parent = ScreenGui
+
+PlaneCorner.CornerRadius = UDim.new(0, 8)
+PlaneCorner.Parent = PlaneBtn
+
+-- Настройка кнопки Дрона-Убийцы (Новый режим)
+DroneBtn.Size = UDim2.new(0, 160, 0, 50)
+DroneBtn.Position = UDim2.new(0.05, 0, 0.4, 60) -- Прямо под кнопкой самолёта
+DroneBtn.Text = "Killer Drone: OFF"
+DroneBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+DroneBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60) -- Стильный серый цвет дрона
+DroneBtn.Font = Enum.Font.SourceSansBold
+DroneBtn.TextSize = 16
+DroneBtn.Parent = ScreenGui
+
+DroneCorner.CornerRadius = UDim.new(0, 8)
+DroneCorner.Parent = DroneBtn
+
+-- Глобальные настройки физики и управления
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local localPlayer = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local isFlying = false
+local currentMode = "" -- "Plane" или "Drone"
+local flySpeed = 130
+local DETONATION_RADIUS = 15
+local MEGA_FORCE = 10000
+
+local bodyGyro, bodyVelocity, engineSound
+
+-- Эффект ультимативного перемещения в Бездну (Void) для Дрона
+local function teleportToVoid(targetChar)
+    local tRoot = targetChar:FindFirstChild("HumanoidRootPart")
+    local tHum = targetChar:FindFirstChildOfClass("Humanoid")
+    
+    if tRoot and tHum and tHum.Health > 0 then
+        -- Телепортируем игрока на -500 блоков под карту, где он мгновенно погибает
+        pcall(function()
+            tRoot.CFrame = CFrame.new(tRoot.Position.X, -500, tRoot.Position.Z)
+            tRoot.AssemblyLinearVelocity = Vector3.new(0, -500, 0) -- Дополнительно толкаем вниз на огромной скорости
+        end)
+    end
+end
+
+-- Стандартный мощный взрыв для Самолёта
+local function superExplode(targetChar, myRoot)
+    local tRoot = targetChar:FindFirstChild("HumanoidRootPart")
+    local tHum = targetChar:FindFirstChildOfClass("Humanoid")
+    
+    if tRoot and tHum and tHum.Health > 0 then
+        local dir = (tRoot.Position - myRoot.Position).Unit
+        if dir.Magnitude == 0 then dir = Vector3.new(0, 1, 0) end
+        
+        local exp = Instance.new("Explosion")
+        exp.BlastRadius = 0
+        exp.Position = tRoot.Position
+        exp.Parent = workspace
+        
+        pcall(function()
+            tRoot.AssemblyLinearVelocity = (dir * MEGA_FORCE) + Vector3.new(0, MEGA_FORCE / 2, 0)
+        end)
+    end
+end
+
+-- Общая функция запуска полета
+local function startFlight(mode)
+    local char = localPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    
+    if not root or not hum then return end
+    
+    currentMode = mode
+    isFlying = true
+    pcall(function() char.Animate.Disabled = true end)
+    hum.PlatformStand = true
+    
+    -- Звуковое сопровождение
+    engineSound = Instance.new("Sound")
+    engineSound.SoundId = (mode == "Plane") and "rbxassetid://9114223171" or "rbxassetid://9069609268" -- У дрона более футуристичный звук
+    engineSound.Volume = 3
+    engineSound.Looped = true
+    engineSound.PlaybackSpeed = 1.4
+    engineSound.Parent = root
+    engineSound:Play()
+    
+    -- Силы полета
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.P = 150000
+    bodyGyro.maxTorque = Vector3.new(900000, 900000, 900000)
+    bodyGyro.cframe = root.CFrame
+    bodyGyro.Parent = root
+    
+    bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.P = 150000
+    bodyVelocity.maxForce = Vector3.new(900000, 900000, 900000)
+    bodyVelocity.velocity = Vector3.new(0, 0, 0)
+    bodyVelocity.Parent = root
+    
+    task.spawn(function()
+        while isFlying and root and hum do
+            local lookDir = camera.CFrame.LookVector
+            bodyGyro.cframe = CFrame.new(root.Position, root.Position + lookDir) * CFrame.Angles(math.rad(-90), 0, 0)
+            bodyVelocity.velocity = lookDir * flySpeed
+            
+            -- Анимация крыльев
+            pcall(function()
+                if hum.RigType == Enum.HumanoidRigType.R6 then
+                    char.Torso["Right Shoulder"].C1 = CFrame.new(-0.5, 0.5, 0) * CFrame.Angles(0, 0, math.rad(90))
+                    char.Torso["Left Shoulder"].C1 = CFrame.new(0.5, 0.5, 0) * CFrame.Angles(0, 0, math.rad(-90))
+                else
+                    char.RightUpperArm.RightShoulder.C1 = CFrame.new(-0.5, 0.5, 0) * CFrame.Angles(0, 0, math.rad(90))
+                    char.LeftUpperArm.LeftShoulder.C1 = CFrame.new(0.5, 0.5, 0) * CFrame.Angles(0, 0, math.rad(-90))
+                end
+            end)
+            
+            -- Обработка сближения с целями
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= localPlayer and player.Character then
+                    local enemyRoot = player.Character:FindFirstChild("HumanoidRootPart")
+                    if enemyRoot then
+                        local distance = (root.Position - enemyRoot.Position).Magnitude
+                        if distance <= DETONATION_RADIUS then
+                            if currentMode == "Drone" then
+                                teleportToVoid(player.Character)
+                            elseif currentMode == "Plane" then
+                                superExplode(player.Character, root)
+                            end
+                        end
+                    end
+                end
+            end
+            
+            RunService.Heartbeat:Wait()
+        end
+    end)
+end
+
+-- Общая функция остановки полета
+local function stopFlight()
+    isFlying = false
+    currentMode = ""
+    local char = localPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    
+    if bodyGyro then bodyGyro:Destroy() end
+    if bodyVelocity then bodyVelocity:Destroy() end
+    if engineSound then engineSound:Destroy() end
+    
+    if hum then hum.PlatformStand = false end
+    pcall(function() 
+        char.Animate.Disabled = false 
+        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+    end)
+    
+    -- Возвращаем кнопкам исходный вид
+    PlaneBtn.Text = "Shahed Mode: OFF"
+    PlaneBtn.BackgroundColor3 = Color3.fromRGB(150, 40, 40)
+    DroneBtn.Text = "Killer Drone: OFF"
+    DroneBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+end
+
+-- Логика кнопки Самолёта
+PlaneBtn.MouseButton1Click:Connect(function()
+    if isFlying and currentMode == "Plane" then
+        stopFlight()
+    else
+        stopFlight() -- Отключаем другой режим, если он был активен
+        PlaneBtn.Text = "Shahed Mode: ON"
+        PlaneBtn.BackgroundColor3 = Color3.fromRGB(40, 150, 40)
+        startFlight("Plane")
+    end
+end)
+
+-- Логика кнопки Дрона
+DroneBtn.MouseButton1Click:Connect(function()
+    if isFlying and currentMode == "Drone" then
+        stopFlight()
+    else
+        stopFlight() -- Отключаем другой режим, если он был активен
+        DroneBtn.Text = "Killer Drone: ON"
+        DroneBtn.BackgroundColor3 = Color3.fromRGB(40, 150, 40)
+        startFlight("Drone")
+    end
+end)
+
+-- Сброс при смерти
+localPlayer.CharacterAdded:Connect(function()
+    stopFlight()
+end)
