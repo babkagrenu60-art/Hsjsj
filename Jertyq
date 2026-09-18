@@ -1,0 +1,154 @@
+-- Создание интерфейса кнопки
+local ScreenGui = Instance.new("ScreenGui")
+local ToggleBtn = Instance.new("TextButton")
+local UICorner = Instance.new("UICorner")
+
+ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+
+ToggleBtn.Size = UDim2.new(0, 160, 0, 50)
+ToggleBtn.Position = UDim2.new(0.05, 0, 0.4, 0)
+ToggleBtn.Text = "Plane Fly: OFF"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+ToggleBtn.Font = Enum.Font.SourceSansBold
+ToggleBtn.TextSize = 18
+ToggleBtn.Parent = ScreenGui
+
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = ToggleBtn
+
+-- Настройки полета и откидывания
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local localPlayer = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local isFlying = false
+local flySpeed = 70 -- Скорость полета самолета
+local KNOCKBACK_RADIUS = 14 -- Расстояние, на котором сносит игроков
+local KNOCKBACK_FORCE = 90 -- Сила отката игроков
+
+local bodyGyro, bodyVelocity
+
+-- Функция жесткого откидывания через Velocity
+local function hardKnockback(targetChar, myRoot)
+    local tRoot = targetChar:FindFirstChild("HumanoidRootPart")
+    local tHum = targetChar:FindFirstChildOfClass("Humanoid")
+    
+    if tRoot and tHum and tHum.Health > 0 then
+        -- Вычисляем направление от нас к цели
+        local dir = (tRoot.Position - myRoot.Position).Unit
+        if dir.Magnitude == 0 then dir = Vector3.new(0, 1, 0) end
+        
+        -- Даем мощный пинок по осям (пробивает коллизию и большинство античитов)
+        pcall(function()
+            tRoot.AssemblyLinearVelocity = (dir * KNOCKBACK_FORCE) + Vector3.new(0, 30, 0)
+        end)
+    end
+end
+
+-- Включение и отключение полета
+local function startFlying()
+    local char = localPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    
+    if not root or not hum then return end
+    
+    -- Отключаем штатные анимации, чтобы они не ломали позу самолета
+    pcall(function() char.Animate.Disabled = true end)
+    hum.PlatformStand = true -- Переводим персонажа в режим физического объекта
+    
+    -- Создаем стабилизатор направления
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.P = 90000
+    bodyGyro.maxTorque = Vector3.new(900000, 900000, 900000)
+    bodyGyro.cframe = root.CFrame
+    bodyGyro.Parent = root
+    
+    -- Создаем двигатель левитации
+    bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.P = 90000
+    bodyVelocity.maxForce = Vector3.new(900000, 900000, 900000)
+    bodyVelocity.velocity = Vector3.new(0, 0, 0)
+    bodyVelocity.Parent = root
+    
+    -- Цикл управления самолетом и ауры сбивания
+    task.spawn(function()
+        while isFlying and root and hum do
+            -- 1. УПРАВЛЕНИЕ КАМЕРОЙ: наклоняем персонажа горизонтально вперед по вектору камеры
+            local lookDir = camera.CFrame.LookVector
+            bodyGyro.cframe = CFrame.new(root.Position, root.Position + lookDir) * CFrame.Angles(math.rad(-90), 0, 0)
+            
+            -- Летим вперед туда, куда направлен взгляд
+            bodyVelocity.velocity = lookDir * flySpeed
+            
+            -- Визуально разводим руки в стороны, если это R6/R15
+            pcall(function()
+                if hum.RigType == Enum.HumanoidRigType.R6 then
+                    char.Torso["Right Shoulder"].C1 = CFrame.new(-0.5, 0.5, 0) * CFrame.Angles(0, 0, math.rad(90))
+                    char.Torso["Left Shoulder"].C1 = CFrame.new(0.5, 0.5, 0) * CFrame.Angles(0, 0, math.rad(-90))
+                else
+                    char.RightUpperArm.RightShoulder.C1 = CFrame.new(-0.5, 0.5, 0) * CFrame.Angles(0, 0, math.rad(90))
+                    char.LeftUpperArm.LeftShoulder.C1 = CFrame.new(0.5, 0.5, 0) * CFrame.Angles(0, 0, math.rad(-90))
+                end
+            end)
+            
+            -- 2. СБИВАНИЕ ИГРОКОВ: ищем жертв поблизости
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= localPlayer and player.Character then
+                    local enemyRoot = player.Character:FindFirstChild("HumanoidRootPart")
+                    if enemyRoot then
+                        local distance = (root.Position - enemyRoot.Position).Magnitude
+                        if distance <= KNOCKBACK_RADIUS then
+                            hardKnockback(player.Character, root)
+                        end
+                    end
+                end
+            end
+            
+            RunService.Heartbeat:Wait()
+        end
+    end)
+end
+
+local function stopFlying()
+    local char = localPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    
+    if bodyGyro then bodyGyro:Destroy() end
+    if bodyVelocity then bodyVelocity:Destroy() end
+    
+    if hum then hum.PlatformStand = false end
+    pcall(function() 
+        char.Animate.Disabled = false 
+        -- Сбрасываем суставы в норму, обновив Humanoid
+        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+    end)
+end
+
+-- Обработка кнопки
+ToggleBtn.MouseButton1Click:Connect(function()
+    isFlying = not isFlying
+    if isFlying then
+        ToggleBtn.Text = "Plane Fly: ON"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 220, 60)
+        startFlying()
+    else
+        ToggleBtn.Text = "Plane Fly: OFF"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+        stopFlying()
+    end
+end)
+
+-- Безопасный сброс при респавне
+localPlayer.CharacterAdded:Connect(function()
+    if isFlying then
+        isFlying = false
+        ToggleBtn.Text = "Plane Fly: OFF"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+        stopFlying()
+    end
+end)
