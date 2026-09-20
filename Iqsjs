@@ -1,0 +1,240 @@
+-- MM2 Tool: Шахед (полёт + откидывание) — с анимацией Super Flight
+local P=game:GetService("Players")
+local UIS=game:GetService("UserInputService")
+local TW=game:GetService("TweenService")
+local RS=game:GetService("RunService")
+local LP=P.LocalPlayer
+local PG=LP:WaitForChild("PlayerGui")
+local CHR=LP.Character or LP.CharacterAdded:Wait()
+local HRP=CHR:WaitForChild("HumanoidRootPart")
+local HUM=CHR:WaitForChild("Humanoid")
+
+local CFG={Size=UDim2.new(0,240,0,200),Accent=Color3.fromRGB(255,100,50),Speed=150,Knockback=450}
+
+local guiOpen=true
+local isFlying=false
+local flyLoop=nil
+local touchedConn=nil
+local flyAnim=nil
+local flyAnimTrack=nil
+
+-- ID анимации Super Flight (UGC emote)
+local FLY_ANIM_ID="rbxassetid://75134290719908"
+
+local old=PG:FindFirstChild("MM2_Shahid"); if old then old:Destroy() end
+
+local SG=Instance.new("ScreenGui")
+SG.Name="MM2_Shahid"; SG.ResetOnSpawn=false; SG.IgnoreGuiInset=true
+SG.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; SG.Parent=PG
+
+local function corner(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r); c.Parent=p; return c end
+local function stroke(p,c,t) local s=Instance.new("UIStroke"); s.Color=c; s.Thickness=t or 1.5; s.Parent=p; return s end
+
+-- Иконка
+local Icon=Instance.new("TextButton")
+Icon.Size=UDim2.new(0,42,0,42); Icon.Position=UDim2.new(0,16,0.5,-21)
+Icon.BackgroundColor3=Color3.fromRGB(25,25,35); Icon.BorderSizePixel=0
+Icon.Text="☄️"; Icon.TextColor3=CFG.Accent; Icon.TextSize=22
+Icon.Font=Enum.Font.GothamBold; Icon.AutoButtonColor=false; Icon.Parent=SG
+corner(Icon,21); stroke(Icon,CFG.Accent)
+
+-- Окно
+local MF=Instance.new("Frame")
+MF.Size=CFG.Size; MF.Position=UDim2.new(0.5,-120,0.5,-100)
+MF.BackgroundColor3=Color3.fromRGB(25,25,35); MF.BorderSizePixel=0
+MF.ClipsDescendants=true; MF.Parent=SG
+corner(MF,12); stroke(MF,CFG.Accent)
+
+local TB=Instance.new("TextLabel")
+TB.Size=UDim2.new(1,0,0,36); TB.BackgroundColor3=Color3.fromRGB(18,18,28)
+TB.BorderSizePixel=0; TB.Text="  ☄️ ШАХЕД"; TB.TextColor3=Color3.fromRGB(255,255,255)
+TB.TextSize=13; TB.Font=Enum.Font.GothamBold
+TB.TextXAlignment=Enum.TextXAlignment.Left; TB.Parent=MF
+corner(TB,12)
+
+local CB=Instance.new("TextButton")
+CB.Size=UDim2.new(0,26,0,26); CB.Position=UDim2.new(1,-32,0,5)
+CB.BackgroundColor3=Color3.fromRGB(200,60,60); CB.BorderSizePixel=0
+CB.Text="×"; CB.TextColor3=Color3.fromRGB(255,255,255); CB.TextSize=17
+CB.Font=Enum.Font.GothamBold; CB.AutoButtonColor=false; CB.Parent=TB
+corner(CB,13)
+
+local CT=Instance.new("Frame")
+CT.Size=UDim2.new(1,-16,1,-44); CT.Position=UDim2.new(0,8,0,40)
+CT.BackgroundTransparency=1; CT.Parent=MF
+
+-- Статус
+local StatusLbl=Instance.new("TextLabel")
+StatusLbl.Size=UDim2.new(1,0,0,20); StatusLbl.Position=UDim2.new(0,0,0,0)
+StatusLbl.BackgroundTransparency=1; StatusLbl.Text="Выключено"
+StatusLbl.TextColor3=Color3.fromRGB(150,150,160); StatusLbl.TextSize=11
+StatusLbl.Font=Enum.Font.Gotham; StatusLbl.TextXAlignment=Enum.TextXAlignment.Left; StatusLbl.Parent=CT
+
+-- Кнопка вкл/выкл
+local FlyBtn=Instance.new("TextButton")
+FlyBtn.Size=UDim2.new(1,0,0,60); FlyBtn.Position=UDim2.new(0,0,0,26)
+FlyBtn.BackgroundColor3=Color3.fromRGB(35,35,50); FlyBtn.BorderSizePixel=0
+FlyBtn.Text=""; FlyBtn.AutoButtonColor=false; FlyBtn.Parent=CT
+corner(FlyBtn,10); stroke(FlyBtn,Color3.fromRGB(80,80,100))
+
+local FlyTxt=Instance.new("TextLabel")
+FlyTxt.Size=UDim2.new(1,0,0,28); FlyTxt.Position=UDim2.new(0,0,0,6)
+FlyTxt.BackgroundTransparency=1; FlyTxt.Text="☄️  ВКЛЮЧИТЬ"
+FlyTxt.TextColor3=Color3.fromRGB(200,200,210); FlyTxt.TextSize=15
+FlyTxt.Font=Enum.Font.GothamBold; FlyTxt.Parent=FlyBtn
+
+local FlySub=Instance.new("TextLabel")
+FlySub.Size=UDim2.new(1,0,0,16); FlySub.Position=UDim2.new(0,0,0,38)
+FlySub.BackgroundTransparency=1; FlySub.Text="Летишь туда, куда смотрит камера"
+FlySub.TextColor3=Color3.fromRGB(120,120,140); FlySub.TextSize=9
+FlySub.Font=Enum.Font.Gotham; FlySub.Parent=FlyBtn
+
+-- ===== АНИМАЦИИ GUI =====
+local function openGui()
+    if guiOpen then return end
+    guiOpen=true; MF.Visible=true; MF.Size=UDim2.new(0,0,0,0)
+    TW:Create(MF,TweenInfo.new(0.3,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Size=CFG.Size}):Play()
+end
+local function closeGui()
+    if not guiOpen then return end
+    guiOpen=false
+    local t=TW:Create(MF,TweenInfo.new(0.18,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Size=UDim2.new(0,0,0,0)})
+    t:Play(); t.Completed:Connect(function() MF.Visible=false end)
+end
+
+Icon.MouseButton1Click:Connect(function() if guiOpen then closeGui() else openGui() end end)
+CB.MouseButton1Click:Connect(closeGui)
+
+-- Перетаскивание
+do
+    local drag,ds,sp=false,nil,nil
+    TB.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+            drag=true; ds=i.Position; sp=MF.Position
+            i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then drag=false end end)
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if drag and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+            local d=i.Position-ds
+            MF.Position=UDim2.new(sp.X.Scale,sp.X.Offset+d.X,sp.Y.Scale,sp.Y.Offset+d.Y)
+        end
+    end)
+end
+
+-- ===== ЛОГИКА ПОЛЁТА =====
+local function startFly()
+    isFlying=true
+    FlyTxt.Text="☄️  ВЫКЛЮЧИТЬ"
+    FlyTxt.TextColor3=Color3.fromRGB(255,150,100)
+    FlyBtn.BackgroundColor3=Color3.fromRGB(55,35,25)
+    StatusLbl.Text="Активно · летишь"
+    StatusLbl.TextColor3=Color3.fromRGB(255,150,100)
+
+    local char=LP.Character
+    if not char then return end
+    local hrp=char:FindFirstChild("HumanoidRootPart")
+    local hum=char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum then return end
+
+    -- Загружаем и играем анимацию полёта
+    local animator=hum:FindFirstChildOfClass("Animator")
+    if animator then
+        flyAnim=Instance.new("Animation")
+        flyAnim.AnimationId=FLY_ANIM_ID
+        local success,track=pcall(function() return animator:LoadAnimation(flyAnim) end)
+        if success and track then
+            flyAnimTrack=track
+            flyAnimTrack.Priority=Enum.AnimationPriority.Action
+            flyAnimTrack.Looped=true
+            flyAnimTrack:Play()
+        end
+    end
+
+    hum.PlatformStand=true
+    hum:ChangeState(Enum.HumanoidStateType.Physics)
+
+    for _,p in ipairs(char:GetDescendants()) do
+        if p:IsA("BasePart") then p.CanCollide=true end
+    end
+
+    flyLoop=RS.Heartbeat:Connect(function(dt)
+        if not isFlying then return end
+        local c=LP.Character
+        if not c then return end
+        local h=c:FindFirstChild("HumanoidRootPart")
+        if not h then return end
+
+        local cam=workspace.CurrentCamera
+        local lookDir=cam.CFrame.LookVector
+        local moveDir=lookDir
+
+        local move=hum.MoveDirection
+        if move.Magnitude>0 then
+            moveDir=moveDir+move*2
+            moveDir=moveDir.Unit
+        end
+
+        h.AssemblyLinearVelocity=moveDir*CFG.Speed
+    end)
+
+    touchedConn=char.HumanoidRootPart.Touched:Connect(function(hit)
+        if not isFlying then return end
+        local otherChar=hit.Parent
+        if otherChar==char then return end
+        local otherHum=otherChar:FindFirstChildOfClass("Humanoid")
+        local otherHrp=otherChar:FindFirstChild("HumanoidRootPart")
+        if not otherHum or not otherHrp then return end
+
+        local dir=(otherHrp.Position-HRP.Position)
+        if dir.Magnitude<0.1 then dir=Vector3.new(0,0,1) end
+        local d=dir.Unit
+
+        otherHrp.AssemblyLinearVelocity=d*CFG.Knockback + Vector3.new(0,200,0)
+
+        otherHum.PlatformStand=true
+        task.delay(0.5,function()
+            if otherHum and otherHum.Parent then
+                otherHum.PlatformStand=false
+            end
+        end)
+    end)
+end
+
+local function stopFly()
+    isFlying=false
+    FlyTxt.Text="☄️  ВКЛЮЧИТЬ"
+    FlyTxt.TextColor3=Color3.fromRGB(200,200,210)
+    FlyBtn.BackgroundColor3=Color3.fromRGB(35,35,50)
+    StatusLbl.Text="Выключено"
+    StatusLbl.TextColor3=Color3.fromRGB(150,150,160)
+
+    if flyLoop then flyLoop:Disconnect(); flyLoop=nil end
+    if touchedConn then touchedConn:Disconnect(); touchedConn=nil end
+
+    -- Останавливаем анимацию
+    if flyAnimTrack then
+        flyAnimTrack:Stop()
+        flyAnimTrack=nil
+    end
+    flyAnim=nil
+
+    local char=LP.Character
+    if char then
+        local hum=char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum.PlatformStand=false
+        end
+    end
+end
+
+FlyBtn.MouseButton1Click:Connect(function()
+    if isFlying then stopFly() else startFly() end
+end)
+
+-- Респавн — сброс
+LP.CharacterAdded:Connect(function()
+    if isFlying then stopFly() end
+end)
+
+print("[MM2 Shahid] Загружено. Анимация: Super Flight")
