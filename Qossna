@@ -1,0 +1,293 @@
+local P=game:GetService("Players")
+local UIS=game:GetService("UserInputService")
+local RS=game:GetService("RunService")
+local LP=P.LocalPlayer
+local PG=LP:WaitForChild("PlayerGui")
+
+local active=false
+local target=nil
+local aiLoop=nil
+local jumpCooldown=0
+local dodgeCooldown=0
+local currentList={}
+
+local old=PG:FindFirstChild("EscapeBot");if old then old:Destroy() end
+local SG=Instance.new("ScreenGui")
+SG.Name="EscapeBot";SG.ResetOnSpawn=false;SG.IgnoreGuiInset=true
+SG.ZIndexBehavior=Enum.ZIndexBehavior.Sibling;SG.Parent=PG
+
+local function cr(p,r) local c=Instance.new("UICorner");c.CornerRadius=UDim.new(0,r);c.Parent=p;return c end
+local function st(p,c,t) local s=Instance.new("UIStroke");s.Color=c;s.Thickness=t or 1.5;s.Parent=p;return s end
+
+-- ИКОНКА
+local Icon=Instance.new("TextButton")
+Icon.Size=UDim2.new(0,50,0,50);Icon.Position=UDim2.new(0,16,0.5,-25)
+Icon.BackgroundColor3=Color3.fromRGB(15,15,20);Icon.BorderSizePixel=0
+Icon.Text="🏃";Icon.TextColor3=Color3.fromRGB(100,200,255);Icon.TextSize=26
+Icon.Font=Enum.Font.GothamBold;Icon.AutoButtonColor=false;Icon.Parent=SG
+cr(Icon,25);st(Icon,Color3.fromRGB(100,200,255))
+
+-- ОКНО
+local MF=Instance.new("Frame")
+MF.Size=UDim2.new(0,260,0,340);MF.Position=UDim2.new(0.5,-130,0.5,-170)
+MF.BackgroundColor3=Color3.fromRGB(15,15,20);MF.BorderSizePixel=0
+MF.ClipsDescendants=true;MF.Parent=SG;cr(MF,12);st(MF,Color3.fromRGB(100,200,255))
+
+local TB=Instance.new("TextLabel")
+TB.Size=UDim2.new(1,0,0,34);TB.BackgroundColor3=Color3.fromRGB(10,10,15)
+TB.BorderSizePixel=0;TB.Text="  🏃 БОТ-ПОБЕГ";TB.TextColor3=Color3.fromRGB(100,200,255)
+TB.TextSize=13;TB.Font=Enum.Font.GothamBold;TB.TextXAlignment=Enum.TextXAlignment.Left;TB.Parent=MF
+cr(TB,12)
+
+local CB=Instance.new("TextButton")
+CB.Size=UDim2.new(0,26,0,26);CB.Position=UDim2.new(1,-32,0,4)
+CB.BackgroundColor3=Color3.fromRGB(200,60,60);CB.BorderSizePixel=0
+CB.Text="×";CB.TextColor3=Color3.fromRGB(255,255,255);CB.TextSize=17
+CB.Font=Enum.Font.GothamBold;CB.AutoButtonColor=false;CB.Parent=TB;cr(CB,13)
+
+local CT=Instance.new("Frame")
+CT.Size=UDim2.new(1,-16,1,-44);CT.Position=UDim2.new(0,8,0,40)
+CT.BackgroundTransparency=1;CT.Parent=MF
+
+-- Статус
+local SL=Instance.new("TextLabel")
+SL.Size=UDim2.new(1,0,0,18);SL.Position=UDim2.new(0,0,0,0)
+SL.BackgroundTransparency=1;SL.Text="Выбери цель"
+SL.TextColor3=Color3.fromRGB(150,150,160);SL.TextSize=11
+SL.Font=Enum.Font.Gotham;SL.TextXAlignment=Enum.TextXAlignment.Left;SL.Parent=CT
+
+-- Список игроков
+local Scroll=Instance.new("ScrollingFrame")
+Scroll.Size=UDim2.new(1,0,0,170);Scroll.Position=UDim2.new(0,0,0,22)
+Scroll.BackgroundColor3=Color3.fromRGB(20,20,30);Scroll.BorderSizePixel=0
+Scroll.ScrollBarThickness=3;Scroll.ScrollBarImageColor3=Color3.fromRGB(100,200,255)
+Scroll.CanvasSize=UDim2.new(0,0,0,0);Scroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
+Scroll.Parent=CT;cr(Scroll,8)
+
+local List=Instance.new("UIListLayout")
+List.Padding=UDim.new(0,4);List.SortOrder=Enum.SortOrder.LayoutOrder;List.Parent=Scroll
+
+local Pad=Instance.new("UIPadding")
+Pad.PaddingTop=UDim.new(0,5);Pad.PaddingBottom=UDim.new(0,5)
+Pad.PaddingLeft=UDim.new(0,5);Pad.PaddingRight=UDim.new(0,5);Pad.Parent=Scroll
+
+-- Главная кнопка
+local MB=Instance.new("TextButton")
+MB.Size=UDim2.new(1,0,0,48);MB.Position=UDim2.new(0,0,0,200)
+MB.BackgroundColor3=Color3.fromRGB(30,50,60);MB.BorderSizePixel=0
+MB.Text="🏃  СТАРТ ПОБЕГА";MB.TextColor3=Color3.fromRGB(100,200,255)
+MB.TextSize=14;MB.Font=Enum.Font.GothamBold;MB.AutoButtonColor=false;MB.Parent=CT
+cr(MB,10);st(MB,Color3.fromRGB(100,200,255))
+
+-- Инфо
+local Info=Instance.new("TextLabel")
+Info.Size=UDim2.new(1,0,0,50);Info.Position=UDim2.new(0,0,0,254)
+Info.BackgroundColor3=Color3.fromRGB(20,20,30);Info.BorderSizePixel=0
+Info.Text="1. Выбери игрока из списка\n2. Нажми СТАРТ\n3. Бот убегает и уворачивается"
+Info.TextColor3=Color3.fromRGB(180,180,190);Info.TextSize=10
+Info.Font=Enum.Font.Gotham;Info.TextWrapped=true
+Info.TextYAlignment=Enum.TextYAlignment.Center;Info.Parent=CT
+cr(Info,8)
+
+Icon.MouseButton1Click:Connect(function() MF.Visible=not MF.Visible end)
+CB.MouseButton1Click:Connect(function() MF.Visible=false end)
+
+do
+    local d,ds,sp=false,nil,nil
+    TB.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+            d=true;ds=i.Position;sp=MF.Position
+            i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then d=false end end)
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if d and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+            local dd=i.Position-ds
+            MF.Position=UDim2.new(sp.X.Scale,sp.X.Offset+dd.X,sp.Y.Scale,sp.Y.Offset+dd.Y)
+        end
+    end)
+end
+
+-- СПИСОК ИГРОКОВ
+local function refreshList()
+    for _,c in ipairs(Scroll:GetChildren()) do
+        if c:IsA("TextButton") then c:Destroy() end
+    end
+    for _,plr in ipairs(P:GetPlayers()) do
+        if plr~=LP then
+            local btn=Instance.new("TextButton")
+            btn.Size=UDim2.new(1,-6,0,30);btn.BackgroundColor3=Color3.fromRGB(35,35,50)
+            btn.BorderSizePixel=0;btn.Text=plr.Name;btn.TextColor3=Color3.fromRGB(200,200,210)
+            btn.TextSize=12;btn.Font=Enum.Font.Gotham;btn.AutoButtonColor=false;btn.Parent=Scroll
+            cr(btn,6)
+            if target==plr then
+                btn.BackgroundColor3=Color3.fromRGB(50,80,100)
+                btn.TextColor3=Color3.fromRGB(100,200,255)
+            end
+            btn.MouseButton1Click:Connect(function()
+                target=plr
+                SL.Text="Цель: "..plr.Name
+                SL.TextColor3=Color3.fromRGB(255,100,100)
+                refreshList()
+            end)
+        end
+    end
+end
+
+refreshList()
+task.spawn(function()
+    while task.wait(2) do
+        if MF.Visible then refreshList() end
+    end
+end)
+
+-- ИИ ПОБЕГА
+local function getTargetChar()
+    if not target or not target.Character then return nil end
+    return target.Character
+end
+
+local function getDistance(a,b)
+    if not a or not b then return 999 end
+    return (a.Position-b.Position).Magnitude
+end
+
+local function isPathBlocked(hrp,dir)
+    local ray=Ray.new(hrp.Position,dir*4)
+    local hit=workspace:FindPartOnRay(ray,LP.Character)
+    return hit~=nil
+end
+
+local function findEscapeDir(myHrp,threatHrp)
+    local away=(myHrp.Position-threatHrp.Position)
+    away=Vector3.new(away.X,0,away.Z)
+    if away.Magnitude<0.1 then away=Vector3.new(1,0,0) end
+    away=away.Unit
+
+    -- Пробуем несколько направлений: назад, влево, вправо
+    local candidates={
+        away,
+        Vector3.new(-away.Z,0,away.X),
+        Vector3.new(away.Z,0,-away.X),
+        (away+Vector3.new(-away.Z,0,away.X)).Unit,
+        (away+Vector3.new(away.Z,0,-away.X)).Unit,
+    }
+
+    local best=away
+    local bestScore=-999
+    for _,dir in ipairs(candidates) do
+        -- Проверяем, не в стене ли
+        local blocked=isPathBlocked(myHrp,dir)
+        -- Проверяем, уводит ли от угрозы
+        local newPos=myHrp.Position+dir*10
+        local distFromThreat=(newPos-threatHrp.Position).Magnitude
+        local score=distFromThreat - (blocked and 100 or 0)
+        if score>bestScore then
+            bestScore=score
+            best=dir
+        end
+    end
+    return best
+end
+
+local function escapeLoop()
+    if aiLoop then aiLoop:Disconnect() end
+    aiLoop=RS.Heartbeat:Connect(function(dt)
+        if not active then return end
+        local myChar=LP.Character
+        if not myChar then return end
+        local myHrp=myChar:FindFirstChild("HumanoidRootPart")
+        local myHum=myChar:FindFirstChildOfClass("Humanoid")
+        if not myHrp or not myHum then return end
+
+        local tChar=getTargetChar()
+        if not tChar then
+            myHum:MoveTo(myHrp.Position)
+            return
+        end
+        local tHrp=tChar:FindFirstChild("HumanoidRootPart")
+        local tHum=tChar:FindFirstChildOfClass("Humanoid")
+        if not tHrp or not tHum then return end
+
+        local dist=getDistance(myHrp,tHrp)
+
+        -- Если цель далеко — идём от неё по прямой
+        if dist>30 then
+            local away=(myHrp.Position-tHrp.Position)
+            away=Vector3.new(away.X,0,away.Z).Unit
+            myHum:MoveTo(myHrp.Position+away*20)
+        else
+            -- Близко — активно уворачиваемся
+            local dir=findEscapeDir(myHrp,tHrp)
+            local targetPos=myHrp.Position+dir*25
+            myHum:MoveTo(targetPos)
+
+            -- Прыжок через препятствие
+            jumpCooldown=jumpCooldown-dt
+            if jumpCooldown<=0 then
+                local rayFront=Ray.new(myHrp.Position,dir*3)
+                local hit=workspace:FindPartOnRay(rayFront,myChar)
+                if hit then
+                    myHum.Jump=true
+                    jumpCooldown=0.5
+                end
+            end
+
+            -- Резкий рывок в сторону если цель вплотную
+            if dist<8 then
+                dodgeCooldown=dodgeCooldown-dt
+                if dodgeCooldown<=0 then
+                    local side=Vector3.new(-dir.Z,0,dir.X)
+                    if math.random()<0.5 then side=-side end
+                    myHrp.AssemblyLinearVelocity=side*40+Vector3.new(0,20,0)
+                    dodgeCooldown=0.6
+                end
+            end
+        end
+    end)
+end
+
+local function stopEscape()
+    if aiLoop then aiLoop:Disconnect();aiLoop=nil end
+    local myChar=LP.Character
+    if myChar then
+        local myHum=myChar:FindFirstChildOfClass("Humanoid")
+        if myHum then myHum:MoveTo(myChar:FindFirstChild("HumanoidRootPart").Position) end
+    end
+end
+
+MB.MouseButton1Click:Connect(function()
+    if not target then
+        SL.Text="Сначала выбери цель!"
+        SL.TextColor3=Color3.fromRGB(255,200,80)
+        return
+    end
+    active=not active
+    if active then
+        MB.Text="⏹  СТОП"
+        MB.BackgroundColor3=Color3.fromRGB(80,30,30)
+        SL.Text="Побег от: "..target.Name
+        SL.TextColor3=Color3.fromRGB(100,255,150)
+        escapeLoop()
+    else
+        MB.Text="🏃  СТАРТ ПОБЕГА"
+        MB.BackgroundColor3=Color3.fromRGB(30,50,60)
+        SL.Text="Остановлено"
+        SL.TextColor3=Color3.fromRGB(150,150,160)
+        stopEscape()
+    end
+end)
+
+P.PlayerRemoving:Connect(function(plr)
+    if target==plr then
+        target=nil
+        active=false
+        MB.Text="🏃  СТАРТ ПОБЕГА"
+        MB.BackgroundColor3=Color3.fromRGB(30,50,60)
+        SL.Text="Цель вышла"
+        SL.TextColor3=Color3.fromRGB(255,150,150)
+        stopEscape()
+    end
+end)
+
+print("[EscapeBot] Загружено. Выбери цель и жми СТАРТ.")
