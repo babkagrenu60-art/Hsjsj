@@ -1,0 +1,283 @@
+local P=game:GetService("Players")
+local UIS=game:GetService("UserInputService")
+local RS=game:GetService("RunService")
+local TW=game:GetService("TweenService")
+local LP=P.LocalPlayer
+local PG=LP:WaitForChild("PlayerGui")
+
+local guiOpen=true
+local active=false
+local target=nil
+local loop=nil
+local currentBtn=nil
+local pushForce=500 -- сила отталкивания
+local maxDist=5 -- дистанция срабатывания
+
+local old=PG:FindFirstChild("MM2_Push"); if old then old:Destroy() end
+
+local SG=Instance.new("ScreenGui")
+SG.Name="MM2_Push"; SG.ResetOnSpawn=false; SG.IgnoreGuiInset=true
+SG.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; SG.Parent=PG
+
+local function corner(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r); c.Parent=p; return c end
+local function stroke(p,c,t) local s=Instance.new("UIStroke"); s.Color=c; s.Thickness=t or 1.5; s.Parent=p; return s end
+
+-- Иконка
+local Icon=Instance.new("TextButton")
+Icon.Size=UDim2.new(0,44,0,44); Icon.Position=UDim2.new(0,18,0.5,-22)
+Icon.BackgroundColor3=Color3.fromRGB(25,25,35); Icon.BorderSizePixel=0
+Icon.Text="👊"; Icon.TextColor3=Color3.fromRGB(255,100,100); Icon.TextSize=22
+Icon.Font=Enum.Font.GothamBold; Icon.AutoButtonColor=false; Icon.Parent=SG
+corner(Icon,22); stroke(Icon,Color3.fromRGB(255,100,100))
+
+-- Окно
+local MF=Instance.new("Frame")
+MF.Size=UDim2.new(0,260,0,290); MF.Position=UDim2.new(0.5,-130,0.5,-145)
+MF.BackgroundColor3=Color3.fromRGB(25,25,35); MF.BorderSizePixel=0
+MF.ClipsDescendants=true; MF.Parent=SG
+corner(MF,12); stroke(MF,Color3.fromRGB(255,100,100))
+
+local TB=Instance.new("TextLabel")
+TB.Size=UDim2.new(1,0,0,36); TB.BackgroundColor3=Color3.fromRGB(18,18,28)
+TB.BorderSizePixel=0; TB.Text="  👊 ОТТАЛКИВАТЕЛЬ"; TB.TextColor3=Color3.fromRGB(255,255,255)
+TB.TextSize=13; TB.Font=Enum.Font.GothamBold
+TB.TextXAlignment=Enum.TextXAlignment.Left; TB.Parent=MF
+corner(TB,12)
+
+local CB=Instance.new("TextButton")
+CB.Size=UDim2.new(0,28,0,28); CB.Position=UDim2.new(1,-34,0,4)
+CB.BackgroundColor3=Color3.fromRGB(200,60,60); CB.BorderSizePixel=0
+CB.Text="×"; CB.TextColor3=Color3.fromRGB(255,255,255); CB.TextSize=18
+CB.Font=Enum.Font.GothamBold; CB.AutoButtonColor=false; CB.Parent=TB
+corner(CB,14)
+
+local CT=Instance.new("Frame")
+CT.Size=UDim2.new(1,-16,1,-44); CT.Position=UDim2.new(0,8,0,40)
+CT.BackgroundTransparency=1; CT.Parent=MF
+
+-- Статус
+local StatusLbl=Instance.new("TextLabel")
+StatusLbl.Size=UDim2.new(1,0,0,16); StatusLbl.Position=UDim2.new(0,0,0,0)
+StatusLbl.BackgroundTransparency=1; StatusLbl.Text="Выключено"
+StatusLbl.TextColor3=Color3.fromRGB(150,150,160); StatusLbl.TextSize=11
+StatusLbl.Font=Enum.Font.Gotham; StatusLbl.TextXAlignment=Enum.TextXAlignment.Left; StatusLbl.Parent=CT
+
+-- Кнопка вкл/выкл
+local MainBtn=Instance.new("TextButton")
+MainBtn.Size=UDim2.new(1,0,0,44); MainBtn.Position=UDim2.new(0,0,0,20)
+MainBtn.BackgroundColor3=Color3.fromRGB(35,35,50); MainBtn.BorderSizePixel=0
+MainBtn.Text="👊  ВКЛЮЧИТЬ"; MainBtn.TextColor3=Color3.fromRGB(200,200,210)
+MainBtn.TextSize=14; MainBtn.Font=Enum.Font.GothamBold
+MainBtn.AutoButtonColor=false; MainBtn.Parent=CT
+corner(MainBtn,10)
+
+-- Кнопка ТОЛКНУТЬ (ручная)
+local PushBtn=Instance.new("TextButton")
+PushBtn.Size=UDim2.new(1,0,0,42); PushBtn.Position=UDim2.new(0,0,0,72)
+PushBtn.BackgroundColor3=Color3.fromRGB(60,35,35); PushBtn.BorderSizePixel=0
+PushBtn.Text="💥  ТОЛКНУТЬ БЛИЖАЙШЕГО"; PushBtn.TextColor3=Color3.fromRGB(255,150,150)
+PushBtn.TextSize=13; PushBtn.Font=Enum.Font.GothamBold
+PushBtn.AutoButtonColor=false; PushBtn.Parent=CT
+corner(PushBtn,10)
+
+-- Ползунок силы
+local ForceLbl=Instance.new("TextLabel")
+ForceLbl.Size=UDim2.new(1,0,0,14); ForceLbl.Position=UDim2.new(0,0,0,124)
+ForceLbl.BackgroundTransparency=1; ForceLbl.Text="Сила: 500"
+ForceLbl.TextColor3=Color3.fromRGB(200,200,210); ForceLbl.TextSize=10
+ForceLbl.Font=Enum.Font.GothamBold
+ForceLbl.TextXAlignment=Enum.TextXAlignment.Left; ForceLbl.Parent=CT
+
+local Slider=Instance.new("Frame")
+Slider.Size=UDim2.new(1,0,0,18); Slider.Position=UDim2.new(0,0,0,140)
+Slider.BackgroundColor3=Color3.fromRGB(40,40,55); Slider.BorderSizePixel=0
+Slider.Parent=CT
+corner(Slider,9)
+
+local Fill=Instance.new("Frame")
+Fill.Size=UDim2.new(0.5,0,1,0); Fill.BackgroundColor3=Color3.fromRGB(255,100,100)
+Fill.BorderSizePixel=0; Fill.Parent=Slider
+corner(Fill,9)
+
+local Knob=Instance.new("Frame")
+Knob.Size=UDim2.new(0,14,0,14); Knob.Position=UDim2.new(0.5,-7,0.5,-7)
+Knob.BackgroundColor3=Color3.fromRGB(255,255,255); Knob.BorderSizePixel=0
+Knob.ZIndex=2; Knob.Parent=Slider
+corner(Knob,7)
+
+local function setForce(x)
+    local rel=(x-Slider.AbsolutePosition.X)/Slider.AbsoluteSize.X
+    rel=math.clamp(rel,0,1)
+    pushForce=math.floor(rel*2000)
+    Fill.Size=UDim2.new(rel,0,1,0)
+    Knob.Position=UDim2.new(rel,-7,0.5,-7)
+    ForceLbl.Text="Сила: "..pushForce
+end
+
+local dragF=false
+Slider.InputBegan:Connect(function(i)
+    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+        dragF=true; setForce(i.Position.X)
+    end
+end)
+UIS.InputChanged:Connect(function(i)
+    if dragF and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+        setForce(i.Position.X)
+    end
+end)
+UIS.InputEnded:Connect(function(i)
+    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+        dragF=false
+    end
+end)
+
+-- Инфо
+local Info=Instance.new("TextLabel")
+Info.Size=UDim2.new(1,0,0,42); Info.Position=UDim2.new(0,0,0,168)
+Info.BackgroundColor3=Color3.fromRGB(30,30,42); Info.BorderSizePixel=0
+Info.Text="Встань вплотную к игроку — он отлетит.\nРаботает автоматически пока включено."
+Info.TextColor3=Color3.fromRGB(180,180,190); Info.TextSize=10
+Info.Font=Enum.Font.Gotham; Info.TextWrapped=true; Info.Parent=CT
+corner(Info,8)
+
+-- Анимации окна
+local function openGui()
+    if guiOpen then return end
+    guiOpen=true; MF.Visible=true; MF.Size=UDim2.new(0,0,0,0)
+    TW:Create(MF,TweenInfo.new(0.3,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Size=UDim2.new(0,260,0,290)}):Play()
+end
+local function closeGui()
+    if not guiOpen then return end
+    guiOpen=false
+    local t=TW:Create(MF,TweenInfo.new(0.18,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Size=UDim2.new(0,0,0,0)})
+    t:Play(); t.Completed:Connect(function() MF.Visible=false end)
+end
+
+Icon.MouseButton1Click:Connect(function() if guiOpen then closeGui() else openGui() end end)
+CB.MouseButton1Click:Connect(closeGui)
+
+-- Перетаскивание
+do
+    local drag,ds,sp=false,nil,nil
+    TB.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+            drag=true; ds=i.Position; sp=MF.Position
+            i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then drag=false end end)
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if drag and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+            local d=i.Position-ds
+            MF.Position=UDim2.new(sp.X.Scale,sp.X.Offset+d.X,sp.Y.Scale,sp.Y.Offset+d.Y)
+        end
+    end)
+end
+
+-- Логика: находим ближайшего игрока
+local function getNearestPlayer()
+    local myChar=LP.Character
+    if not myChar then return nil end
+    local myHrp=myChar:FindFirstChild("HumanoidRootPart")
+    if not myHrp then return nil end
+
+    local nearest=nil
+    local minDist=maxDist
+
+    for _,plr in ipairs(P:GetPlayers()) do
+        if plr~=LP then
+            local c=plr.Character
+            if c then
+                local hrp=c:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local d=(hrp.Position-myHrp.Position).Magnitude
+                    if d<minDist then
+                        minDist=d
+                        nearest=plr
+                    end
+                end
+            end
+        end
+    end
+    return nearest
+end
+
+-- Толкаем игрока
+local function pushPlayer(plr)
+    if not plr then return end
+    local myChar=LP.Character
+    if not myChar then return end
+    local myHrp=myChar:FindFirstChild("HumanoidRootPart")
+    if not myHrp then return end
+
+    local tChar=plr.Character
+    if not tChar then return end
+    local tHrp=tChar:FindFirstChild("HumanoidRootPart")
+    if not tHrp then return end
+
+    -- Направление от тебя к цели
+    local dir=tHrp.Position-myHrp.Position
+    if dir.Magnitude<0.1 then dir=Vector3.new(0,0,1) end
+    local look=dir.Unit
+
+    -- Импульс жертве
+    tHrp.AssemblyLinearVelocity=look*pushForce + Vector3.new(0,pushForce*0.4,0)
+
+    -- Лёгкий рагдолл
+    local hum=tChar:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.PlatformStand=true
+        task.delay(0.3,function()
+            if hum and hum.Parent then hum.PlatformStand=false end
+        end)
+    end
+end
+
+-- Авто-режим: постоянно проверяем близких игроков
+local function startAuto()
+    if loop then loop:Disconnect() end
+    loop=RS.Heartbeat:Connect(function()
+        if not active then return end
+        local near=getNearestPlayer()
+        if near then
+            pushPlayer(near)
+        end
+    end)
+end
+
+local function stopAuto()
+    if loop then loop:Disconnect(); loop=nil end
+end
+
+MainBtn.MouseButton1Click:Connect(function()
+    active=not active
+    if active then
+        MainBtn.Text="👊  ВЫКЛЮЧИТЬ"
+        MainBtn.TextColor3=Color3.fromRGB(255,100,100)
+        MainBtn.BackgroundColor3=Color3.fromRGB(55,25,25)
+        StatusLbl.Text="Активно · отталкиваю"
+        StatusLbl.TextColor3=Color3.fromRGB(255,100,100)
+        startAuto()
+    else
+        MainBtn.Text="👊  ВКЛЮЧИТЬ"
+        MainBtn.TextColor3=Color3.fromRGB(200,200,210)
+        MainBtn.BackgroundColor3=Color3.fromRGB(35,35,50)
+        StatusLbl.Text="Выключено"
+        StatusLbl.TextColor3=Color3.fromRGB(150,150,160)
+        stopAuto()
+    end
+end)
+
+-- Ручная кнопка
+PushBtn.MouseButton1Click:Connect(function()
+    local near=getNearestPlayer()
+    if near then
+        pushPlayer(near)
+        StatusLbl.Text="Толкнул: "..near.Name
+        StatusLbl.TextColor3=Color3.fromRGB(255,150,150)
+    else
+        StatusLbl.Text="Никого рядом"
+        StatusLbl.TextColor3=Color3.fromRGB(255,200,80)
+    end
+end)
+
+print("[MM2 Push] Загружено. Отталкивает вплотную стоящих игроков.")
