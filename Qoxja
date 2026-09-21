@@ -1,0 +1,225 @@
+local P=game:GetService("Players")
+local UIS=game:GetService("UserInputService")
+local RS=game:GetService("RunService")
+local LP=P.LocalPlayer
+local PG=LP:WaitForChild("PlayerGui")
+
+local active1=false
+local active2=false
+local active3=false
+local loop1,loop2,loop3=nil,nil,nil
+
+local old=PG:FindFirstChild("Parkour");if old then old:Destroy() end
+local SG=Instance.new("ScreenGui")
+SG.Name="Parkour";SG.ResetOnSpawn=false;SG.IgnoreGuiInset=true
+SG.ZIndexBehavior=Enum.ZIndexBehavior.Sibling;SG.Parent=PG
+
+local function cr(p,r) local c=Instance.new("UICorner");c.CornerRadius=UDim.new(0,r);c.Parent=p;return c end
+local function st(p,c,t) local s=Instance.new("UIStroke");s.Color=c;s.Thickness=t or 1.5;s.Parent=p;return s end
+
+local Icon=Instance.new("TextButton")
+Icon.Size=UDim2.new(0,50,0,50);Icon.Position=UDim2.new(0,16,0.5,-25)
+Icon.BackgroundColor3=Color3.fromRGB(15,15,20);Icon.BorderSizePixel=0
+Icon.Text="🧗";Icon.TextColor3=Color3.fromRGB(100,255,150);Icon.TextSize=26
+Icon.Font=Enum.Font.GothamBold;Icon.AutoButtonColor=false;Icon.Parent=SG
+cr(Icon,25);st(Icon,Color3.fromRGB(100,255,150))
+
+local MF=Instance.new("Frame")
+MF.Size=UDim2.new(0,240,0,240);MF.Position=UDim2.new(0.5,-120,0.5,-120)
+MF.BackgroundColor3=Color3.fromRGB(15,15,20);MF.BorderSizePixel=0
+MF.ClipsDescendants=true;MF.Parent=SG;cr(MF,12);st(MF,Color3.fromRGB(100,255,150))
+
+local TB=Instance.new("TextLabel")
+TB.Size=UDim2.new(1,0,0,34);TB.BackgroundColor3=Color3.fromRGB(10,10,15)
+TB.BorderSizePixel=0;TB.Text="  🧗 ПАРКУР";TB.TextColor3=Color3.fromRGB(100,255,150)
+TB.TextSize=13;TB.Font=Enum.Font.GothamBold;TB.TextXAlignment=Enum.TextXAlignment.Left;TB.Parent=MF
+cr(TB,12)
+
+local CB=Instance.new("TextButton")
+CB.Size=UDim2.new(0,26,0,26);CB.Position=UDim2.new(1,-32,0,4)
+CB.BackgroundColor3=Color3.fromRGB(200,60,60);CB.BorderSizePixel=0
+CB.Text="×";CB.TextColor3=Color3.fromRGB(255,255,255);CB.TextSize=17
+CB.Font=Enum.Font.GothamBold;CB.AutoButtonColor=false;CB.Parent=TB;cr(CB,13)
+
+local CT=Instance.new("Frame")
+CT.Size=UDim2.new(1,-16,1,-44);CT.Position=UDim2.new(0,8,0,40)
+CT.BackgroundTransparency=1;CT.Parent=MF
+
+-- КНОПКА 1
+local B1=Instance.new("TextButton")
+B1.Size=UDim2.new(1,0,0,48);B1.Position=UDim2.new(0,0,0,0)
+B1.BackgroundColor3=Color3.fromRGB(30,50,35);B1.BorderSizePixel=0
+B1.Text="⬆️  ГОЛОВОЙ В ПЛАТФОРМУ";B1.TextColor3=Color3.fromRGB(150,255,180)
+B1.TextSize=12;B1.Font=Enum.Font.GothamBold;B1.AutoButtonColor=false;B1.Parent=CT
+cr(B1,10);st(B1,Color3.fromRGB(100,255,150))
+
+-- КНОПКА 2
+local B2=Instance.new("TextButton")
+B2.Size=UDim2.new(1,0,0,48);B2.Position=UDim2.new(0,0,0,56)
+B2.BackgroundColor3=Color3.fromRGB(35,35,55);B2.BorderSizePixel=0
+B2.Text="🧗  WALL HOP";B2.TextColor3=Color3.fromRGB(150,200,255)
+B2.TextSize=12;B2.Font=Enum.Font.GothamBold;B2.AutoButtonColor=false;B2.Parent=CT
+cr(B2,10);st(B2,Color3.fromRGB(100,150,255))
+
+-- КНОПКА 3
+local B3=Instance.new("TextButton")
+B3.Size=UDim2.new(1,0,0,48);B3.Position=UDim2.new(0,0,0,112)
+B3.BackgroundColor3=Color3.fromRGB(50,35,35);B3.BorderSizePixel=0
+B3.Text="💥  ОТТАЛКИВАНИЕ ОТ СТЕНЫ";B3.TextColor3=Color3.fromRGB(255,180,150)
+B3.TextSize=12;B3.Font=Enum.Font.GothamBold;B3.AutoButtonColor=false;B3.Parent=CT
+cr(B3,10);st(B3,Color3.fromRGB(255,150,100))
+
+local Info=Instance.new("TextLabel")
+Info.Size=UDim2.new(1,0,0,30);Info.Position=UDim2.new(0,0,0,166)
+Info.BackgroundColor3=Color3.fromRGB(20,20,30);Info.BorderSizePixel=0
+Info.Text="Все кнопки работают независимо"
+Info.TextColor3=Color3.fromRGB(180,180,190);Info.TextSize=10
+Info.Font=Enum.Font.Gotham;Info.TextWrapped=true
+Info.TextYAlignment=Enum.TextYAlignment.Center;Info.Parent=CT
+cr(Info,8)
+
+Icon.MouseButton1Click:Connect(function() MF.Visible=not MF.Visible end)
+CB.MouseButton1Click:Connect(function() MF.Visible=false end)
+
+do
+    local d,ds,sp=false,nil,nil
+    TB.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+            d=true;ds=i.Position;sp=MF.Position
+            i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then d=false end end)
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if d and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+            local dd=i.Position-ds
+            MF.Position=UDim2.new(sp.X.Scale,sp.X.Offset+dd.X,sp.Y.Scale,sp.Y.Offset+dd.Y)
+        end
+    end)
+end
+
+-- ФУНКЦИЯ: высокий прыжок при ударе головой
+local function startJump1()
+    if loop1 then loop1:Disconnect() end
+    loop1=RS.Heartbeat:Connect(function()
+        if not active1 then return end
+        local c=LP.Character
+        if not c then return end
+        local h=c:FindFirstChild("Humanoid")
+        local hrp=c:FindFirstChild("HumanoidRootPart")
+        if not h or not hrp then return end
+        -- Проверяем: в воздухе и над головой есть платформа
+        if h.FloorMaterial==Enum.Material.Air and h:GetState()~=Enum.HumanoidStateType.Jumping then
+            local ray=Ray.new(hrp.Position,Vector3.new(0,6,0))
+            local hit=workspace:FindPartOnRay(ray,c)
+            if hit and h:GetState()==Enum.HumanoidStateType.Freefall then
+                hrp.AssemblyLinearVelocity=Vector3.new(hrp.AssemblyLinearVelocity.X,120,hrp.AssemblyLinearVelocity.Z)
+            end
+        end
+    end)
+end
+
+local function stopJump1()
+    if loop1 then loop1:Disconnect();loop1=nil end
+end
+
+-- ФУНКЦИЯ: wall hop (прыжок по стене)
+local function startWallHop()
+    if loop2 then loop2:Disconnect() end
+    loop2=RS.Heartbeat:Connect(function()
+        if not active2 then return end
+        local c=LP.Character
+        if not c then return end
+        local h=c:FindFirstChild("Humanoid")
+        local hrp=c:FindFirstChild("HumanoidRootPart")
+        if not h or not hrp then return end
+        -- Проверяем: в воздухе, рядом стена, держим прыжок
+        if h.FloorMaterial==Enum.Material.Air then
+            local ray=Ray.new(hrp.Position,Vector3.new(0,0,-1.5))
+            local hit=workspace:FindPartOnRay(ray,c)
+            if hit then
+                -- Держим прыжок зажатым
+                h.JumpPower=50
+                if h:GetState()~=Enum.HumanoidStateType.Jumping then
+                    h:ChangeState(Enum.HumanoidStateType.Jumping)
+                end
+                -- Толчок вверх и в сторону от стены
+                local wallNormal=hit.Normal or Vector3.new(0,0,1)
+                local up=Vector3.new(0,1,0)
+                local push=up*50 + wallNormal*30
+                hrp.AssemblyLinearVelocity=push
+            end
+        end
+    end)
+end
+
+local function stopWallHop()
+    if loop2 then loop2:Disconnect();loop2=nil end
+    local c=LP.Character
+    if c then local h=c:FindFirstChild("Humanoid");if h then h.JumpPower=50 end end
+end
+
+-- ФУНКЦИЯ: отталкивание от стены
+local function startWallPush()
+    if loop3 then loop3:Disconnect() end
+    loop3=RS.Heartbeat:Connect(function()
+        if not active3 then return end
+        local c=LP.Character
+        if not c then return end
+        local h=c:FindFirstChild("Humanoid")
+        local hrp=c:FindFirstChild("HumanoidRootPart")
+        if not h or not hrp then return end
+        -- Проверяем: в воздухе и рядом стена
+        if h.FloorMaterial==Enum.Material.Air then
+            local ray=Ray.new(hrp.Position,Vector3.new(0,0,-2))
+            local hit=workspace:FindPartOnRay(ray,c)
+            if hit then
+                local wallNormal=hit.Normal or Vector3.new(0,0,1)
+                -- Толкает вверх и вдаль от стены
+                local push=Vector3.new(0,100,0) + wallNormal*80
+                hrp.AssemblyLinearVelocity=push
+            end
+        end
+    end)
+end
+
+local function stopWallPush()
+    if loop3 then loop3:Disconnect();loop3=nil end
+end
+
+-- КНОПКА 1
+B1.MouseButton1Click:Connect(function()
+    active1=not active1
+    if active1 then
+        B1.Text="⬆️  АКТИВНО";B1.BackgroundColor3=Color3.fromRGB(50,80,55)
+        startJump1()
+    else
+        B1.Text="⬆️  ГОЛОВОЙ В ПЛАТФОРМУ";B1.BackgroundColor3=Color3.fromRGB(30,50,35)
+        stopJump1()
+    end
+end)
+
+-- КНОПКА 2
+B2.MouseButton1Click:Connect(function()
+    active2=not active2
+    if active2 then
+        B2.Text="🧗  WALL HOP [АКТИВНО]";B2.BackgroundColor3=Color3.fromRGB(50,55,90)
+        startWallHop()
+    else
+        B2.Text="🧗  WALL HOP";B2.BackgroundColor3=Color3.fromRGB(35,35,55)
+        stopWallHop()
+    end
+end)
+
+-- КНОПКА 3
+B3.MouseButton1Click:Connect(function()
+    active3=not active3
+    if active3 then
+        B3.Text="💥  АКТИВНО";B3.BackgroundColor3=Color3.fromRGB(80,50,40)
+        startWallPush()
+    else
+        B3.Text="💥  ОТТАЛКИВАНИЕ ОТ СТЕНЫ";B3.BackgroundColor3=Color3.fromRGB(50,35,35)
+        stopWallPush()
+    end
+end)
+
+print("[Parkour] Загружено.")
