@@ -1,0 +1,580 @@
+local P=game:GetService("Players")
+local UIS=game:GetService("UserInputService")
+local RS=game:GetService("RunService")
+local LP=P.LocalPlayer
+local PG=LP:WaitForChild("PlayerGui")
+local cam=workspace.CurrentCamera
+local L=game:GetService("Lighting")
+
+local active=false
+local parts={}
+local infected={}
+local saved={}
+local pLoop,aLoop,sLoop,fpLoop=nil,nil,nil,nil
+local range=15
+local mSpeed=0.5
+local sndOn=true
+local angX=0
+local angY=0
+local shake=0
+local thrown=false
+local slow=false
+local SCREAM="rbxassetid://90468563693248"
+local savedL={}
+local sky=nil
+local oldSky=nil
+
+local old=PG:FindFirstChild("KulkidOne");if old then old:Destroy() end
+local SG=Instance.new("ScreenGui")
+SG.Name="KulkidOne";SG.ResetOnSpawn=false;SG.IgnoreGuiInset=true
+SG.ZIndexBehavior=Enum.ZIndexBehavior.Sibling;SG.Parent=PG
+
+local function cr(p,r) local c=Instance.new("UICorner");c.CornerRadius=UDim.new(0,r);c.Parent=p;return c end
+local function st(p,c,t) local s=Instance.new("UIStroke");s.Color=c;s.Thickness=t or 1.5;s.Parent=p;return s end
+
+-- ВИНЬЕТКА
+local Vig=Instance.new("Frame")
+Vig.Size=UDim2.new(1,0,1,0);Vig.BackgroundTransparency=1;Vig.ZIndex=5;Vig.Visible=false;Vig.Parent=SG
+local function edge(size,pos,rot)
+    local f=Instance.new("Frame")
+    f.Size=size;f.Position=pos;f.BackgroundColor3=Color3.fromRGB(0,0,0)
+    f.BorderSizePixel=0;f.ZIndex=5;f.Parent=Vig
+    local g=Instance.new("UIGradient")
+    g.Rotation=rot
+    g.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0),NumberSequenceKeypoint.new(0.5,0.6),NumberSequenceKeypoint.new(1,1)})
+    g.Parent=f;return f
+end
+local tE=edge(UDim2.new(1,0,0.28,0),UDim2.new(0,0,0,0),90)
+local bE=edge(UDim2.new(1,0,0.28,0),UDim2.new(0,0,0.72,0),270)
+local lE=edge(UDim2.new(0.28,0,1,0),UDim2.new(0,0,0,0),0)
+local rE=edge(UDim2.new(0.28,0,1,0),UDim2.new(0.72,0,0,0),180)
+
+-- СТАТУС В УГЛУ
+local BodyLbl=Instance.new("TextLabel")
+BodyLbl.Size=UDim2.new(0,240,0,32);BodyLbl.Position=UDim2.new(0,16,0,60)
+BodyLbl.BackgroundColor3=Color3.fromRGB(15,15,20);BodyLbl.BackgroundTransparency=0.3
+BodyLbl.BorderSizePixel=0;BodyLbl.Text="💚 Состояние: в порядке"
+BodyLbl.TextColor3=Color3.fromRGB(150,255,150);BodyLbl.TextSize=13
+BodyLbl.Font=Enum.Font.GothamBold;BodyLbl.TextXAlignment=Enum.TextXAlignment.Left
+BodyLbl.ZIndex=6;BodyLbl.Parent=SG;cr(BodyLbl,8)
+
+-- ИКОНКА
+local Icon=Instance.new("TextButton")
+Icon.Size=UDim2.new(0,50,0,50);Icon.Position=UDim2.new(0,16,0.5,-25)
+Icon.BackgroundColor3=Color3.fromRGB(15,15,20);Icon.BorderSizePixel=0
+Icon.Text="🖤";Icon.TextColor3=Color3.fromRGB(255,50,50);Icon.TextSize=26
+Icon.Font=Enum.Font.GothamBold;Icon.AutoButtonColor=false;Icon.Parent=SG
+cr(Icon,25);st(Icon,Color3.fromRGB(255,50,50))
+
+-- ОКНО
+local MF=Instance.new("Frame")
+MF.Size=UDim2.new(0,220,0,130);MF.Position=UDim2.new(0.5,-110,0.5,-65)
+MF.BackgroundColor3=Color3.fromRGB(15,15,20);MF.BorderSizePixel=0
+MF.ClipsDescendants=true;MF.Parent=SG;cr(MF,12);st(MF,Color3.fromRGB(255,50,50))
+
+local TB=Instance.new("TextLabel")
+TB.Size=UDim2.new(1,0,0,34);TB.BackgroundColor3=Color3.fromRGB(10,10,15)
+TB.BorderSizePixel=0;TB.Text="  🖤 КУЛКИД";TB.TextColor3=Color3.fromRGB(255,50,50)
+TB.TextSize=13;TB.Font=Enum.Font.GothamBold;TB.TextXAlignment=Enum.TextXAlignment.Left;TB.Parent=MF
+cr(TB,12)
+
+local CB=Instance.new("TextButton")
+CB.Size=UDim2.new(0,26,0,26);CB.Position=UDim2.new(1,-32,0,4)
+CB.BackgroundColor3=Color3.fromRGB(200,60,60);CB.BorderSizePixel=0
+CB.Text="×";CB.TextColor3=Color3.fromRGB(255,255,255);CB.TextSize=17
+CB.Font=Enum.Font.GothamBold;CB.AutoButtonColor=false;CB.Parent=TB;cr(CB,13)
+
+local CT=Instance.new("Frame")
+CT.Size=UDim2.new(1,-16,1,-44);CT.Position=UDim2.new(0,8,0,40)
+CT.BackgroundTransparency=1;CT.Parent=MF
+
+local MB=Instance.new("TextButton")
+MB.Size=UDim2.new(1,0,0,56);MB.Position=UDim2.new(0,0,0,0)
+MB.BackgroundColor3=Color3.fromRGB(40,20,20);MB.BorderSizePixel=0
+MB.Text="🖤  ВКЛЮЧИТЬ ВСЁ";MB.TextColor3=Color3.fromRGB(255,100,100)
+MB.TextSize=15;MB.Font=Enum.Font.GothamBold;MB.AutoButtonColor=false;MB.Parent=CT
+cr(MB,12);st(MB,Color3.fromRGB(255,50,50))
+
+local SL=Instance.new("TextLabel")
+SL.Size=UDim2.new(1,0,0,16);SL.Position=UDim2.new(0,0,0,62)
+SL.BackgroundTransparency=1;SL.Text="Нажми кнопку";SL.TextColor3=Color3.fromRGB(150,150,160)
+SL.TextSize=10;SL.Font=Enum.Font.Gotham;SL.TextXAlignment=Enum.TextXAlignment.Center;SL.Parent=CT
+
+Icon.MouseButton1Click:Connect(function() MF.Visible=not MF.Visible end)
+CB.MouseButton1Click:Connect(function() MF.Visible=false end)
+
+do
+    local d,ds,sp=false,nil,nil
+    TB.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+            d=true;ds=i.Position;sp=MF.Position
+            i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then d=false end end)
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if d and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+            local dd=i.Position-ds
+            MF.Position=UDim2.new(sp.X.Scale,sp.X.Offset+dd.X,sp.Y.Scale,sp.Y.Offset+dd.Y)
+        end
+    end)
+end
+
+-- ПОГОДА
+local function weatherOn()
+    savedL={L.FogEnd,L.FogStart,L.FogColor,L.Brightness,L.Ambient,L.OutdoorAmbient,L.ClockTime}
+    L.FogEnd=80;L.FogStart=5;L.FogColor=Color3.fromRGB(30,30,35)
+    L.Brightness=0.5;L.Ambient=Color3.fromRGB(20,20,25)
+    L.OutdoorAmbient=Color3.fromRGB(15,15,20);L.ClockTime=0
+    oldSky=L:FindFirstChildOfClass("Sky")
+    if oldSky then oldSky.Parent=nil end
+    sky=Instance.new("Sky")
+    sky.SkyboxBk="rbxassetid://0";sky.SkyboxDn="rbxassetid://0"
+    sky.SkyboxFt="rbxassetid://0";sky.SkyboxLf="rbxassetid://0"
+    sky.SkyboxRt="rbxassetid://0";sky.SkyboxUp="rbxassetid://0"
+    sky.SunAngularSize=0;sky.MoonAngularSize=0;sky.Parent=L
+    local atm=Instance.new("Atmosphere")
+    atm.Density=0.6;atm.Offset=0;atm.Color=Color3.fromRGB(10,10,15)
+    atm.Decay=Color3.fromRGB(5,5,10);atm.Glare=0;atm.Haze=3
+    atm.Name="KulkidAtm";atm.Parent=L
+end
+
+local function weatherOff()
+    if savedL[1] then
+        L.FogEnd=savedL[1];L.FogStart=savedL[2];L.FogColor=savedL[3]
+        L.Brightness=savedL[4];L.Ambient=savedL[5]
+        L.OutdoorAmbient=savedL[6];L.ClockTime=savedL[7]
+    end
+    if sky then sky:Destroy();sky=nil end
+    if oldSky then oldSky.Parent=L;oldSky=nil end
+    local a=L:FindFirstChild("KulkidAtm");if a then a:Destroy() end
+end
+
+-- УПРАВЛЕНИЕ КАМЕРОЙ
+UIS.InputChanged:Connect(function(i)
+    if not active then return end
+    if i.UserInputType==Enum.UserInputType.MouseMovement then
+        angX=angX-i.Delta.X*0.003
+        angY=math.clamp(angY-i.Delta.Y*0.003,-math.rad(80),math.rad(80))
+    elseif i.UserInputType==Enum.UserInputType.Touch then
+        angX=angX-i.Delta.X*0.005
+        angY=math.clamp(angY-i.Delta.Y*0.005,-math.rad(80),math.rad(80))
+    end
+end)
+
+-- СТАТУС ЧАСТИ ТЕЛА
+local function bodyStatus()
+    local c=LP.Character
+    if not c then return end
+    local hum=c:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    -- Проверяем скорость и здоровье
+    if hum.Health<=0 then
+        BodyLbl.Text="☠️ Состояние: мёртв"
+        BodyLbl.TextColor3=Color3.fromRGB(255,50,50)
+    elseif hum.Health<30 then
+        BodyLbl.Text="🩸 Состояние: сильно болит всё тело"
+        BodyLbl.TextColor3=Color3.fromRGB(255,80,80)
+    elseif hum.Health<70 then
+        BodyLbl.Text="🤕 Состояние: болит торс"
+        BodyLbl.TextColor3=Color3.fromRGB(255,180,80)
+    else
+        BodyLbl.Text="💚 Состояние: в порядке"
+        BodyLbl.TextColor3=Color3.fromRGB(150,255,150)
+    end
+end
+
+-- УДАР О СТЕНКУ (определение части)
+local lastWallHit=0
+local function checkWallHit()
+    if not active then return end
+    local c=LP.Character
+    if not c then return end
+    local hrp=c:FindFirstChild("HumanoidRootPart")
+    local hum=c:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum then return end
+    local vel=hrp.AssemblyLinearVelocity.Magnitude
+    -- Если недавно откинуло и скорость упала об стену
+    if vel>15 and tick()-lastWallHit>1 then
+        local ray=Ray.new(hrp.Position,hrp.AssemblyLinearVelocity.Unit*3)
+        local hit=workspace:FindPartOnRay(ray,c)
+        if hit and vel>25 then
+            lastWallHit=tick()
+            local bodyPart="тело"
+            -- Определяем, какая часть ближе к стене
+            local head=c:FindFirstChild("Head")
+            local torso=c:FindFirstChild("Torso") or c:FindFirstChild("UpperTorso")
+            local leftArm=c:FindFirstChild("Left Arm") or c:FindFirstChild("LeftUpperArm")
+            local rightArm=c:FindFirstChild("Right Arm") or c:FindFirstChild("RightUpperArm")
+            local leftLeg=c:FindFirstChild("Left Leg") or c:FindFirstChild("LeftUpperLeg")
+            local rightLeg=c:FindFirstChild("Right Leg") or c:FindFirstChild("RightUpperLeg")
+            local parts={["голова"]=head,["торс"]=torso,["левая рука"]=leftArm,["правая рука"]=rightArm,["левая нога"]=leftLeg,["правая нога"]=rightLeg}
+            local minD=999
+            for name,p in pairs(parts) do
+                if p then
+                    local d=(p.Position-hit).Magnitude
+                    if d<minD then minD=d;bodyPart=name end
+                end
+            end
+            BodyLbl.Text="🤕 Болит: "..bodyPart
+            BodyLbl.TextColor3=Color3.fromRGB(255,180,80)
+            shake=1.2
+            task.delay(3,function() if active then bodyStatus() end end)
+        end
+    end
+end
+
+-- РУКИ В 1 ЛИЦЕ
+local function makeArms()
+    local c=LP.Character
+    if not c then return end
+    local cam2=workspace.CurrentCamera
+    -- Удаляем старые
+    local oldArms=c:FindFirstChild("KulkidArms")
+    if oldArms then oldArms:Destroy() end
+    local arms=Instance.new("Model")
+    arms.Name="KulkidArms"
+    arms.Parent=c
+
+    -- Левая рука
+    local la=Instance.new("Part")
+    la.Name="LHand";la.Size=Vector3.new(1,0.4,1.6)
+    la.Color=Color3.fromRGB(220,180,150);la.Material=Enum.Material.SmoothPlastic
+    la.CanCollide=false;la.Massless=true;la.Parent=arms
+
+    -- Правая рука
+    local ra=Instance.new("Part")
+    ra.Name="RHand";ra.Size=Vector3.new(1,0.4,1.6)
+    ra.Color=Color3.fromRGB(220,180,150);ra.Material=Enum.Material.SmoothPlastic
+    ra.CanCollide=false;la.Massless=true;ra.Parent=arms
+end
+
+local function updateArms(dt)
+    local c=LP.Character
+    if not c then return end
+    local arms=c:FindFirstChild("KulkidArms")
+    if not arms then return end
+    local la=arms:FindFirstChild("LHand")
+    local ra=arms:FindFirstChild("RHand")
+    if not la or not ra then return end
+
+    local hum=c:FindFirstChildOfClass("Humanoid")
+    local moving=hum and hum.MoveDirection.Magnitude>0.1
+    local bob=0
+    if moving then
+        bob=math.sin(tick()*8)*0.15
+    else
+        bob=math.sin(tick()*2)*0.05
+    end
+
+    -- Позиция рук относительно камеры
+    local camCF=cam.CFrame
+    la.CFrame=camCF*CFrame.new(-1.2,-1.2+bob,-1.5)*CFrame.Angles(math.rad(-15),math.rad(10),0)
+    ra.CFrame=camCF*CFrame.new(1.2,-1.2-bob,-1.5)*CFrame.Angles(math.rad(-15),math.rad(-10),0)
+end
+
+-- МОНСТРЫ
+local function saveT(ch)
+    if saved[ch] then return end
+    local d={parts={},scales={}}
+    local h=ch:FindFirstChildOfClass("Humanoid")
+    if h and h:FindFirstChild("BodyWidthScale") then
+        d.scales.body={h.BodyDepthScale.Value,h.BodyWidthScale.Value,h.BodyHeightScale.Value}
+    end
+    for _,p in ipairs(ch:GetDescendants()) do
+        if p:IsA("BasePart") then d.parts[p]={p.Color,p.Size} end
+    end
+    saved[ch]=d
+end
+
+local function makeMon(ch)
+    if not ch then return end
+    local h=ch:FindFirstChildOfClass("Humanoid")
+    if not h then return end
+    saveT(ch)
+    for _,p in ipairs(ch:GetDescendants()) do
+        if p:IsA("BasePart") then p.Color=Color3.fromRGB(200,0,0) end
+    end
+    if h:FindFirstChild("BodyWidthScale") then
+        h.BodyWidthScale.Value=1.8;h.BodyDepthScale.Value=1.5;h.BodyHeightScale.Value=1.4
+    end
+    if h:FindFirstChild("HeadScale") then h.HeadScale.Value=1.6 end
+    for _,p in ipairs(ch:GetDescendants()) do
+        if p:IsA("BasePart") then
+            local n=p.Name
+            if n:find("Arm") or n:find("Leg") then p.Size=Vector3.new(p.Size.X*1.5,p.Size.Y*2,p.Size.Z*1.5)
+            elseif n=="Torso" or n=="UpperTorso" or n=="LowerTorso" then p.Size=Vector3.new(p.Size.X*1.6,p.Size.Y*1.5,p.Size.Z*1.6) end
+        end
+    end
+    local hrp=ch:FindFirstChild("HumanoidRootPart")
+    if hrp and sndOn then
+        local s=Instance.new("Sound");s.SoundId=SCREAM;s.Volume=5;s.Looped=true;s.Parent=hrp;s:Play()
+    end
+end
+
+local function resetM(ch)
+    if not ch then return end
+    local h=ch:FindFirstChildOfClass("Humanoid")
+    local d=saved[ch]
+    if d then
+        for p,i in pairs(d.parts) do
+            if p and p.Parent then p.Color=i[1];p.Size=i[2] end
+        end
+        if h and d.scales.body and h:FindFirstChild("BodyWidthScale") then
+            h.BodyWidthScale.Value=d.scales.body[2];h.BodyDepthScale.Value=d.scales.body[1];h.BodyHeightScale.Value=d.scales.body[3]
+        end
+    end
+    local hrp=ch:FindFirstChild("HumanoidRootPart")
+    if hrp then for _,s in ipairs(hrp:GetChildren()) do if s:IsA("Sound") then s:Destroy() end end end
+    saved[ch]=nil
+end
+
+local function infect(plr)
+    if infected[plr] then return end
+    infected[plr]=true
+    if plr.Character then makeMon(plr.Character) end
+    plr.CharacterAdded:Connect(function(c) if infected[plr] then task.wait(1);makeMon(c) end end)
+end
+
+-- УРОН ПРИ ПАДЕНИИ
+local function landing()
+    local c=LP.Character
+    if not c then return end
+    local h=c:FindFirstChildOfClass("Humanoid")
+    if not h then return end
+    h.Health=h.Health*0.7
+    slow=true
+    local sp=h.WalkSpeed
+    h.WalkSpeed=sp*0.3
+    local fl=Instance.new("Frame")
+    fl.Size=UDim2.new(1,0,1,0);fl.BackgroundColor3=Color3.fromRGB(255,0,0)
+    fl.BackgroundTransparency=0.5;fl.BorderSizePixel=0;fl.ZIndex=10;fl.Parent=SG
+    task.spawn(function()
+        for i=1,20 do fl.BackgroundTransparency=0.5+i*0.025;task.wait(0.05) end
+        fl:Destroy()
+    end)
+    BodyLbl.Text="💥 Урон -30% · замедление"
+    BodyLbl.TextColor3=Color3.fromRGB(255,50,50)
+    task.wait(2)
+    if h and h.Parent then h.WalkSpeed=sp end
+    slow=false
+    if active then bodyStatus() end
+end
+
+-- АТАКА
+local function attackLoop()
+    if aLoop then aLoop:Disconnect() end
+    aLoop=RS.Heartbeat:Connect(function(dt)
+        if not active then return end
+        local c=LP.Character
+        if not c then return end
+        local hrp=c:FindFirstChild("HumanoidRootPart")
+        local h=c:FindFirstChildOfClass("Humanoid")
+        if not hrp or not h then return end
+
+        if thrown then
+            if h.FloorMaterial~=Enum.Material.Air then thrown=false;landing() end
+        end
+
+        local moving=h.MoveDirection.Magnitude>0.1
+        local near=false
+        local closest=nil
+        local minD=999
+
+        for plr,_ in pairs(infected) do
+            if plr~=LP and plr.Parent then
+                local ch=plr.Character
+                if ch then
+                    local mh=ch:FindFirstChild("HumanoidRootPart")
+                    local mhum=ch:FindFirstChildOfClass("Humanoid")
+                    if mh and mhum then
+                        local d=(mh.Position-hrp.Position).Magnitude
+                        if d<=range then
+                            near=true
+                            if d<minD then minD=d;closest={char=ch,hrp=mh,hum=mhum} end
+                            if d>0.5 then
+                                local dir=(hrp.Position-mh.Position)
+                                dir=Vector3.new(dir.X,0,dir.Z)
+                                if dir.Magnitude>0.1 then
+                                    dir=dir.Unit
+                                    local np=mh.Position+dir*mSpeed
+                                    local r=Ray.new(mh.Position,dir*3)
+                                    local ht=workspace:FindPartOnRay(r,ch)
+                                    if not ht then mh.CFrame=CFrame.new(np,np+dir) end
+                                    if mhum.WalkSpeed==0 then mhum.WalkSpeed=16 end
+                                end
+                            end
+                        else
+                            if mhum.WalkSpeed~=0 then mhum.WalkSpeed=0 end
+                        end
+                    end
+                end
+            end
+        end
+
+        if not moving and near and closest and not thrown and not slow then
+            local dir=(hrp.Position-closest.hrp.Position)
+            dir=Vector3.new(dir.X,0,dir.Z)
+            if dir.Magnitude<0.1 then dir=Vector3.new(0,0,1) end
+            dir=dir.Unit
+            hrp.AssemblyLinearVelocity=dir*80+Vector3.new(0,60,0)
+            shake=1.5
+            thrown=true
+            if sndOn then
+                local s=Instance.new("Sound");s.SoundId=SCREAM;s.Volume=5;s.Parent=hrp;s:Play()
+                task.delay(3,function() if s then s:Destroy() end end)
+            end
+            BodyLbl.Text="💥 МОНСТР ОТКИНУЛ!"
+            BodyLbl.TextColor3=Color3.fromRGB(255,50,50)
+        end
+    end)
+end
+
+-- ПЛАТФОРМЫ
+local function black(p)
+    if not p or not p.Parent or parts[p] then return end
+    parts[p]=true
+    p:SetAttribute("OC",p.Color)
+    p.Color=Color3.fromRGB(0,0,0);p.Material=Enum.Material.SmoothPlastic
+    for _,f in ipairs{Enum.NormalId.Top,Enum.NormalId.Bottom,Enum.NormalId.Front,Enum.NormalId.Back,Enum.NormalId.Left,Enum.NormalId.Right} do
+        local g=Instance.new("SurfaceGui");g.Face=f;g.CanvasSize=Vector2.new(400,400);g.LightInfluence=0;g.Parent=p
+        local t=Instance.new("TextLabel");t.Size=UDim2.new(1,0,1,0);t.BackgroundTransparency=1
+        t.Text="КУЛКИД";t.TextColor3=Color3.fromRGB(255,0,0);t.TextScaled=true
+        t.Font=Enum.Font.GothamBlack;t.TextStrokeTransparency=0;t.TextStrokeColor3=Color3.fromRGB(0,0,0);t.Parent=g
+    end
+    p.Touched:Connect(function(hit)
+        if not active then return end
+        local ch=hit.Parent
+        if not ch then return end
+        local h=ch:FindFirstChildOfClass("Humanoid")
+        if not h then return end
+        if sndOn then
+            local hrp2=ch:FindFirstChild("HumanoidRootPart")
+            if hrp2 then
+                local s=Instance.new("Sound");s.SoundId=SCREAM;s.Volume=5;s.Parent=hrp2;s:Play()
+                task.delay(5,function() if s then s:Destroy() end end)
+            end
+        end
+        local plr=P:GetPlayerFromCharacter(ch)
+        if plr then infect(plr) end
+    end)
+end
+
+local function scan()
+    for _,o in ipairs(workspace:GetDescendants()) do
+        if o:IsA("BasePart") and o.Name=="PlatformPart" then black(o) end
+    end
+end
+
+-- 1 ЛИЦО + ДИНАМИЧЕСКИЕ РУКИ
+local function fpStart()
+    makeArms()
+    if fpLoop then fpLoop:Disconnect() end
+    fpLoop=RS.RenderStepped:Connect(function(dt)
+        if not active then return end
+        local c=LP.Character
+        if not c then return end
+        local head=c:FindFirstChild("Head")
+        if not head then return end
+        cam.CameraType=Enum.CameraType.Scriptable
+        local shx=(math.random()-0.5)*shake*0.05
+        local shy=(math.random()-0.5)*shake*0.05
+        if shake>0.01 then shake=shake*0.92 end
+
+        -- Камера идёт за джойстиком
+        local h=c:FindFirstChildOfClass("Humanoid")
+        if h and h.MoveDirection.Magnitude>0.1 then
+            local moveAngle=math.atan2(-h.MoveDirection.X,-h.MoveDirection.Z)
+            local targetAngle=angX
+            local diff=((moveAngle-targetAngle+math.pi)%(math.pi*2))-math.pi
+            angX=angX+diff*dt*3
+        end
+
+        local base=CFrame.new(head.Position)*CFrame.Angles(0,angX,0)*CFrame.Angles(angY,0,0)
+        cam.CFrame=base*CFrame.Angles(shx,shy,0)
+
+        for _,p in ipairs(c:GetDescendants()) do
+            if p:IsA("BasePart") and p.Name~="HumanoidRootPart" and not p:FindFirstAncestor("KulkidArms") then
+                p.LocalTransparencyModifier=1
+                if p.Transparency<1 then p.Transparency=1 end
+            end
+            if p:IsA("Decal") then p.Transparency=1 end
+        end
+
+        updateArms(dt)
+    end)
+end
+
+local function fpStop()
+    if fpLoop then fpLoop:Disconnect();fpLoop=nil end
+    cam.CameraType=Enum.CameraType.Custom
+    local c=LP.Character
+    if c then
+        local h=c:FindFirstChildOfClass("Humanoid")
+        if h then cam.CameraSubject=h end
+        local arms=c:FindFirstChild("KulkidArms")
+        if arms then arms:Destroy() end
+        for _,p in ipairs(c:GetDescendants()) do
+            if p:IsA("BasePart") then
+                p.LocalTransparencyModifier=0
+                if p.Name~="HumanoidRootPart" then p.Transparency=0 end
+            end
+            if p:IsA("Decal") then p.Transparency=0 end
+        end
+    end
+end
+
+-- ТРЯСКА
+local function shakeLoop()
+    if sLoop then sLoop:Disconnect() end
+    sLoop=task.spawn(function()
+        while active do
+            task.wait(math.random(4,10))
+            if active then shake=math.random(8,20)/10 end
+        end
+    end)
+end
+
+-- СТАРТ/СТОП
+local function start()
+    active=true;Vig.Visible=true
+    MB.Text="⏹  ВЫКЛЮЧИТЬ ВСЁ";MB.BackgroundColor3=Color3.fromRGB(100,20,20)
+    SL.Text="КУЛКИД АКТИВЕН";SL.TextColor3=Color3.fromRGB(255,50,50)
+    weatherOn();scan()
+    if pLoop then pLoop:Disconnect() end
+    pLoop=RS.Heartbeat:Connect(function() if active then scan() end end)
+    attackLoop();fpStart();shakeLoop()
+end
+
+local function stop()
+    active=false;Vig.Visible=false
+    if pLoop then pLoop:Disconnect();pLoop=nil end
+    if aLoop then aLoop:Disconnect();aLoop=nil end
+    fpStop();shake=0;weatherOff()
+    MB.Text="🖤  ВКЛЮЧИТЬ ВСЁ";MB.BackgroundColor3=Color3.fromRGB(40,20,20)
+    SL.Text="Выключено";SL.TextColor3=Color3.fromRGB(150,150,160)
+end
+
+MB.MouseButton1Click:Connect(function() if active then stop() else start() end end)
+
+LP.CharacterAdded:Connect(function()
+    if active then task.wait(1);fpStop();task.wait(0.1);fpStart() end
+end)
+
+-- Пульс виньетки + статус тела + удар о стену
+task.spawn(function()
+    while task.wait(0.1) do
+        if active then
+            local pulse=math.abs(math.sin(tick()*1.5))*0.15
+            for _,e in ipairs{tE,bE,lE,rE} do
+                local g=e:FindFirstChildOfClass("UIGradient")
+                if g then
+                    g.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0),NumberSequenceKeypoint.new(0.5,0.6+pulse),NumberSequenceKeypoint.new(1,1)})
+                end
+            end
+            bodyStatus()
+            checkWallHit()
+        end
+    end
+end)
+
+print("[Kulkid] Загружено.")
