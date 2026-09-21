@@ -1,0 +1,331 @@
+local P=game:GetService("Players")
+local UIS=game:GetService("UserInputService")
+local RS=game:GetService("RunService")
+local LP=P.LocalPlayer
+local PG=LP:WaitForChild("PlayerGui")
+local L=game:GetService("Lighting")
+
+local active=false
+local spawnLoop=nil
+local aLoop=nil
+local shake=0
+local savedL={}
+local sky=nil
+local oldSky=nil
+local SCREAM="rbxassetid://90468563693248"
+
+local old=PG:FindFirstChild("RussiaMode");if old then old:Destroy() end
+local SG=Instance.new("ScreenGui")
+SG.Name="RussiaMode";SG.ResetOnSpawn=false;SG.IgnoreGuiInset=true
+SG.ZIndexBehavior=Enum.ZIndexBehavior.Sibling;SG.Parent=PG
+
+local function cr(p,r) local c=Instance.new("UICorner");c.CornerRadius=UDim.new(0,r);c.Parent=p;return c end
+local function st(p,c,t) local s=Instance.new("UIStroke");s.Color=c;s.Thickness=t or 1.5;s.Parent=p;return s end
+
+-- КРАСНАЯ ВИНЬЕТКА
+local Vig=Instance.new("Frame")
+Vig.Size=UDim2.new(1,0,1,0);Vig.BackgroundTransparency=1;Vig.ZIndex=5;Vig.Visible=false;Vig.Parent=SG
+local function edge(size,pos,rot)
+    local f=Instance.new("Frame")
+    f.Size=size;f.Position=pos;f.BackgroundColor3=Color3.fromRGB(120,0,0)
+    f.BorderSizePixel=0;f.ZIndex=5;f.Parent=Vig
+    local g=Instance.new("UIGradient")
+    g.Rotation=rot
+    g.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0.2),NumberSequenceKeypoint.new(0.5,0.7),NumberSequenceKeypoint.new(1,1)})
+    g.Parent=f;return f
+end
+local tE=edge(UDim2.new(1,0,0.3,0),UDim2.new(0,0,0,0),90)
+local bE=edge(UDim2.new(1,0,0.3,0),UDim2.new(0,0,0.7,0),270)
+local lE=edge(UDim2.new(0.3,0,1,0),UDim2.new(0,0,0,0),0)
+local rE=edge(UDim2.new(0.3,0,1,0),UDim2.new(0.7,0,0,0),180)
+
+-- ИКОНКА
+local Icon=Instance.new("TextButton")
+Icon.Size=UDim2.new(0,50,0,50);Icon.Position=UDim2.new(0,16,0.5,-25)
+Icon.BackgroundColor3=Color3.fromRGB(15,15,20);Icon.BorderSizePixel=0
+Icon.Text="🇷🇺";Icon.TextColor3=Color3.fromRGB(255,50,50);Icon.TextSize=26
+Icon.Font=Enum.Font.GothamBold;Icon.AutoButtonColor=false;Icon.Parent=SG
+cr(Icon,25);st(Icon,Color3.fromRGB(255,50,50))
+
+-- ОКНО
+local MF=Instance.new("Frame")
+MF.Size=UDim2.new(0,240,0,170);MF.Position=UDim2.new(0.5,-120,0.5,-85)
+MF.BackgroundColor3=Color3.fromRGB(15,15,20);MF.BorderSizePixel=0
+MF.ClipsDescendants=true;MF.Parent=SG;cr(MF,12);st(MF,Color3.fromRGB(255,50,50))
+
+local TB=Instance.new("TextLabel")
+TB.Size=UDim2.new(1,0,0,34);TB.BackgroundColor3=Color3.fromRGB(10,10,15)
+TB.BorderSizePixel=0;TB.Text="  🇷🇺 ТИПИЧНАЯ РОССИЯ";TB.TextColor3=Color3.fromRGB(255,50,50)
+TB.TextSize=12;TB.Font=Enum.Font.GothamBold;TB.TextXAlignment=Enum.TextXAlignment.Left;TB.Parent=MF
+cr(TB,12)
+
+local CB=Instance.new("TextButton")
+CB.Size=UDim2.new(0,26,0,26);CB.Position=UDim2.new(1,-32,0,4)
+CB.BackgroundColor3=Color3.fromRGB(200,60,60);CB.BorderSizePixel=0
+CB.Text="×";CB.TextColor3=Color3.fromRGB(255,255,255);CB.TextSize=17
+CB.Font=Enum.Font.GothamBold;CB.AutoButtonColor=false;CB.Parent=TB;cr(CB,13)
+
+local CT=Instance.new("Frame")
+CT.Size=UDim2.new(1,-16,1,-44);CT.Position=UDim2.new(0,8,0,40)
+CT.BackgroundTransparency=1;CT.Parent=MF
+
+local MB=Instance.new("TextButton")
+MB.Size=UDim2.new(1,0,0,56);MB.Position=UDim2.new(0,0,0,0)
+MB.BackgroundColor3=Color3.fromRGB(40,20,20);MB.BorderSizePixel=0
+MB.Text="🇷🇺  НАЧАТЬ БОМБЁЖКУ";MB.TextColor3=Color3.fromRGB(255,100,100)
+MB.TextSize=14;MB.Font=Enum.Font.GothamBold;MB.AutoButtonColor=false;MB.Parent=CT
+cr(MB,12);st(MB,Color3.fromRGB(255,50,50))
+
+local SL=Instance.new("TextLabel")
+SL.Size=UDim2.new(1,0,0,16);SL.Position=UDim2.new(0,0,0,62)
+SL.BackgroundTransparency=1;SL.Text="Нажми кнопку";SL.TextColor3=Color3.fromRGB(150,150,160)
+SL.TextSize=10;SL.Font=Enum.Font.Gotham;SL.TextXAlignment=Enum.TextXAlignment.Center;SL.Parent=CT
+
+local Info=Instance.new("TextLabel")
+Info.Size=UDim2.new(1,0,0,40);Info.Position=UDim2.new(0,0,0,84)
+Info.BackgroundColor3=Color3.fromRGB(20,20,30);Info.BorderSizePixel=0
+Info.Text="🚁 Шахиды летят с неба\n🚀 Иногда ракета · ☢️ Редко ядерная"
+Info.TextColor3=Color3.fromRGB(180,180,190);Info.TextSize=10
+Info.Font=Enum.Font.Gotham;Info.TextWrapped=true
+Info.TextYAlignment=Enum.TextYAlignment.Center;Info.Parent=CT
+cr(Info,8)
+
+Icon.MouseButton1Click:Connect(function() MF.Visible=not MF.Visible end)
+CB.MouseButton1Click:Connect(function() MF.Visible=false end)
+
+do
+    local d,ds,sp=false,nil,nil
+    TB.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+            d=true;ds=i.Position;sp=MF.Position
+            i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then d=false end end)
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if d and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+            local dd=i.Position-ds
+            MF.Position=UDim2.new(sp.X.Scale,sp.X.Offset+dd.X,sp.Y.Scale,sp.Y.Offset+dd.Y)
+        end
+    end)
+end
+
+-- КРАСНОЕ НЕБО
+local function weatherOn()
+    savedL={L.FogEnd,L.FogStart,L.FogColor,L.Brightness,L.Ambient,L.OutdoorAmbient,L.ClockTime}
+    L.FogEnd=300;L.FogStart=20;L.FogColor=Color3.fromRGB(80,20,20)
+    L.Brightness=1;L.Ambient=Color3.fromRGB(60,20,20)
+    L.OutdoorAmbient=Color3.fromRGB(80,30,30);L.ClockTime=15
+    oldSky=L:FindFirstChildOfClass("Sky")
+    if oldSky then oldSky.Parent=nil end
+    sky=Instance.new("Sky")
+    sky.SkyboxBk="rbxassetid://0";sky.SkyboxDn="rbxassetid://0"
+    sky.SkyboxFt="rbxassetid://0";sky.SkyboxLf="rbxassetid://0"
+    sky.SkyboxRt="rbxassetid://0";sky.SkyboxUp="rbxassetid://0"
+    sky.SunAngularSize=2;sky.MoonAngularSize=0;sky.Parent=L
+    local atm=Instance.new("Atmosphere")
+    atm.Density=0.5;atm.Offset=0;atm.Color=Color3.fromRGB(120,40,40)
+    atm.Decay=Color3.fromRGB(80,20,20);atm.Glare=0;atm.Haze=2
+    atm.Name="RussiaAtm";atm.Parent=L
+end
+
+local function weatherOff()
+    if savedL[1] then
+        L.FogEnd=savedL[1];L.FogStart=savedL[2];L.FogColor=savedL[3]
+        L.Brightness=savedL[4];L.Ambient=savedL[5]
+        L.OutdoorAmbient=savedL[6];L.ClockTime=savedL[7]
+    end
+    if sky then sky:Destroy();sky=nil end
+    if oldSky then oldSky.Parent=L;oldSky=nil end
+    local a=L:FindFirstChild("RussiaAtm");if a then a:Destroy() end
+end
+
+-- СОЗДАНИЕ ШАХИДА
+local function makeShahid(targetPos,isRocket,isNuke)
+    local bomb=Instance.new("Part")
+    bomb.Name="Shahid"
+    bomb.Size=Vector3.new(2,1,4)
+    bomb.Color=isNuke and Color3.fromRGB(255,255,0) or isRocket and Color3.fromRGB(200,50,50) or Color3.fromRGB(100,100,100)
+    bomb.Material=Enum.Material.Metal
+    bomb.Anchored=false
+    bomb.CanCollide=false
+    bomb.Parent=workspace
+
+    -- Дымный трейл
+    local att=Instance.new("Attachment");att.Parent=bomb
+    local trail=Instance.new("Trail")
+    trail.Attachment0=att
+    trail.Lifetime=1
+    trail.Color=ColorSequence.new(Color3.fromRGB(80,80,80))
+    trail.Transparency=NumberSequence.new(0.3)
+    trail.Parent=bomb
+
+    -- Звук двигателя
+    local snd=Instance.new("Sound")
+    snd.SoundId="rbxassetid://131961133"
+    snd.Volume=3;Loop=false
+    snd.Looped=true;snd.Parent=bomb;snd:Play()
+
+    -- Стартовая позиция: высоко в небе над целью
+    local startX=targetPos.X+math.random(-30,30)
+    local startZ=targetPos.Z+math.random(-30,30)
+    local startY=targetPos.Y+300
+    bomb.CFrame=CFrame.new(startX,startY,startZ)
+
+    -- Направление вниз к цели
+    local dir=(targetPos-bomb.Position).Unit
+    bomb.AssemblyLinearVelocity=dir*150
+
+    -- Отслеживание попадания
+    local hitConn
+    hitConn=bomb.Touched:Connect(function(hit)
+        if not bomb or not bomb.Parent then return end
+        local char=hit.Parent
+        local hum=char and char:FindFirstChildOfClass("Humanoid")
+        if not hum then return end
+        hitConn:Disconnect()
+        bomb:Destroy()
+        -- Взрыв
+        local exp=Instance.new("Explosion")
+        exp.Position=bomb.Position
+        if isNuke then
+            exp.BlastRadius=120
+            exp.BlastPressure=5000000
+        elseif isRocket then
+            exp.BlastRadius=60
+            exp.BlastPressure=2000000
+        else
+            exp.BlastRadius=25
+            exp.BlastPressure=500000
+        end
+        exp.DestroyJointRadiusPercent=1
+        exp.Parent=workspace
+        -- Тряска камеры
+        shake=isNuke and 5 or isRocket and 3 or 1.5
+        -- Урон игрокам вручную (для надёжности)
+        local dmg=isNuke and 0.99 or isRocket and 0.6 or 0.35
+        for _,plr in ipairs(P:GetPlayers()) do
+            local pc=plr.Character
+            if pc then
+                local phrp=pc:FindFirstChild("HumanoidRootPart")
+                local phum=pc:FindFirstChildOfClass("Humanoid")
+                if phrp and phum then
+                    local dist=(phrp.Position-bomb.Position).Magnitude
+                    if dist<=exp.BlastRadius then
+                        if isNuke then
+                            phum.Health=phum.Health*(1-dmg)
+                        else
+                            phum.Health=phum.Health*(1-dmg)
+                        end
+                    end
+                end
+            end
+        end
+    end)
+
+    -- Автоудаление через 10 сек
+    task.delay(10,function()
+        if bomb and bomb.Parent then
+            hitConn:Disconnect()
+            bomb:Destroy()
+        end
+    end)
+end
+
+-- СПАВН
+local function spawnBomb()
+    -- Целимся в случайного игрока или в случайную точку
+    local target=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    local pos
+    if target and math.random()<0.7 then
+        pos=target.Position
+    else
+        local basePos=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+        local base=basePos and basePos.Position or Vector3.new(0,50,0)
+        pos=base+Vector3.new(math.random(-80,80),0,math.random(-80,80))
+    end
+
+    local r=math.random()
+    if r<0.02 then
+        -- 2% ядерная
+        makeShahid(pos,false,true)
+        SL.Text="☢️ ЯДЕРНАЯ РАКЕТА!"
+        SL.TextColor3=Color3.fromRGB(255,255,0)
+    elseif r<0.15 then
+        -- 13% ракета
+        makeShahid(pos,true,false)
+        SL.Text="🚀 РАКЕТА ЛЕТИТ!"
+        SL.TextColor3=Color3.fromRGB(255,100,100)
+    else
+        -- 85% шахид
+        makeShahid(pos,false,false)
+        SL.Text="🚁 Шахид летит"
+        SL.TextColor3=Color3.fromRGB(200,200,200)
+    end
+end
+
+-- ЦИКЛ СПАВНА
+local function startSpawn()
+    if spawnLoop then spawnLoop:Disconnect() end
+    spawnLoop=task.spawn(function()
+        while active do
+            task.wait(math.random(2,4))
+            if active then spawnBomb() end
+        end
+    end)
+end
+
+-- ТРЯСКА КАМЕРЫ
+local function shakeLoop()
+    if aLoop then aLoop:Disconnect() end
+    aLoop=RS.RenderStepped:Connect(function()
+        if not active then return end
+        if shake>0.01 then
+            local cam=workspace.CurrentCamera
+            if cam then
+                local sx=(math.random()-0.5)*shake*0.05
+                local sy=(math.random()-0.5)*shake*0.05
+                cam.CFrame=cam.CFrame*CFrame.Angles(sx,sy,0)
+                shake=shake*0.9
+            end
+        end
+    end)
+end
+
+-- ПУЛЬС ВИНЬЕТКИ
+task.spawn(function()
+    while task.wait(0.1) do
+        if active and Vig.Visible then
+            local pulse=math.abs(math.sin(tick()*2))*0.15
+            for _,e in ipairs{tE,bE,lE,rE} do
+                local g=e:FindFirstChildOfClass("UIGradient")
+                if g then
+                    g.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0.2),NumberSequenceKeypoint.new(0.5,0.7+pulse),NumberSequenceKeypoint.new(1,1)})
+                end
+            end
+        end
+    end
+end)
+
+-- СТАРТ/СТОП
+local function start()
+    active=true;Vig.Visible=true
+    MB.Text="⏹  ОСТАНОВИТЬ БОМБЁЖКУ";MB.BackgroundColor3=Color3.fromRGB(100,20,20)
+    SL.Text="БОМБЁЖКА НАЧАЛАСЬ";SL.TextColor3=Color3.fromRGB(255,50,50)
+    weatherOn();startSpawn();shakeLoop()
+end
+
+local function stop()
+    active=false;Vig.Visible=false;shake=0
+    if spawnLoop then spawnLoop=nil end
+    if aLoop then aLoop:Disconnect();aLoop=nil end
+    weatherOff()
+    for _,o in ipairs(workspace:GetChildren()) do
+        if o.Name=="Shahid" then o:Destroy() end
+    end
+    MB.Text="🇷🇺  НАЧАТЬ БОМБЁЖКУ";MB.BackgroundColor3=Color3.fromRGB(40,20,20)
+    SL.Text="Остановлено";SL.TextColor3=Color3.fromRGB(150,150,160)
+end
+
+MB.MouseButton1Click:Connect(function() if active then stop() else start() end end)
+
+print("[Russia] Загружено. Шахиды, ракеты, ядерка.")
