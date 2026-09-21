@@ -1,0 +1,399 @@
+local P=game:GetService("Players")
+local UIS=game:GetService("UserInputService")
+local RS=game:GetService("RunService")
+local LP=P.LocalPlayer
+local PG=LP:WaitForChild("PlayerGui")
+
+local coins=0
+local infected={}
+local active=false
+local loop=nil
+local radius=6
+local damageMode=false
+local upgrades={radius=0,fever=false}
+local espHighlights={}
+
+local old=PG:FindFirstChild("MM2_Infect");if old then old:Destroy() end
+local SG=Instance.new("ScreenGui")
+SG.Name="MM2_Infect";SG.ResetOnSpawn=false;SG.IgnoreGuiInset=true;SG.Parent=PG
+local function corner(p,r) local c=Instance.new("UICorner");c.CornerRadius=UDim.new(0,r);c.Parent=p;return c end
+local function stroke(p,c,t) local s=Instance.new("UIStroke");s.Color=c;s.Thickness=t or 1.5;s.Parent=p;return s end
+
+local Icon=Instance.new("TextButton")
+Icon.Size=UDim2.new(0,46,0,46);Icon.Position=UDim2.new(0,16,0.4,-23)
+Icon.BackgroundColor3=Color3.fromRGB(25,25,35);Icon.BorderSizePixel=0
+Icon.Text="🦠";Icon.TextColor3=Color3.fromRGB(100,255,100);Icon.TextSize=24
+Icon.Font=Enum.Font.GothamBold;Icon.AutoButtonColor=false;Icon.Parent=SG
+corner(Icon,23);stroke(Icon,Color3.fromRGB(100,255,100))
+
+local MF=Instance.new("Frame")
+MF.Size=UDim2.new(0,280,0,340);MF.Position=UDim2.new(0.5,-140,0.5,-170)
+MF.BackgroundColor3=Color3.fromRGB(25,25,35);MF.BorderSizePixel=0
+MF.ClipsDescendants=true;MF.Parent=SG
+corner(MF,12);stroke(MF,Color3.fromRGB(100,255,100))
+
+local TB=Instance.new("TextLabel")
+TB.Size=UDim2.new(1,0,0,36);TB.BackgroundColor3=Color3.fromRGB(18,18,28)
+TB.BorderSizePixel=0;TB.Text="  🦠 ЗАРАЖЕНИЕ";TB.TextColor3=Color3.fromRGB(255,255,255)
+TB.TextSize=13;TB.Font=Enum.Font.GothamBold
+TB.TextXAlignment=Enum.TextXAlignment.Left;TB.Parent=MF
+corner(TB,12)
+
+local CB=Instance.new("TextButton")
+CB.Size=UDim2.new(0,28,0,28);CB.Position=UDim2.new(1,-34,0,4)
+CB.BackgroundColor3=Color3.fromRGB(200,60,60);CB.BorderSizePixel=0
+CB.Text="×";CB.TextColor3=Color3.fromRGB(255,255,255);CB.TextSize=18
+CB.Font=Enum.Font.GothamBold;CB.AutoButtonColor=false;CB.Parent=TB
+corner(CB,14)
+
+local CT=Instance.new("Frame")
+CT.Size=UDim2.new(1,-16,1,-44);CT.Position=UDim2.new(0,8,0,40)
+CT.BackgroundTransparency=1;CT.Parent=MF
+
+local TabFrame=Instance.new("Frame")
+TabFrame.Size=UDim2.new(1,0,0,26);TabFrame.BackgroundTransparency=1;TabFrame.Parent=CT
+local function makeTab(t,x)
+local b=Instance.new("TextButton")
+b.Size=UDim2.new(0.5,-2,1,0);b.Position=UDim2.new(x,0,0,0)
+b.BackgroundColor3=Color3.fromRGB(35,35,50);b.BorderSizePixel=0
+b.Text=t;b.TextColor3=Color3.fromRGB(180,180,190);b.TextSize=10
+b.Font=Enum.Font.GothamBold;b.AutoButtonColor=false;b.Parent=TabFrame
+corner(b,6);return b
+end
+local TabMain=makeTab("ЗАРАЖЕНИЕ",0)
+local TabShop=makeTab("МАГАЗИН",0.5)
+
+local function makePage()
+local f=Instance.new("Frame")
+f.Size=UDim2.new(1,0,1,-32);f.Position=UDim2.new(0,0,0,32)
+f.BackgroundTransparency=1;f.Visible=false;f.Parent=CT
+return f
+end
+local PageMain=makePage()
+local PageShop=makePage()
+
+local function sTab(a)
+TabMain.BackgroundColor3=Color3.fromRGB(35,35,50);TabMain.TextColor3=Color3.fromRGB(180,180,190)
+TabShop.BackgroundColor3=Color3.fromRGB(35,35,50);TabShop.TextColor3=Color3.fromRGB(180,180,190)
+a.BackgroundColor3=Color3.fromRGB(100,255,100);a.TextColor3=Color3.fromRGB(0,0,0)
+PageMain.Visible=(a==TabMain);PageShop.Visible=(a==TabShop)
+end
+sTab(TabMain)
+TabMain.MouseButton1Click:Connect(function() sTab(TabMain) end)
+TabShop.MouseButton1Click:Connect(function() sTab(TabShop) end)
+
+local CoinLbl=Instance.new("TextLabel")
+CoinLbl.Size=UDim2.new(1,0,0,24);CoinLbl.Position=UDim2.new(0,0,0,0)
+CoinLbl.BackgroundColor3=Color3.fromRGB(40,40,55);CoinLbl.BorderSizePixel=0
+CoinLbl.Text="💰 Монеты: 0";CoinLbl.TextColor3=Color3.fromRGB(255,220,80)
+CoinLbl.TextSize=13;CoinLbl.Font=Enum.Font.GothamBold;CoinLbl.Parent=PageMain
+corner(CoinLbl,8)
+
+local StatLbl=Instance.new("TextLabel")
+StatLbl.Size=UDim2.new(1,0,0,20);StatLbl.Position=UDim2.new(0,0,0,28)
+StatLbl.BackgroundTransparency=1;StatLbl.Text="Заразил: 0 / 0"
+StatLbl.TextColor3=Color3.fromRGB(200,200,210);StatLbl.TextSize=11
+StatLbl.Font=Enum.Font.Gotham;StatLbl.TextXAlignment=Enum.TextXAlignment.Left;StatLbl.Parent=PageMain
+
+local MainBtn=Instance.new("TextButton")
+MainBtn.Size=UDim2.new(1,0,0,50);MainBtn.Position=UDim2.new(0,0,0,54)
+MainBtn.BackgroundColor3=Color3.fromRGB(35,55,40);MainBtn.BorderSizePixel=0
+MainBtn.Text="🦠  СТАТЬ ЗАРАЖЁННЫМ";MainBtn.TextColor3=Color3.fromRGB(150,255,180)
+MainBtn.TextSize=14;MainBtn.Font=Enum.Font.GothamBold
+MainBtn.AutoButtonColor=false;MainBtn.Parent=PageMain
+corner(MainBtn,10);stroke(MainBtn,Color3.fromRGB(100,255,100))
+
+local RadiusLbl=Instance.new("TextLabel")
+RadiusLbl.Size=UDim2.new(1,0,0,20);RadiusLbl.Position=UDim2.new(0,0,0,112)
+RadiusLbl.BackgroundTransparency=1;RadiusLbl.Text="Радиус заражения: 6"
+RadiusLbl.TextColor3=Color3.fromRGB(200,200,210);RadiusLbl.TextSize=11
+RadiusLbl.Font=Enum.Font.Gotham;RadiusLbl.TextXAlignment=Enum.TextXAlignment.Left;RadiusLbl.Parent=PageMain
+
+local EspLbl=Instance.new("TextLabel")
+EspLbl.Size=UDim2.new(1,0,0,20);EspLbl.Position=UDim2.new(0,0,0,134)
+EspLbl.BackgroundTransparency=1;EspLbl.Text="🔵 Незаражённые  🔴 Заражённые"
+EspLbl.TextColor3=Color3.fromRGB(200,200,255);EspLbl.TextSize=10
+EspLbl.Font=Enum.Font.Gotham;EspLbl.TextXAlignment=Enum.TextXAlignment.Left;EspLbl.Parent=PageMain
+
+local Info=Instance.new("TextLabel")
+Info.Size=UDim2.new(1,0,0,80);Info.Position=UDim2.new(0,0,0,158)
+Info.BackgroundColor3=Color3.fromRGB(20,20,30);Info.BorderSizePixel=0
+Info.Text="🦠 Подойди к игроку — он заразится\n👥 Заражённые передают вирус дальше\n🏆 Заразь всех — получи 10 монет"
+Info.TextColor3=Color3.fromRGB(180,180,190);Info.TextSize=10
+Info.Font=Enum.Font.Gotham;Info.TextWrapped=true
+Info.TextYAlignment=Enum.TextYAlignment.Center;Info.Parent=PageMain
+corner(Info,8)
+
+local ShopLbl=Instance.new("TextLabel")
+ShopLbl.Size=UDim2.new(1,0,0,24);ShopLbl.Position=UDim2.new(0,0,0,0)
+ShopLbl.BackgroundColor3=Color3.fromRGB(40,40,55);ShopLbl.BorderSizePixel=0
+ShopLbl.Text="💰 Монеты: 0";ShopLbl.TextColor3=Color3.fromRGB(255,220,80)
+ShopLbl.TextSize=13;ShopLbl.Font=Enum.Font.GothamBold;ShopLbl.Parent=PageShop
+corner(ShopLbl,8)
+
+local BuyRadius=Instance.new("TextButton")
+BuyRadius.Size=UDim2.new(1,0,0,50);BuyRadius.Position=UDim2.new(0,0,0,32)
+BuyRadius.BackgroundColor3=Color3.fromRGB(45,40,60);BuyRadius.BorderSizePixel=0
+BuyRadius.Text="📡  Радиус +3  —  10 💰"
+BuyRadius.TextColor3=Color3.fromRGB(200,200,255);BuyRadius.TextSize=13
+BuyRadius.Font=Enum.Font.GothamBold;BuyRadius.AutoButtonColor=false;BuyRadius.Parent=PageShop
+corner(BuyRadius,10)
+
+local BuyFever=Instance.new("TextButton")
+BuyFever.Size=UDim2.new(1,0,0,50);BuyFever.Position=UDim2.new(0,0,0,90)
+BuyFever.BackgroundColor3=Color3.fromRGB(60,25,25);BuyFever.BorderSizePixel=0
+BuyFever.Text="💀  Лихорадка (снимает HP)  —  30 💰"
+BuyFever.TextColor3=Color3.fromRGB(255,150,150);BuyFever.TextSize=12
+BuyFever.Font=Enum.Font.GothamBold;BuyFever.AutoButtonColor=false;BuyFever.Parent=PageShop
+corner(BuyFever,10)
+
+local ShopInfo=Instance.new("TextLabel")
+ShopInfo.Size=UDim2.new(1,0,0,80);ShopInfo.Position=UDim2.new(0,0,0,150)
+ShopInfo.BackgroundColor3=Color3.fromRGB(20,20,30);ShopInfo.BorderSizePixel=0
+ShopInfo.Text="🛒 Улучшения работают до выхода\n📡 Радиус — увеличивает зону заражения\n💀 Лихорадка — отнимает 5 HP в секунду"
+ShopInfo.TextColor3=Color3.fromRGB(180,180,190);ShopInfo.TextSize=10
+ShopInfo.Font=Enum.Font.Gotham;ShopInfo.TextWrapped=true
+ShopInfo.TextYAlignment=Enum.TextYAlignment.Center;ShopInfo.Parent=PageShop
+corner(ShopInfo,8)
+
+Icon.MouseButton1Click:Connect(function() MF.Visible=not MF.Visible end)
+CB.MouseButton1Click:Connect(function() MF.Visible=false end)
+
+do
+local drag,ds,sp=false,nil,nil
+TB.InputBegan:Connect(function(i)
+if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+drag=true;ds=i.Position;sp=MF.Position
+i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then drag=false end end)
+end
+end)
+UIS.InputChanged:Connect(function(i)
+if drag and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+local d=i.Position-ds
+MF.Position=UDim2.new(sp.X.Scale,sp.X.Offset+d.X,sp.Y.Scale,sp.Y.Offset+d.Y)
+end
+end)
+end
+
+-- ===== ESP =====
+local function createESP(plr)
+    if espHighlights[plr] then espHighlights[plr]:Destroy() end
+    local hl=Instance.new("Highlight")
+    hl.FillColor=Color3.fromRGB(80,150,255)
+    hl.OutlineColor=Color3.fromRGB(255,255,255)
+    hl.FillTransparency=0.5
+    hl.OutlineTransparency=0.2
+    hl.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Parent=SG
+    espHighlights[plr]=hl
+    return hl
+end
+
+local function updateESP()
+    for _,plr in ipairs(P:GetPlayers()) do
+        if plr~=LP then
+            local hl=espHighlights[plr]
+            if not hl or not hl.Parent then hl=createESP(plr) end
+            if plr.Character then
+                hl.Adornee=plr.Character
+                if infected[plr] then
+                    hl.FillColor=Color3.fromRGB(255,50,50)
+                    hl.OutlineColor=Color3.fromRGB(255,150,150)
+                else
+                    hl.FillColor=Color3.fromRGB(80,150,255)
+                    hl.OutlineColor=Color3.fromRGB(150,200,255)
+                end
+            else
+                hl.Adornee=nil
+            end
+        end
+    end
+    for plr,hl in pairs(espHighlights) do
+        if not plr.Parent then hl:Destroy();espHighlights[plr]=nil end
+    end
+end
+
+-- ===== ЗАРАЖЕНИЕ =====
+local function paintInfected(char)
+    local hrp=char:FindFirstChild("HumanoidRootPart")
+    if hrp and not hrp:FindFirstChild("VirusEmitter") then
+        local e=Instance.new("ParticleEmitter")
+        e.Name="VirusEmitter"
+        e.Texture="rbxassetid://243660364"
+        e.Rate=20;e.Lifetime=NumberRange.new(1,2)
+        e.Speed=NumberRange.new(2,6);e.Size=NumberSequence.new(1)
+        e.Color=ColorSequence.new(Color3.fromRGB(100,255,100))
+        e.Parent=hrp
+    end
+end
+
+local function clearInfected(char)
+    for _,p in ipairs(char:GetDescendants()) do
+        if p:IsA("ParticleEmitter") and p.Name=="VirusEmitter" then p:Destroy() end
+    end
+end
+
+local function infectPlayer(plr)
+    if infected[plr] then return end
+    infected[plr]=true
+    local c=plr.Character
+    if c then paintInfected(c) end
+    plr.CharacterAdded:Connect(function(char)
+        if infected[plr] then task.wait(1);paintInfected(char) end
+    end)
+end
+
+local function countInfected()
+    local n=0
+    for plr,_ in pairs(infected) do
+        if plr and plr.Parent then n=n+1 end
+    end
+    return n
+end
+
+local function updateStats()
+    local total=#P:GetPlayers()
+    local n=countInfected()
+    StatLbl.Text="Заразил: "..n.." / "..total
+    CoinLbl.Text="💰 Монеты: "..coins
+    ShopLbl.Text="💰 Монеты: "..coins
+    RadiusLbl.Text="Радиус заражения: "..radius
+    if active and n>=total-1 and total>1 then
+        coins=coins+10
+        active=false
+        MainBtn.Text="✅ ПОБЕДА! +10 монет"
+        MainBtn.BackgroundColor3=Color3.fromRGB(80,80,30)
+        if loop then loop:Disconnect();loop=nil end
+        task.wait(3)
+        resetAll()
+        MainBtn.Text="🧼 ВСЕ ОЧИЩЕНЫ · Заново?"
+        MainBtn.BackgroundColor3=Color3.fromRGB(40,60,80)
+        task.wait(2)
+        MainBtn.Text="🦠  СТАТЬ ЗАРАЖЁННЫМ"
+        MainBtn.BackgroundColor3=Color3.fromRGB(35,55,40)
+    end
+end
+
+function resetAll()
+    infected={}
+    for _,plr in ipairs(P:GetPlayers()) do
+        if plr.Character then
+            clearInfected(plr.Character)
+            for _,p in ipairs(plr.Character:GetDescendants()) do
+                if p:IsA("BasePart") then p.Color=Color3.fromRGB(255,255,255) end
+            end
+        end
+    end
+    active=false
+    damageMode=false
+    upgrades.fever=false
+    MainBtn.Text="🦠  СТАТЬ ЗАРАЖЁННЫМ"
+    MainBtn.BackgroundColor3=Color3.fromRGB(35,55,40)
+    BuyFever.Text="💀  Лихорадка (снимает HP)  —  30 💰"
+    BuyFever.BackgroundColor3=Color3.fromRGB(60,25,25)
+    updateStats()
+end
+
+local function startLoop()
+    if loop then loop:Disconnect() end
+    loop=RS.Heartbeat:Connect(function()
+        updateESP()
+        if not active then return end
+        local myChar=LP.Character
+        if not myChar then return end
+        local myHrp=myChar:FindFirstChild("HumanoidRootPart")
+        if not myHrp then return end
+        paintInfected(myChar)
+        for _,plr in ipairs(P:GetPlayers()) do
+            if plr~=LP and not infected[plr] then
+                local c=plr.Character
+                if c then
+                    local h=c:FindFirstChild("HumanoidRootPart")
+                    if h and (h.Position-myHrp.Position).Magnitude<=radius then
+                        infectPlayer(plr)
+                    end
+                end
+            end
+        end
+        if damageMode then
+            for plr,_ in pairs(infected) do
+                if plr and plr~=LP then
+                    local c=plr.Character
+                    if c then
+                        local hum=c:FindFirstChildOfClass("Humanoid")
+                        if hum and hum.Health>0 then
+                            hum.Health=math.max(0,hum.Health-5*0.05)
+                        end
+                    end
+                end
+            end
+        end
+        updateStats()
+    end)
+end
+
+MainBtn.MouseButton1Click:Connect(function()
+    if active then
+        active=false
+        MainBtn.Text="🦠  СТАТЬ ЗАРАЖЁННЫМ"
+        MainBtn.BackgroundColor3=Color3.fromRGB(35,55,40)
+        if loop then loop:Disconnect();loop=nil end
+        resetAll()
+        return
+    end
+    active=true
+    infected={}
+    infected[LP]=true
+    local c=LP.Character
+    if c then paintInfected(c) end
+    MainBtn.Text="🦠  ВЫКЛЮЧИТЬ (активно)"
+    MainBtn.BackgroundColor3=Color3.fromRGB(80,30,30)
+    startLoop()
+end)
+
+BuyRadius.MouseButton1Click:Connect(function()
+    if upgrades.radius>=5 then BuyRadius.Text="📡  МАКС. УРОВЕНЬ";return end
+    if coins>=10 then
+        coins=coins-10
+        upgrades.radius=upgrades.radius+1
+        radius=radius+3
+        updateStats()
+        BuyRadius.Text="📡  Радиус +3  —  10 💰  (ур. "..upgrades.radius..")"
+    else
+        BuyRadius.Text="❌ Не хватает монет"
+        task.wait(1.5)
+        BuyRadius.Text="📡  Радиус +3  —  10 💰"
+    end
+end)
+
+BuyFever.MouseButton1Click:Connect(function()
+    if damageMode then BuyFever.Text="💀  УЖЕ КУПЛЕНО";return end
+    if coins>=30 then
+        coins=coins-30
+        damageMode=true
+        updateStats()
+        BuyFever.Text="✅  Лихорадка активна"
+    else
+        BuyFever.Text="❌ Не хватает монет"
+        task.wait(1.5)
+        BuyFever.Text="💀  Лихорадка (снимает HP)  —  30 💰"
+    end
+end)
+
+P.PlayerAdded:Connect(function(plr)
+    task.wait(1)
+    if not espHighlights[plr] then createESP(plr) end
+end)
+P.PlayerRemoving:Connect(function(plr)
+    if espHighlights[plr] then espHighlights[plr]:Destroy();espHighlights[plr]=nil end
+end)
+
+for _,plr in ipairs(P:GetPlayers()) do
+    if plr~=LP then createESP(plr) end
+end
+task.spawn(function()
+    while task.wait(0.5) do updateESP() end
+end)
+
+updateStats()
+print("[MM2 Infect] Загружено. ESP: синие — чистые, красные — заражённые.")
