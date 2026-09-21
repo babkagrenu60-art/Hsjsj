@@ -1,0 +1,484 @@
+local P=game:GetService("Players")
+local UIS=game:GetService("UserInputService")
+local RS=game:GetService("RunService")
+local LP=P.LocalPlayer
+local PG=LP:WaitForChild("PlayerGui")
+local cam=workspace.CurrentCamera
+
+local active=false
+local doneParts={}
+local infectedPlayers={}
+local savedTransforms={}
+local platformLoop=nil
+local attackLoop=nil
+local shakeLoop=nil
+local fpLoop=nil
+local attackRange=15
+local monsterSpeed=0.5
+local soundOn=true
+local camAngleX=0
+local camAngleY=0
+local shakeIntensity=0
+local SCREAM_ID="rbxassetid://90468563693248"
+
+local old=PG:FindFirstChild("KulkidOne");if old then old:Destroy() end
+local SG=Instance.new("ScreenGui")
+SG.Name="KulkidOne";SG.ResetOnSpawn=false;SG.IgnoreGuiInset=true
+SG.ZIndexBehavior=Enum.ZIndexBehavior.Sibling;SG.Parent=PG
+
+local function corner(p,r) local c=Instance.new("UICorner");c.CornerRadius=UDim.new(0,r);c.Parent=p;return c end
+local function stroke(p,c,t) local s=Instance.new("UIStroke");s.Color=c;s.Thickness=t or 1.5;s.Parent=p;return s end
+
+-- ВИНЬЕТКА
+local Vig=Instance.new("Frame")
+Vig.Name="Vignette";Vig.Size=UDim2.new(1,0,1,0)
+Vig.BackgroundTransparency=1;Vig.ZIndex=5;Vig.Visible=false;Vig.Parent=SG
+
+local function makeEdge(size,pos,rot)
+    local f=Instance.new("Frame")
+    f.Size=size;f.Position=pos
+    f.BackgroundColor3=Color3.fromRGB(0,0,0);f.BorderSizePixel=0
+    f.BackgroundTransparency=0;f.ZIndex=5;f.Parent=Vig
+    local g=Instance.new("UIGradient")
+    g.Rotation=rot
+    g.Transparency=NumberSequence.new({
+        NumberSequenceKeypoint.new(0,0),
+        NumberSequenceKeypoint.new(0.5,0.6),
+        NumberSequenceKeypoint.new(1,1)
+    })
+    g.Parent=f
+    return f
+end
+
+local topE=makeEdge(UDim2.new(1,0,0.28,0),UDim2.new(0,0,0,0),90)
+local botE=makeEdge(UDim2.new(1,0,0.28,0),UDim2.new(0,0,0.72,0),270)
+local lefE=makeEdge(UDim2.new(0.28,0,1,0),UDim2.new(0,0,0,0),0)
+local rigE=makeEdge(UDim2.new(0.28,0,1,0),UDim2.new(0.72,0,0,0),180)
+
+-- ИКОНКА
+local Icon=Instance.new("TextButton")
+Icon.Size=UDim2.new(0,50,0,50);Icon.Position=UDim2.new(0,16,0.5,-25)
+Icon.BackgroundColor3=Color3.fromRGB(15,15,20);Icon.BorderSizePixel=0
+Icon.Text="🖤";Icon.TextColor3=Color3.fromRGB(255,50,50);Icon.TextSize=26
+Icon.Font=Enum.Font.GothamBold;Icon.AutoButtonColor=false;Icon.Parent=SG
+corner(Icon,25);stroke(Icon,Color3.fromRGB(255,50,50))
+
+-- ОКНО
+local MF=Instance.new("Frame")
+MF.Size=UDim2.new(0,220,0,130);MF.Position=UDim2.new(0.5,-110,0.5,-65)
+MF.BackgroundColor3=Color3.fromRGB(15,15,20);MF.BorderSizePixel=0
+MF.ClipsDescendants=true;MF.Parent=SG
+corner(MF,12);stroke(MF,Color3.fromRGB(255,50,50))
+
+local TB=Instance.new("TextLabel")
+TB.Size=UDim2.new(1,0,0,34);TB.BackgroundColor3=Color3.fromRGB(10,10,15)
+TB.BorderSizePixel=0;TB.Text="  🖤 КУЛКИД";TB.TextColor3=Color3.fromRGB(255,50,50)
+TB.TextSize=13;TB.Font=Enum.Font.GothamBold
+TB.TextXAlignment=Enum.TextXAlignment.Left;TB.Parent=MF
+corner(TB,12)
+
+local CB=Instance.new("TextButton")
+CB.Size=UDim2.new(0,26,0,26);CB.Position=UDim2.new(1,-32,0,4)
+CB.BackgroundColor3=Color3.fromRGB(200,60,60);CB.BorderSizePixel=0
+CB.Text="×";CB.TextColor3=Color3.fromRGB(255,255,255);CB.TextSize=17
+CB.Font=Enum.Font.GothamBold;CB.AutoButtonColor=false;CB.Parent=TB
+corner(CB,13)
+
+local CT=Instance.new("Frame")
+CT.Size=UDim2.new(1,-16,1,-44);CT.Position=UDim2.new(0,8,0,40)
+CT.BackgroundTransparency=1;CT.Parent=MF
+
+local MainBtn=Instance.new("TextButton")
+MainBtn.Size=UDim2.new(1,0,0,56);MainBtn.Position=UDim2.new(0,0,0,0)
+MainBtn.BackgroundColor3=Color3.fromRGB(40,20,20);MainBtn.BorderSizePixel=0
+MainBtn.Text="🖤  ВКЛЮЧИТЬ ВСЁ";MainBtn.TextColor3=Color3.fromRGB(255,100,100)
+MainBtn.TextSize=15;MainBtn.Font=Enum.Font.GothamBold
+MainBtn.AutoButtonColor=false;MainBtn.Parent=CT
+corner(MainBtn,12);stroke(MainBtn,Color3.fromRGB(255,50,50))
+
+local StatusLbl=Instance.new("TextLabel")
+StatusLbl.Size=UDim2.new(1,0,0,16);StatusLbl.Position=UDim2.new(0,0,0,62)
+StatusLbl.BackgroundTransparency=1;StatusLbl.Text="Нажми кнопку"
+StatusLbl.TextColor3=Color3.fromRGB(150,150,160);StatusLbl.TextSize=10
+StatusLbl.Font=Enum.Font.Gotham;StatusLbl.TextXAlignment=Enum.TextXAlignment.Center;StatusLbl.Parent=CT
+
+Icon.MouseButton1Click:Connect(function() MF.Visible=not MF.Visible end)
+CB.MouseButton1Click:Connect(function() MF.Visible=false end)
+
+do
+    local drag,ds,sp=false,nil,nil
+    TB.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+            drag=true;ds=i.Position;sp=MF.Position
+            i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then drag=false end end)
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if drag and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+            local d=i.Position-ds
+            MF.Position=UDim2.new(sp.X.Scale,sp.X.Offset+d.X,sp.Y.Scale,sp.Y.Offset+d.Y)
+        end
+    end)
+end
+
+-- ===== УПРАВЛЕНИЕ КАМЕРОЙ ОТ 1 ЛИЦА (мышь + свайп) =====
+local function setupCameraControl()
+    camAngleX=0;camAngleY=0
+
+    UIS.InputChanged:Connect(function(input)
+        if not active then return end
+        if input.UserInputType==Enum.UserInputType.MouseMovement then
+            camAngleX=camAngleX - input.Delta.X*0.003
+            camAngleY=math.clamp(camAngleY - input.Delta.Y*0.003,-math.rad(80),math.rad(80))
+        elseif input.UserInputType==Enum.UserInputType.Touch then
+            camAngleX=camAngleX - input.Delta.X*0.005
+            camAngleY=math.clamp(camAngleY - input.Delta.Y*0.005,-math.rad(80),math.rad(80))
+        end
+    end)
+end
+setupCameraControl()
+
+-- ===== МОНСТРЫ =====
+local function saveTransform(char)
+    if savedTransforms[char] then return end
+    local data={parts={},scales={}}
+    local hum=char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        if hum:FindFirstChild("BodyWidthScale") then
+            data.scales.body={hum.BodyDepthScale.Value,hum.BodyWidthScale.Value,hum.BodyHeightScale.Value}
+        end
+        if hum:FindFirstChild("HeadScale") then data.scales.head=hum.HeadScale.Value end
+    end
+    for _,p in ipairs(char:GetDescendants()) do
+        if p:IsA("BasePart") then data.parts[p]={color=p.Color,size=p.Size} end
+    end
+    savedTransforms[char]=data
+end
+
+local function makeMonster(char)
+    if not char then return end
+    local hum=char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    saveTransform(char)
+    for _,p in ipairs(char:GetDescendants()) do
+        if p:IsA("BasePart") then p.Color=Color3.fromRGB(200,0,0) end
+    end
+    if hum:FindFirstChild("BodyWidthScale") then
+        hum.BodyWidthScale.Value=1.8
+        hum.BodyDepthScale.Value=1.5
+        hum.BodyHeightScale.Value=1.4
+    end
+    if hum:FindFirstChild("HeadScale") then hum.HeadScale.Value=1.6 end
+    for _,p in ipairs(char:GetDescendants()) do
+        if p:IsA("BasePart") then
+            local n=p.Name
+            if n:find("Arm") or n:find("Leg") then
+                p.Size=Vector3.new(p.Size.X*1.5,p.Size.Y*2,p.Size.Z*1.5)
+            elseif n=="Torso" or n=="UpperTorso" or n=="LowerTorso" then
+                p.Size=Vector3.new(p.Size.X*1.6,p.Size.Y*1.5,p.Size.Z*1.6)
+            end
+        end
+    end
+    if hum:FindFirstChild("RightShoulder") then
+        hum.RightShoulder.C0=CFrame.new(0,0.5,0)*CFrame.Angles(math.rad(-90),0,0)
+    end
+    if hum:FindFirstChild("LeftShoulder") then
+        hum.LeftShoulder.C0=CFrame.new(0,0.5,0)*CFrame.Angles(math.rad(-90),0,0)
+    end
+    local hrp=char:FindFirstChild("HumanoidRootPart")
+    if hrp and soundOn then
+        local snd=Instance.new("Sound")
+        snd.SoundId=SCREAM_ID;snd.Volume=5;snd.Looped=true
+        snd.Parent=hrp;snd:Play()
+    end
+end
+
+local function resetMonster(char)
+    if not char then return end
+    local hum=char:FindFirstChildOfClass("Humanoid")
+    local data=savedTransforms[char]
+    if data then
+        for p,info in pairs(data.parts) do
+            if p and p.Parent then p.Color=info.color;p.Size=info.size end
+        end
+        if hum and data.scales.body and hum:FindFirstChild("BodyWidthScale") then
+            hum.BodyWidthScale.Value=data.scales.body[2]
+            hum.BodyDepthScale.Value=data.scales.body[1]
+            hum.BodyHeightScale.Value=data.scales.body[3]
+        end
+        if hum and data.scales.head and hum:FindFirstChild("HeadScale") then
+            hum.HeadScale.Value=data.scales.head
+        end
+        if hum and hum:FindFirstChild("RightShoulder") then hum.RightShoulder.C0=CFrame.new(1,0.5,0) end
+        if hum and hum:FindFirstChild("LeftShoulder") then hum.LeftShoulder.C0=CFrame.new(-1,0.5,0) end
+    end
+    local hrp=char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        for _,s in ipairs(hrp:GetChildren()) do
+            if s:IsA("Sound") then s:Destroy() end
+        end
+    end
+    savedTransforms[char]=nil
+end
+
+local function infectPlayer(plr)
+    if infectedPlayers[plr] then return end
+    infectedPlayers[plr]=true
+    local c=plr.Character
+    if c then makeMonster(c) end
+    plr.CharacterAdded:Connect(function(char)
+        if infectedPlayers[plr] then
+            task.wait(1)
+            makeMonster(char)
+        end
+    end)
+end
+
+-- ===== АТАКА + ОТКИДЫВАНИЕ ПРИ СТОЕ =====
+local function startAttackLoop()
+    if attackLoop then attackLoop:Disconnect() end
+    attackLoop=RS.Heartbeat:Connect(function(dt)
+        if not active then return end
+        local myChar=LP.Character
+        if not myChar then return end
+        local myHrp=myChar:FindFirstChild("HumanoidRootPart")
+        local myHum=myChar:FindFirstChildOfClass("Humanoid")
+        if not myHrp or not myHum then return end
+
+        -- Проверяем: стою ли я на месте
+        local moving=myHum.MoveDirection.Magnitude>0.1
+        local nearbyMonster=false
+        local closestMonster=nil
+        local minDist=999
+
+        for plr,_ in pairs(infectedPlayers) do
+            if plr~=LP and plr.Parent then
+                local c=plr.Character
+                if c then
+                    local hrp=c:FindFirstChild("HumanoidRootPart")
+                    local hum=c:FindFirstChildOfClass("Humanoid")
+                    if hrp and hum then
+                        local dist=(hrp.Position-myHrp.Position).Magnitude
+                        if dist<=attackRange then
+                            nearbyMonster=true
+                            if dist<minDist then minDist=dist;closestMonster={plr=plr,char=c,hrp=hrp,hum=hum} end
+                            -- Монстр идёт к тебе
+                            if dist>0.5 then
+                                local dir=(myHrp.Position-hrp.Position)
+                                dir=Vector3.new(dir.X,0,dir.Z)
+                                if dir.Magnitude>0.1 then
+                                    dir=dir.Unit
+                                    local newPos=hrp.Position+dir*monsterSpeed
+                                    local ray=Ray.new(hrp.Position,dir*3)
+                                    local hit=workspace:FindPartOnRay(ray,c)
+                                    if not hit then hrp.CFrame=CFrame.new(newPos,newPos+dir) end
+                                    if hum.WalkSpeed==0 then hum.WalkSpeed=16 end
+                                end
+                            end
+                        else
+                            if hum.WalkSpeed~=0 then hum.WalkSpeed=0 end
+                        end
+                    end
+                end
+            end
+        end
+
+        -- Если стою и монстр рядом — откидывает
+        if not moving and nearbyMonster and closestMonster then
+            local dir=(myHrp.Position-closestMonster.hrp.Position)
+            dir=Vector3.new(dir.X,0,dir.Z)
+            if dir.Magnitude<0.1 then dir=Vector3.new(0,0,1) end
+            dir=dir.Unit
+            -- Откидываем ТЕБЯ
+            myHrp.AssemblyLinearVelocity=dir*80 + Vector3.new(0,60,0)
+            -- Тряска камеры
+            shakeIntensity=1.5
+            -- Крик
+            if soundOn then
+                local snd=Instance.new("Sound")
+                snd.SoundId=SCREAM_ID;snd.Volume=5
+                snd.Parent=myHrp;snd:Play()
+                task.delay(3,function() if snd then snd:Destroy() end end)
+            end
+            StatusLbl.Text="МОНСТР ОТКИНУЛ ТЕБЯ!"
+            StatusLbl.TextColor3=Color3.fromRGB(255,50,50)
+            task.wait(2)
+            if active then
+                StatusLbl.Text="КУЛКИД АКТИВЕН"
+                StatusLbl.TextColor3=Color3.fromRGB(255,50,50)
+            end
+        end
+    end)
+end
+
+-- ===== ПЛАТФОРМЫ =====
+local function makeBlack(part)
+    if not part or not part.Parent then return end
+    if doneParts[part] then return end
+    doneParts[part]=true
+    part:SetAttribute("OrigColor",part.Color)
+    part.Color=Color3.fromRGB(0,0,0)
+    part.Material=Enum.Material.SmoothPlastic
+    for _,face in ipairs{Enum.NormalId.Top,Enum.NormalId.Bottom,Enum.NormalId.Front,Enum.NormalId.Back,Enum.NormalId.Left,Enum.NormalId.Right} do
+        local gui=Instance.new("SurfaceGui")
+        gui.Face=face;gui.CanvasSize=Vector2.new(400,400);gui.LightInfluence=0
+        gui.Parent=part
+        local txt=Instance.new("TextLabel")
+        txt.Size=UDim2.new(1,0,1,0);txt.BackgroundTransparency=1
+        txt.Text="КУЛКИД";txt.TextColor3=Color3.fromRGB(255,0,0);txt.TextScaled=true
+        txt.Font=Enum.Font.GothamBlack;txt.TextStrokeTransparency=0
+        txt.TextStrokeColor3=Color3.fromRGB(0,0,0);txt.Parent=gui
+    end
+    part.Touched:Connect(function(hit)
+        if not active then return end
+        local char=hit.Parent
+        if not char then return end
+        local hum=char:FindFirstChildOfClass("Humanoid")
+        if not hum then return end
+        local hrp=char:FindFirstChild("HumanoidRootPart")
+        if hrp and soundOn then
+            local snd=Instance.new("Sound")
+            snd.SoundId=SCREAM_ID;snd.Volume=5
+            snd.Parent=hrp;snd:Play()
+            task.delay(5,function() if snd then snd:Destroy() end end)
+        end
+        local plr=P:GetPlayerFromCharacter(char)
+        if plr then infectPlayer(plr) end
+    end)
+end
+
+local function scanPlatforms()
+    for _,obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Name=="PlatformPart" then makeBlack(obj) end
+    end
+end
+
+-- ===== 1 ЛИЦО С УПРАВЛЕНИЕМ =====
+local function startFP()
+    if fpLoop then fpLoop:Disconnect() end
+    fpLoop=RS.RenderStepped:Connect(function(dt)
+        if not active then return end
+        local char=LP.Character
+        if not char then return end
+        local head=char:FindFirstChild("Head")
+        if not head then return end
+
+        cam.CameraType=Enum.CameraType.Scriptable
+
+        -- Углы с учётом тряски
+        local shakeX=0;local shakeY=0
+        if shakeIntensity>0.01 then
+            shakeX=(math.random()-0.5)*shakeIntensity*0.05
+            shakeY=(math.random()-0.5)*shakeIntensity*0.05
+            shakeIntensity=shakeIntensity*0.92
+        end
+
+        local baseCFrame=CFrame.new(head.Position)*CFrame.Angles(0,camAngleX,0)*CFrame.Angles(camAngleY,0,0)
+        local shakenCFrame=baseCFrame*CFrame.Angles(shakeX,shakeY,0)
+        cam.CFrame=shakenCFrame
+
+        for _,p in ipairs(char:GetDescendants()) do
+            if p:IsA("BasePart") and p.Name~="HumanoidRootPart" then
+                p.LocalTransparencyModifier=1
+                if p.Transparency<1 then p.Transparency=1 end
+            end
+            if p:IsA("Decal") then p.Transparency=1 end
+        end
+    end)
+end
+
+local function stopFP()
+    if fpLoop then fpLoop:Disconnect();fpLoop=nil end
+    cam.CameraType=Enum.CameraType.Custom
+    local char=LP.Character
+    if char then
+        local hum=char:FindFirstChildOfClass("Humanoid")
+        if hum then cam.CameraSubject=hum end
+        for _,p in ipairs(char:GetDescendants()) do
+            if p:IsA("BasePart") then
+                p.LocalTransparencyModifier=0
+                if p.Name~="HumanoidRootPart" then p.Transparency=0 end
+            end
+            if p:IsA("Decal") then p.Transparency=0 end
+        end
+    end
+end
+
+-- ===== СЛУЧАЙНАЯ ТРЯСКА (хоррор) =====
+local function startShakeLoop()
+    if shakeLoop then shakeLoop:Disconnect() end
+    shakeLoop=task.spawn(function()
+        while active do
+            task.wait(math.random(4,10))
+            if active then
+                shakeIntensity=math.random(8,20)/10
+            end
+        end
+    end)
+end
+
+-- ===== СТАРТ/СТОП =====
+local function startAll()
+    active=true
+    Vig.Visible=true
+    MainBtn.Text="⏹  ВЫКЛЮЧИТЬ ВСЁ"
+    MainBtn.BackgroundColor3=Color3.fromRGB(100,20,20)
+    StatusLbl.Text="КУЛКИД АКТИВЕН · монстры идут"
+    StatusLbl.TextColor3=Color3.fromRGB(255,50,50)
+    scanPlatforms()
+    if platformLoop then platformLoop:Disconnect() end
+    platformLoop=RS.Heartbeat:Connect(function()
+        if not active then return end
+        scanPlatforms()
+    end)
+    startAttackLoop()
+    startFP()
+    startShakeLoop()
+end
+
+local function stopAll()
+    active=false
+    Vig.Visible=false
+    if platformLoop then platformLoop:Disconnect();platformLoop=nil end
+    if attackLoop then attackLoop:Disconnect();attackLoop=nil end
+    stopFP()
+    shakeIntensity=0
+    MainBtn.Text="🖤  ВКЛЮЧИТЬ ВСЁ"
+    MainBtn.BackgroundColor3=Color3.fromRGB(40,20,20)
+    StatusLbl.Text="Выключено"
+    StatusLbl.TextColor3=Color3.fromRGB(150,150,160)
+end
+
+MainBtn.MouseButton1Click:Connect(function()
+    if active then stopAll() else startAll() end
+end)
+
+LP.CharacterAdded:Connect(function()
+    if active then
+        task.wait(1)
+        stopFP()
+        task.wait(0.1)
+        startFP()
+    end
+end)
+
+-- Пульс виньетки
+task.spawn(function()
+    while task.wait(0.05) do
+        if active and Vig.Visible then
+            local pulse=math.abs(math.sin(tick()*1.5))*0.15
+            for _,edge in ipairs{topE,botE,lefE,rigE} do
+                local g=edge:FindFirstChildOfClass("UIGradient")
+                if g then
+                    g.Transparency=NumberSequence.new({
+                        NumberSequenceKeypoint.new(0,0),
+                        NumberSequenceKeypoint.new(0.5,0.6+pulse),
+                        NumberSequenceKeypoint.new(1,1)
+                    })
+                end
+            end
+        end
+    end
+end)
+
+print("[Kulkid] Загружено. 1 лицо + управление + тряска + откидывание.")
