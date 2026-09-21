@@ -1,0 +1,284 @@
+local P=game:GetService("Players")
+local UIS=game:GetService("UserInputService")
+local RS=game:GetService("RunService")
+local TW=game:GetService("TweenService")
+local LP=P.LocalPlayer
+local PG=LP:WaitForChild("PlayerGui")
+local CHR=LP.Character or LP.CharacterAdded:Wait()
+local HRP=CHR:WaitForChild("HumanoidRootPart")
+local HUM=CHR:WaitForChild("Humanoid")
+
+local guiOpen=true
+local isSpinning=false
+
+-- Список событий
+local events={
+    {name="🚀 Отталкивание", color=Color3.fromRGB(100,150,255)},
+    {name="☠️ Ресет", color=Color3.fromRGB(255,80,80)},
+    {name="💩 Какашка", color=Color3.fromRGB(150,100,50)},
+    {name="💥 Взрыв", color=Color3.fromRGB(255,100,0)},
+    {name="🚁 Взлёт", color=Color3.fromRGB(100,255,150)},
+    {name="🤬 Спам матом", color=Color3.fromRGB(255,0,100)},
+    {name="⚡ Банхаммер", color=Color3.fromRGB(200,0,200)},
+    {name="🛸 Телепорт в небо", color=Color3.fromRGB(150,150,255)},
+    {name="🌀 Спин-бот", color=Color3.fromRGB(255,200,50)},
+}
+
+local old=PG:FindFirstChild("MM2_Roulette"); if old then old:Destroy() end
+
+local SG=Instance.new("ScreenGui")
+SG.Name="MM2_Roulette"; SG.ResetOnSpawn=false; SG.IgnoreGuiInset=true
+SG.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; SG.Parent=PG
+
+local function corner(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r); c.Parent=p; return c end
+local function stroke(p,c,t) local s=Instance.new("UIStroke"); s.Color=c; s.Thickness=t or 1.5; s.Parent=p; return s end
+
+-- Иконка
+local Icon=Instance.new("TextButton")
+Icon.Size=UDim2.new(0,46,0,46); Icon.Position=UDim2.new(0,16,0.5,-23)
+Icon.BackgroundColor3=Color3.fromRGB(25,25,35); Icon.BorderSizePixel=0
+Icon.Text="🎰"; Icon.TextColor3=Color3.fromRGB(255,200,50); Icon.TextSize=24
+Icon.Font=Enum.Font.GothamBold; Icon.AutoButtonColor=false; Icon.Parent=SG
+corner(Icon,23); stroke(Icon,Color3.fromRGB(255,200,50))
+
+-- Окно
+local MF=Instance.new("Frame")
+MF.Size=UDim2.new(0,260,0,260); MF.Position=UDim2.new(0.5,-130,0.5,-130)
+MF.BackgroundColor3=Color3.fromRGB(25,25,35); MF.BorderSizePixel=0
+MF.ClipsDescendants=true; MF.Parent=SG
+corner(MF,12); stroke(MF,Color3.fromRGB(255,200,50))
+
+local TB=Instance.new("TextLabel")
+TB.Size=UDim2.new(1,0,0,36); TB.BackgroundColor3=Color3.fromRGB(18,18,28)
+TB.BorderSizePixel=0; TB.Text="  🎰 РУЛЕТКА"; TB.TextColor3=Color3.fromRGB(255,255,255)
+TB.TextSize=13; TB.Font=Enum.Font.GothamBold
+TB.TextXAlignment=Enum.TextXAlignment.Left; TB.Parent=MF
+corner(TB,12)
+
+local CB=Instance.new("TextButton")
+CB.Size=UDim2.new(0,28,0,28); CB.Position=UDim2.new(1,-34,0,4)
+CB.BackgroundColor3=Color3.fromRGB(200,60,60); CB.BorderSizePixel=0
+CB.Text="×"; CB.TextColor3=Color3.fromRGB(255,255,255); CB.TextSize=18
+CB.Font=Enum.Font.GothamBold; CB.AutoButtonColor=false; CB.Parent=TB
+corner(CB,14)
+
+local CT=Instance.new("Frame")
+CT.Size=UDim2.new(1,-16,1,-44); CT.Position=UDim2.new(0,8,0,40)
+CT.BackgroundTransparency=1; CT.Parent=MF
+
+-- Окно рулетки (показывает событие)
+local RollFrame=Instance.new("Frame")
+RollFrame.Size=UDim2.new(1,0,0,80); RollFrame.Position=UDim2.new(0,0,0,0)
+RollFrame.BackgroundColor3=Color3.fromRGB(35,35,50); RollFrame.BorderSizePixel=0
+RollFrame.Parent=CT
+corner(RollFrame,10)
+
+local RollText=Instance.new("TextLabel")
+RollText.Size=UDim2.new(1,0,1,0); RollText.BackgroundTransparency=1
+RollText.Text="Нажми КРУТИТЬ"; RollText.TextColor3=Color3.fromRGB(200,200,210)
+RollText.TextSize=16; RollText.Font=Enum.Font.GothamBold
+RollText.Parent=RollFrame
+
+-- Кнопка крутить
+local SpinBtn=Instance.new("TextButton")
+SpinBtn.Size=UDim2.new(1,0,0,50); SpinBtn.Position=UDim2.new(0,0,0,92)
+SpinBtn.BackgroundColor3=Color3.fromRGB(255,150,50); SpinBtn.BorderSizePixel=0
+SpinBtn.Text="🎰  КРУТИТЬ"; SpinBtn.TextColor3=Color3.fromRGB(255,255,255)
+SpinBtn.TextSize=16; SpinBtn.Font=Enum.Font.GothamBold
+SpinBtn.AutoButtonColor=false; SpinBtn.Parent=CT
+corner(SpinBtn,10)
+
+-- Инфо
+local Info=Instance.new("TextLabel")
+Info.Size=UDim2.new(1,0,0,70); Info.Position=UDim2.new(0,0,0,152)
+Info.BackgroundColor3=Color3.fromRGB(20,20,30); Info.BorderSizePixel=0
+Info.Text="🎲 Случайное событие\nМожет повезти, а может нет\nКрути на свой страх и риск"
+Info.TextColor3=Color3.fromRGB(180,180,190); Info.TextSize=11
+Info.Font=Enum.Font.Gotham; Info.TextWrapped=true
+Info.TextYAlignment=Enum.TextYAlignment.Center; Info.Parent=CT
+corner(Info,8)
+
+-- Открытие/закрытие
+Icon.MouseButton1Click:Connect(function() MF.Visible=not MF.Visible end)
+CB.MouseButton1Click:Connect(function() MF.Visible=false end)
+
+-- Перетаскивание
+do
+    local drag,ds,sp=false,nil,nil
+    TB.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+            drag=true; ds=i.Position; sp=MF.Position
+            i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then drag=false end end)
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if drag and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+            local d=i.Position-ds
+            MF.Position=UDim2.new(sp.X.Scale,sp.X.Offset+d.X,sp.Y.Scale,sp.Y.Offset+d.Y)
+        end
+    end)
+end
+
+-- ===== СОБЫТИЯ =====
+
+-- 1. Отталкивание
+local function evPush()
+    local char=LP.Character
+    if not char then return end
+    local hrp=char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local dir=Vector3.new(math.random(-10,10),5,math.random(-10,10)).Unit
+    hrp.AssemblyLinearVelocity=dir*800 + Vector3.new(0,300,0)
+end
+
+-- 2. Ресет
+local function evReset()
+    local char=LP.Character
+    if not char then return end
+    local h=char:FindFirstChildOfClass("Humanoid")
+    if h then h.Health=0 else char:BreakJoints() end
+end
+
+-- 3. Какашка (персонаж становится коричневым, частицы)
+local function evPoo()
+    local char=LP.Character
+    if not char then return end
+    for _,p in ipairs(char:GetDescendants()) do
+        if p:IsA("BasePart") then p.Color=Color3.fromRGB(120,80,40) end
+    end
+    local hrp=char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local emitter=Instance.new("ParticleEmitter")
+        emitter.Texture="rbxassetid://243660364"
+        emitter.Rate=30
+        emitter.Lifetime=NumberRange.new(1,2)
+        emitter.Speed=NumberRange.new(5,10)
+        emitter.Size=NumberSequence.new(1.5)
+        emitter.Color=ColorSequence.new(Color3.fromRGB(120,80,40))
+        emitter.Parent=hrp
+        task.delay(5,function() if emitter then emitter:Destroy() end end)
+    end
+end
+
+-- 4. Взрыв
+local function evExplode()
+    local char=LP.Character
+    if not char then return end
+    local hrp=char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local exp=Instance.new("Explosion")
+    exp.Position=hrp.Position
+    exp.BlastRadius=60
+    exp.BlastPressure=500000
+    exp.DestroyJointRadiusPercent=1
+    exp.Parent=workspace
+    -- Тряска камеры
+    local cam=workspace.CurrentCamera
+    for i=1,20 do
+        cam.CFrame=cam.CFrame*CFrame.Angles(math.random(-5,5)*0.01,math.random(-5,5)*0.01,0)
+        RS.RenderStepped:Wait()
+    end
+end
+
+-- 5. Взлёт
+local function evFly()
+    local char=LP.Character
+    if not char then return end
+    local hrp=char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    hrp.AssemblyLinearVelocity=Vector3.new(0,500,0)
+end
+
+-- 6. Спам матом
+local function evSpam()
+    local words={"@#$%","!!!","###","***","&^%$","@@@","бля","них","фак","shit","fuck","noob"}
+    for i=1,30 do
+        pcall(function()
+            game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer(words[math.random(1,#words)],"All")
+        end)
+        task.wait(0.1)
+    end
+end
+
+-- 7. Банхаммер (спам в чат "забаньте меня")
+local function evBan()
+    for i=1,15 do
+        pcall(function()
+            game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("ЗАБАНЬТЕ МЕНЯ ПОЖАЛУЙСТА Я ЧИТЕР","All")
+        end)
+        task.wait(0.2)
+    end
+end
+
+-- 8. Телепорт в небо
+local function evSky()
+    local char=LP.Character
+    if not char then return end
+    local hrp=char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    hrp.CFrame=CFrame.new(hrp.Position+Vector3.new(0,500,0))
+    task.wait(0.5)
+    hrp.AssemblyLinearVelocity=Vector3.new(0,-200,0)
+end
+
+-- 9. Спин-бот
+local function evSpin()
+    local char=LP.Character
+    if not char then return end
+    local hrp=char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    for i=1,60 do
+        if not hrp.Parent then break end
+        hrp.CFrame=hrp.CFrame*CFrame.Angles(0,math.rad(60),0)
+        RS.RenderStepped:Wait()
+    end
+end
+
+local eventFuncs={evPush,evReset,evPoo,evExplode,evFly,evSpam,evBan,evSky,evSpin}
+
+-- ===== КРУТКА =====
+local function spin()
+    if isSpinning then return end
+    isSpinning=true
+    SpinBtn.Text="🎰  КРУТИМ..."
+
+    -- Анимация прокрутки
+    local spinTime=2
+    local startTick=tick()
+    while tick()-startTick<spinTime do
+        local r=events[math.random(1,#events)]
+        RollText.Text=r.name
+        RollText.TextColor3=r.color
+        task.wait(0.05)
+    end
+
+    -- Финальное событие
+    local index=math.random(1,#events)
+    local ev=events[index]
+    RollText.Text="💥 "..ev.name
+    RollText.TextColor3=ev.color
+
+    -- Запускаем событие
+    task.spawn(eventFuncs[index])
+
+    task.wait(1.5)
+    SpinBtn.Text="🎰  КРУТИТЬ"
+    isSpinning=false
+end
+
+SpinBtn.MouseButton1Click:Connect(spin)
+
+-- Пробел для крутки (ПК)
+UIS.InputBegan:Connect(function(input,gpe)
+    if gpe then return end
+    if input.KeyCode==Enum.KeyCode.Space then spin() end
+end)
+
+-- Обновление HRP/HUM при респавне
+LP.CharacterAdded:Connect(function(c)
+    CHR=c
+    HRP=c:WaitForChild("HumanoidRootPart",5)
+    HUM=c:WaitForChild("Humanoid",5)
+end)
+
+print("[MM2 Roulette] Загружено. Крути на свой страх и риск.")
