@@ -1,0 +1,371 @@
+local Players=game:GetService("Players")
+local UIS=game:GetService("UserInputService")
+local RS=game:GetService("RunService")
+local LP=Players.LocalPlayer
+local PG=LP:WaitForChild("PlayerGui")
+
+local CONFIG={
+    Color=Color3.fromRGB(100,200,255),
+    Jokes={"жиза","рофл","кек","лол","база","кринж","ахах","ваще","топ","имба"},
+    Names={"Гоша","Марк","Тимур","Даня","Кирилл","Артём","Максим","Егор","Ваня","Саня"},
+    Things={"какашка","пельмень","чебурек","борщ","котлета","шаурма","блин"},
+}
+
+local SG=Instance.new("ScreenGui")
+SG.Name="UselessScript"
+SG.ResetOnSpawn=false
+SG.IgnoreGuiInset=true
+SG.Parent=PG local function cr(p,r)
+    local c=Instance.new("UICorner")
+    c.CornerRadius=UDim.new(0,r)
+    c.Parent=p
+    return c
+end
+
+local function st(p,c,t)
+    local s=Instance.new("UIStroke")
+    s.Color=c
+    s.Thickness=t or 1.5
+    s.Parent=p
+    return s
+end
+
+local MF=Instance.new("Frame")
+MF.Size=UDim2.new(0,280,0,420)
+MF.Position=UDim2.new(0.5,-140,0.5,-210)
+MF.BackgroundColor3=Color3.fromRGB(20,20,30)
+MF.BorderSizePixel=0
+MF.ClipsDescendants=true
+MF.Parent=SG
+cr(MF,14)
+st(MF,CONFIG.Color,2) local TB=Instance.new("TextLabel")
+TB.Size=UDim2.new(1,0,0,38)
+TB.BackgroundColor3=Color3.fromRGB(12,12,18)
+TB.BorderSizePixel=0
+TB.Text="  БЕСПОЛЕЗНЫЙ СКРИПТ"
+TB.TextColor3=CONFIG.Color
+TB.TextSize=12
+TB.Font=Enum.Font.GothamBold
+TB.TextXAlignment=Enum.TextXAlignment.Left
+TB.Parent=MF
+cr(TB,14)
+
+local CB=Instance.new("TextButton")
+CB.Size=UDim2.new(0,28,0,28)
+CB.Position=UDim2.new(1,-34,0,5)
+CB.BackgroundColor3=Color3.fromRGB(200,60,60)
+CB.BorderSizePixel=0
+CB.Text="x"
+CB.TextColor3=Color3.fromRGB(255,255,255)
+CB.TextSize=18
+CB.Font=Enum.Font.GothamBold
+CB.AutoButtonColor=false
+CB.Parent=TB
+cr(CB,14) local CT=Instance.new("Frame")
+CT.Size=UDim2.new(1,-16,1,-50)
+CT.Position=UDim2.new(0,8,0,46)
+CT.BackgroundTransparency=1
+CT.Parent=MF
+
+local StatusLbl=Instance.new("TextLabel")
+StatusLbl.Size=UDim2.new(1,0,0,18)
+StatusLbl.BackgroundTransparency=1
+StatusLbl.Text="Готов"
+StatusLbl.TextColor3=Color3.fromRGB(160,160,175)
+StatusLbl.TextSize=11
+StatusLbl.Font=Enum.Font.Gotham
+StatusLbl.TextXAlignment=Enum.TextXAlignment.Left
+StatusLbl.Parent=CT local buttons={}
+local labels={
+    "1 СПАМ В ЧАТ",
+    "2 МЕНЯТЬ ЦВЕТ",
+    "3 КРУТИТЬСЯ",
+    "4 АВТОПРЫЖОК",
+    "5 СЛУЧАЙНЫЙ ТЕКСТ",
+    "6 РАДУГА",
+    "7 ТРЯСКА",
+    "8 ЗВУК",
+    "9 ПРОЗРАЧНОСТЬ",
+    "10 СЛЕД",
+}
+
+for i,name in ipairs(labels) do
+    local b=Instance.new("TextButton")
+    b.Size=UDim2.new(1,0,0,32)
+    b.Position=UDim2.new(0,0,0,(i-1)*36)
+    b.BackgroundColor3=Color3.fromRGB(35,35,55)
+    b.BorderSizePixel=0
+    b.Text=name
+    b.TextColor3=Color3.fromRGB(200,200,255)
+    b.TextSize=11
+    b.Font=Enum.Font.GothamBold
+    b.AutoButtonColor=false
+    b.Parent=CT
+    cr(b,8)
+    buttons[i]=b
+end local spamLoop=nil
+local colorLoop=nil
+local spinLoop=nil
+local jumpLoop=nil
+local textLoop=nil
+
+local function sendChat(msg)
+    local ev=game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
+    if ev then
+        local say=ev:FindFirstChild("SayMessageRequest")
+        if say then
+            pcall(function() say:FireServer(msg,"All") end)
+        end
+    end
+end
+
+buttons[1].MouseButton1Click:Connect(function()
+    if spamLoop then
+        spamLoop:Disconnect()
+        spamLoop=nil
+        buttons[1].Text="1 СПАМ В ЧАТ"
+        return
+    end
+    buttons[1].Text="1 СПАМ (ВКЛ)"
+    spamLoop=task.spawn(function()
+        while spamLoop do
+            sendChat(CONFIG.Jokes[math.random(1,#CONFIG.Jokes)])
+            task.wait(0.5)
+        end
+    end)
+end) buttons[2].MouseButton1Click:Connect(function()
+    if colorLoop then
+        colorLoop:Disconnect()
+        colorLoop=nil
+        buttons[2].Text="2 МЕНЯТЬ ЦВЕТ"
+        return
+    end
+    buttons[2].Text="2 ЦВЕТ (ВКЛ)"
+    colorLoop=RS.Heartbeat:Connect(function()
+        local c=LP.Character
+        if c then
+            for _,p in ipairs(c:GetDescendants()) do
+                if p:IsA("BasePart") then
+                    p.Color=Color3.fromRGB(
+                        math.random(0,255),
+                        math.random(0,255),
+                        math.random(0,255)
+                    )
+                end
+            end
+        end
+    end)
+end)
+
+buttons[3].MouseButton1Click:Connect(function()
+    if spinLoop then
+        spinLoop:Disconnect()
+        spinLoop=nil
+        buttons[3].Text="3 КРУТИТЬСЯ"
+        return
+    end
+    buttons[3].Text="3 КРУЧУСЬ"
+    spinLoop=RS.Heartbeat:Connect(function()
+        local c=LP.Character
+        if c then
+            local hrp=c:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                hrp.CFrame=hrp.CFrame*CFrame.Angles(0,math.rad(20),0)
+            end
+        end
+    end)
+end) buttons[4].MouseButton1Click:Connect(function()
+    if jumpLoop then
+        jumpLoop:Disconnect()
+        jumpLoop=nil
+        buttons[4].Text="4 АВТОПРЫЖОК"
+        return
+    end
+    buttons[4].Text="4 ПРЫГАЮ"
+    jumpLoop=task.spawn(function()
+        while jumpLoop do
+            local c=LP.Character
+            if c then
+                local h=c:FindFirstChildOfClass("Humanoid")
+                if h then h.Jump=true end
+            end
+            task.wait(1)
+        end
+    end)
+end)
+
+buttons[5].MouseButton1Click:Connect(function()
+    if textLoop then
+        textLoop:Disconnect()
+        textLoop=nil
+        buttons[5].Text="5 СЛУЧАЙНЫЙ ТЕКСТ"
+        return
+    end
+    buttons[5].Text="5 ТЕКСТ (ВКЛ)"
+    textLoop=task.spawn(function()
+        while textLoop do
+            local msg=CONFIG.Things[math.random(1,#CONFIG.Things)]
+            sendChat(tostring(msg))
+            task.wait(2)
+        end
+    end)
+end) local rainbowLoop=nil
+local shakeLoop=nil
+local soundLoop=nil
+local invisLoop=nil
+local trailLoop=nil
+
+buttons[6].MouseButton1Click:Connect(function()
+    if rainbowLoop then
+        rainbowLoop:Disconnect()
+        rainbowLoop=nil
+        buttons[6].Text="6 РАДУГА"
+        return
+    end
+    buttons[6].Text="6 РАДУГА (ВКЛ)"
+    local t=0
+    rainbowLoop=RS.Heartbeat:Connect(function(dt)
+        t=t+dt
+        local c=LP.Character
+        if c then
+            local hue=(t*0.5)%1
+            for _,p in ipairs(c:GetDescendants()) do
+                if p:IsA("BasePart") then
+                    p.Color=Color3.fromHSV(hue,0.8,1)
+                end
+            end
+        end
+    end)
+end) buttons[7].MouseButton1Click:Connect(function()
+    if shakeLoop then
+        shakeLoop:Disconnect()
+        shakeLoop=nil
+        buttons[7].Text="7 ТРЯСКА"
+        return
+    end
+    buttons[7].Text="7 ТРЯСКА (ВКЛ)"
+    shakeLoop=RS.RenderStepped:Connect(function()
+        local cam=workspace.CurrentCamera
+        if cam then
+            cam.CFrame=cam.CFrame*CFrame.Angles(
+                (math.random()-0.5)*0.02,
+                (math.random()-0.5)*0.02,
+                0
+            )
+        end
+    end)
+end)
+
+buttons[8].MouseButton1Click:Connect(function()
+    if soundLoop then
+        soundLoop:Disconnect()
+        soundLoop=nil
+        buttons[8].Text="8 ЗВУК"
+        return
+    end
+    buttons[8].Text="8 ЗВУК (ВКЛ)"
+    soundLoop=task.spawn(function()
+        while soundLoop do
+            local c=LP.Character
+            if c then
+                local hrp=c:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local s=Instance.new("Sound")
+                    s.SoundId="rbxassetid://131961133"
+                    s.Volume=2
+                    s.Parent=hrp
+                    s:Play()
+                    task.delay(2,function()
+                        if s then s:Destroy() end
+                    end)
+                end
+            end
+            task.wait(3)
+        end
+    end)
+end) buttons[9].MouseButton1Click:Connect(function()
+    if invisLoop then
+        invisLoop:Disconnect()
+        invisLoop=nil
+        buttons[9].Text="9 ПРОЗРАЧНОСТЬ"
+        return
+    end
+    buttons[9].Text="9 ПРОЗРАЧНОСТЬ (ВКЛ)"
+    invisLoop=RS.Heartbeat:Connect(function()
+        local c=LP.Character
+        if c then
+            for _,p in ipairs(c:GetDescendants()) do
+                if p:IsA("BasePart") and p.Name~="HumanoidRootPart" then
+                    p.Transparency=0.5
+                end
+            end
+        end
+    end)
+end) buttons[10].MouseButton1Click:Connect(function()
+    if trailLoop then
+        trailLoop:Disconnect()
+        trailLoop=nil
+        buttons[10].Text="10 СЛЕД"
+        return
+    end
+    buttons[10].Text="10 СЛЕД (ВКЛ)"
+    trailLoop=RS.Heartbeat:Connect(function()
+        local c=LP.Character
+        if c then
+            local hrp=c:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local part=Instance.new("Part")
+                part.Size=Vector3.new(1,1,1)
+                part.Shape=Enum.PartType.Ball
+                part.Color=Color3.fromRGB(255,100,50)
+                part.Material=Enum.Material.Neon
+                part.Anchored=true
+                part.CanCollide=false
+                part.Position=hrp.Position
+                part.Parent=workspace
+                task.delay(1,function()
+                    if part then part:Destroy() end
+                end)
+            end
+        end
+    end)
+end) local Icon=Instance.new("TextButton")
+Icon.Size=UDim2.new(0,50,0,50)
+Icon.Position=UDim2.new(0,16,0.5,-25)
+Icon.BackgroundColor3=Color3.fromRGB(20,20,30)
+Icon.BorderSizePixel=0
+Icon.Text="X"
+Icon.TextSize=26
+Icon.Font=Enum.Font.GothamBold
+Icon.AutoButtonColor=false
+Icon.Parent=SG
+cr(Icon,25)
+st(Icon,CONFIG.Color)
+
+Icon.MouseButton1Click:Connect(function()
+    MF.Visible=not MF.Visible
+end)
+
+CB.MouseButton1Click:Connect(function()
+    MF.Visible=false
+end) do
+    local d,ds,sp=false,nil,nil
+    TB.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+            d=true
+            ds=i.Position
+            sp=MF.Position
+            i.Changed:Connect(function()
+                if i.UserInputState==Enum.UserInputState.End then d=false end
+            end)
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if d and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+            local dd=i.Position-ds
+            MF.Position=UDim2.new(sp.X.Scale,sp.X.Offset+dd.X,sp.Y.Scale,sp.Y.Offset+dd.Y)
+        end
+    end)
+end
+
+print("[Useless] Загружено. 10 бесполезных кнопок.")
