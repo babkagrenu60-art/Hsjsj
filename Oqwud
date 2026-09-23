@@ -1,0 +1,170 @@
+local P=game:GetService("Players")
+local UIS=game:GetService("UserInputService")
+local RS=game:GetService("RunService")
+local LP=P.LocalPlayer
+local PG=LP:WaitForChild("PlayerGui")
+
+local active=false
+local gunLoop=nil
+
+local old=PG:FindFirstChild("NoReload");if old then old:Destroy() end
+local SG=Instance.new("ScreenGui")
+SG.Name="NoReload";SG.ResetOnSpawn=false;SG.IgnoreGuiInset=true
+SG.ZIndexBehavior=Enum.ZIndexBehavior.Sibling;SG.Parent=PG
+
+local function cr(p,r) local c=Instance.new("UICorner");c.CornerRadius=UDim.new(0,r);c.Parent=p;return c end
+local function st(p,c,t) local s=Instance.new("UIStroke");s.Color=c;s.Thickness=t or 1.5;s.Parent=p;return s end
+
+-- ИКОНКА
+local Icon=Instance.new("TextButton")
+Icon.Size=UDim2.new(0,50,0,50);Icon.Position=UDim2.new(0,16,0.5,-25)
+Icon.BackgroundColor3=Color3.fromRGB(15,15,20);Icon.BorderSizePixel=0
+Icon.Text="🔫";Icon.TextColor3=Color3.fromRGB(255,200,100);Icon.TextSize=26
+Icon.Font=Enum.Font.GothamBold;Icon.AutoButtonColor=false;Icon.Parent=SG
+cr(Icon,25);st(Icon,Color3.fromRGB(255,200,100))
+
+-- ОКНО
+local MF=Instance.new("Frame")
+MF.Size=UDim2.new(0,220,0,130);MF.Position=UDim2.new(0.5,-110,0.5,-65)
+MF.BackgroundColor3=Color3.fromRGB(15,15,20);MF.BorderSizePixel=0
+MF.ClipsDescendants=true;MF.Parent=SG;cr(MF,12);st(MF,Color3.fromRGB(255,200,100))
+
+local TB=Instance.new("TextLabel")
+TB.Size=UDim2.new(1,0,0,34);TB.BackgroundColor3=Color3.fromRGB(10,10,15)
+TB.BorderSizePixel=0;TB.Text="  🔫 БЕЗ ПЕРЕЗАРЯДКИ";TB.TextColor3=Color3.fromRGB(255,200,100)
+TB.TextSize=12;TB.Font=Enum.Font.GothamBold;TB.TextXAlignment=Enum.TextXAlignment.Left;TB.Parent=MF
+cr(TB,12)
+
+local CB=Instance.new("TextButton")
+CB.Size=UDim2.new(0,26,0,26);CB.Position=UDim2.new(1,-32,0,4)
+CB.BackgroundColor3=Color3.fromRGB(200,60,60);CB.BorderSizePixel=0
+CB.Text="×";CB.TextColor3=Color3.fromRGB(255,255,255);CB.TextSize=17
+CB.Font=Enum.Font.GothamBold;CB.AutoButtonColor=false;CB.Parent=TB;cr(CB,13)
+
+local CT=Instance.new("Frame")
+CT.Size=UDim2.new(1,-16,1,-44);CT.Position=UDim2.new(0,8,0,40)
+CT.BackgroundTransparency=1;CT.Parent=MF
+
+local MB=Instance.new("TextButton")
+MB.Size=UDim2.new(1,0,0,48);MB.Position=UDim2.new(0,0,0,0)
+MB.BackgroundColor3=Color3.fromRGB(50,40,20);MB.BorderSizePixel=0
+MB.Text="🔫  ВКЛЮЧИТЬ";MB.TextColor3=Color3.fromRGB(255,200,100)
+MB.TextSize=14;MB.Font=Enum.Font.GothamBold;MB.AutoButtonColor=false;MB.Parent=CT
+cr(MB,10);st(MB,Color3.fromRGB(255,200,100))
+
+local SL=Instance.new("TextLabel")
+SL.Size=UDim2.new(1,0,0,16);SL.Position=UDim2.new(0,0,0,54)
+SL.BackgroundTransparency=1;SL.Text="Работает когда пистолет в руках"
+SL.TextColor3=Color3.fromRGB(150,150,160);SL.TextSize=10
+SL.Font=Enum.Font.Gotham;SL.TextXAlignment=Enum.TextXAlignment.Center;SL.Parent=CT
+
+local Info=Instance.new("TextLabel")
+Info.Size=UDim2.new(1,0,0,30);Info.Position=UDim2.new(0,0,0,76)
+Info.BackgroundColor3=Color3.fromRGB(20,20,30);Info.BorderSizePixel=0
+Info.Text="Стреляй без остановки — перезарядки нет"
+Info.TextColor3=Color3.fromRGB(180,180,190);Info.TextSize=10
+Info.Font=Enum.Font.Gotham;Info.TextWrapped=true
+Info.TextYAlignment=Enum.TextYAlignment.Center;Info.Parent=CT
+cr(Info,8)
+
+Icon.MouseButton1Click:Connect(function() MF.Visible=not MF.Visible end)
+CB.MouseButton1Click:Connect(function() MF.Visible=false end)
+
+do
+    local d,ds,sp=false,nil,nil
+    TB.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+            d=true;ds=i.Position;sp=MF.Position
+            i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then d=false end end)
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if d and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+            local dd=i.Position-ds
+            MF.Position=UDim2.new(sp.X.Scale,sp.X.Offset+dd.X,sp.Y.Scale,sp.Y.Offset+dd.Y)
+        end
+    end)
+end
+
+-- ===== ОСНОВНАЯ ЛОГИКА =====
+local function isSheriffGun(tool)
+    if not tool then return false end
+    local n=tool.Name:lower()
+    return n:find("gun") or n:find("pistol") or n:find("sheriff") or n:find("revolver")
+end
+
+local function clearReload(tool)
+    if not tool then return end
+    -- Ищем скрипты перезарядки
+    for _,obj in ipairs(tool:GetDescendants()) do
+        if obj:IsA("Script") or obj:IsA("LocalScript") then
+            if obj.Name:lower():find("reload") or obj.Name:lower():find("ammo") then
+                obj.Disabled=true
+            end
+        end
+        -- Убираем анимации перезарядки
+        if obj:IsA("Animation") then
+            if obj.AnimationId~="" then
+                obj.AnimationId=""
+            end
+        end
+    end
+    -- Сбрасываем атрибут перезарядки
+    tool:SetAttribute("Reloading",false)
+    tool:SetAttribute("Ammo",math.huge)
+    tool:SetAttribute("MaxAmmo",math.huge)
+    tool:SetAttribute("Reload",0)
+    tool:SetAttribute("ReloadTime",0)
+    -- Сбрасываем значения
+    for _,v in ipairs(tool:GetChildren()) do
+        if v:IsA("NumberValue") then
+            if v.Name:lower():find("ammo") then v.Value=math.huge end
+            if v.Name:lower():find("reload") then v.Value=0 end
+        end
+        if v:IsA("BoolValue") then
+            if v.Name:lower():find("reload") then v.Value=false end
+        end
+    end
+end
+
+local function scan()
+    local char=LP.Character
+    if not char then return end
+    for _,tool in ipairs(char:GetChildren()) do
+        if tool:IsA("Tool") and isSheriffGun(tool) then
+            clearReload(tool)
+        end
+    end
+end
+
+local function startLoop()
+    if gunLoop then gunLoop:Disconnect() end
+    gunLoop=RS.Heartbeat:Connect(function()
+        if not active then return end
+        scan()
+    end)
+end
+
+MB.MouseButton1Click:Connect(function()
+    active=not active
+    if active then
+        MB.Text="⏹  ВЫКЛЮЧИТЬ"
+        MB.BackgroundColor3=Color3.fromRGB(80,40,20)
+        SL.Text="БЕЗ ПЕРЕЗАРЯДКИ АКТИВНО"
+        SL.TextColor3=Color3.fromRGB(255,200,100)
+        startLoop()
+        scan()
+    else
+        MB.Text="🔫  ВКЛЮЧИТЬ"
+        MB.BackgroundColor3=Color3.fromRGB(50,40,20)
+        SL.Text="Выключено"
+        SL.TextColor3=Color3.fromRGB(150,150,160)
+        if gunLoop then gunLoop:Disconnect();gunLoop=nil end
+    end
+end)
+
+LP.CharacterAdded:Connect(function()
+    if active then task.wait(1);scan() end
+end)
+
+print("[NoReload] Загружено.")
