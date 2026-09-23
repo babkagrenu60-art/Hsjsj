@@ -1,0 +1,732 @@
+local Players=game:GetService("Players")
+local UIS=game:GetService("UserInputService")
+local RS=game:GetService("RunService")
+local TW=game:GetService("TweenService")
+local LP=Players.LocalPlayer
+local PG=LP:WaitForChild("PlayerGui")
+
+local CFG={
+    Size=UDim2.new(0,320,0,400),
+    Color=Color3.fromRGB(100,150,255),
+    Tabs={"Главное","Игрок","Визуал","Настройки"},
+}
+
+local SG=Instance.new("ScreenGui")
+SG.Name="TabbedMenu"
+SG.ResetOnSpawn=false
+SG.IgnoreGuiInset=true
+SG.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+SG.Parent=PG
+
+local function cr(p,r)
+    local c=Instance.new("UICorner")
+    c.CornerRadius=UDim.new(0,r)
+    c.Parent=p
+    return c
+end
+
+local function st(p,col,t)
+    local s=Instance.new("UIStroke")
+    s.Color=col
+    s.Thickness=t or 1.5
+    s.Parent=p
+    return s
+end
+
+local Icon=Instance.new("TextButton")
+Icon.Size=UDim2.new(0,50,0,50)
+Icon.Position=UDim2.new(0,16,0.5,-25)
+Icon.BackgroundColor3=Color3.fromRGB(20,20,30)
+Icon.BorderSizePixel=0
+Icon.Text="📋"
+Icon.TextColor3=CFG.Color
+Icon.TextSize=26
+Icon.Font=Enum.Font.GothamBold
+Icon.AutoButtonColor=false
+Icon.Parent=SG
+cr(Icon,25)
+st(Icon,CFG.Color)
+
+local MF=Instance.new("Frame")
+MF.Size=CFG.Size
+MF.Position=UDim2.new(0.5,-160,0.5,-200)
+MF.BackgroundColor3=Color3.fromRGB(20,20,30)
+MF.BorderSizePixel=0
+MF.ClipsDescendants=true
+MF.Parent=SG
+cr(MF,14)
+st(MF,CFG.Color,2)
+
+local TB=Instance.new("TextLabel")
+TB.Size=UDim2.new(1,0,0,40)
+TB.BackgroundColor3=Color3.fromRGB(12,12,18)
+TB.BorderSizePixel=0
+TB.Text="  МЕНЮ"
+TB.TextColor3=CFG.Color
+TB.TextSize=14
+TB.Font=Enum.Font.GothamBold
+TB.TextXAlignment=Enum.TextXAlignment.Left
+TB.Parent=MF
+cr(TB,14)
+
+local CB=Instance.new("TextButton")
+CB.Size=UDim2.new(0,28,0,28)
+CB.Position=UDim2.new(1,-34,0,6)
+CB.BackgroundColor3=Color3.fromRGB(200,60,60)
+CB.BorderSizePixel=0
+CB.Text="x"
+CB.TextColor3=Color3.fromRGB(255,255,255)
+CB.TextSize=18
+CB.Font=Enum.Font.GothamBold
+CB.AutoButtonColor=false
+CB.Parent=TB
+cr(CB,14) local TabFrame=Instance.new("Frame")
+TabFrame.Size=UDim2.new(1,-16,0,30)
+TabFrame.Position=UDim2.new(0,8,0,46)
+TabFrame.BackgroundTransparency=1
+TabFrame.Parent=MF
+
+local TabButtons={}
+local Pages={}
+
+for i,name in ipairs(CFG.Tabs) do
+    local btn=Instance.new("TextButton")
+    btn.Size=UDim2.new(1/#CFG.Tabs,-4,1,0)
+    btn.Position=UDim2.new((i-1)/#CFG.Tabs,0,0,0)
+    btn.BackgroundColor3=Color3.fromRGB(35,35,50)
+    btn.BorderSizePixel=0
+    btn.Text=name
+    btn.TextColor3=Color3.fromRGB(180,180,190)
+    btn.TextSize=11
+    btn.Font=Enum.Font.GothamBold
+    btn.AutoButtonColor=false
+    btn.Parent=TabFrame
+    cr(btn,8)
+    TabButtons[i]=btn
+end
+
+local function makePage()
+    local f=Instance.new("Frame")
+    f.Size=UDim2.new(1,0,1,-86)
+    f.Position=UDim2.new(0,0,0,80)
+    f.BackgroundTransparency=1
+    f.Visible=false
+    f.Parent=MF
+    return f
+end
+
+for i=1,#CFG.Tabs do
+    Pages[i]=makePage()
+end
+
+local function selectTab(idx)
+    for i,btn in ipairs(TabButtons) do
+        if i==idx then
+            btn.BackgroundColor3=CFG.Color
+            btn.TextColor3=Color3.fromRGB(255,255,255)
+            Pages[i].Visible=true
+        else
+            btn.BackgroundColor3=Color3.fromRGB(35,35,50)
+            btn.TextColor3=Color3.fromRGB(180,180,190)
+            Pages[i].Visible=false
+        end
+    end
+end
+
+for i,btn in ipairs(TabButtons) do
+    btn.MouseButton1Click:Connect(function() selectTab(i) end)
+end
+
+selectTab(1)
+
+local function makeBtn(parent,text,y,color)
+    local b=Instance.new("TextButton")
+    b.Size=UDim2.new(1,-10,0,42)
+    b.Position=UDim2.new(0,5,0,y)
+    b.BackgroundColor3=color or Color3.fromRGB(35,35,55)
+    b.BorderSizePixel=0
+    b.Text=text
+    b.TextColor3=Color3.fromRGB(220,220,230)
+    b.TextSize=12
+    b.Font=Enum.Font.GothamBold
+    b.AutoButtonColor=false
+    b.Parent=parent
+    cr(b,10)
+    return b
+end
+
+local function makeLabel(parent,text,y,color,size)
+    local l=Instance.new("TextLabel")
+    l.Size=UDim2.new(1,-10,0,size or 20)
+    l.Position=UDim2.new(0,5,0,y)
+    l.BackgroundTransparency=1
+    l.Text=text
+    l.TextColor3=color or Color3.fromRGB(180,180,190)
+    l.TextSize=11
+    l.Font=Enum.Font.Gotham
+    l.TextXAlignment=Enum.TextXAlignment.Left
+    l.Parent=parent
+    return l
+end -- Главная
+makeLabel(Pages[1],"Добро пожаловать в меню!",10,CFG.Color,24)
+
+local B1=makeBtn(Pages[1],"Сменить цвет меню",50)
+local B2=makeBtn(Pages[1],"Анимация открытия",100)
+local B3=makeBtn(Pages[1],"Показать уведомление",150)
+
+B1.MouseButton1Click:Connect(function()
+    CFG.Color=Color3.fromRGB(
+        math.random(100,255),
+        math.random(100,255),
+        math.random(100,255)
+    )
+    st(MF,CFG.Color,2)
+    st(Icon,CFG.Color)
+    TB.TextColor3=CFG.Color
+    selectTab(1)
+end)
+
+B2.MouseButton1Click:Connect(function()
+    MF.Size=UDim2.new(0,0,0,0)
+    TW:Create(MF,TweenInfo.new(0.4,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{
+        Size=CFG.Size
+    }):Play()
+end)
+
+B3.MouseButton1Click:Connect(function()
+    local n=Instance.new("TextLabel")
+    n.Size=UDim2.new(0,220,0,50)
+    n.Position=UDim2.new(0.5,-110,0.15,-25)
+    n.BackgroundColor3=Color3.fromRGB(30,30,45)
+    n.BorderSizePixel=0
+    n.Text="Уведомление!"
+    n.TextColor3=Color3.fromRGB(255,255,255)
+    n.TextSize=14
+    n.Font=Enum.Font.GothamBold
+    n.Parent=SG
+    cr(n,10)
+    n.BackgroundTransparency=1
+    n.TextTransparency=1
+    TW:Create(n,TweenInfo.new(0.3),{BackgroundTransparency=0,TextTransparency=0}):Play()
+    task.wait(2)
+    local t=TW:Create(n,TweenInfo.new(0.4),{BackgroundTransparency=1,TextTransparency=1})
+    t:Play()
+    t.Completed:Connect(function() n:Destroy() end)
+end)
+
+-- Игрок
+local Players2=makeBtn(Pages[2],"Список игроков в консоль",50)
+local MyStats=makeBtn(Pages[2],"Мои характеристики",100)
+local TpBtn=makeBtn(Pages[2],"Телепорт вверх +50",150)
+
+Players2.MouseButton1Click:Connect(function()
+    for _,plr in ipairs(Players:GetPlayers()) do
+        print(plr.Name,plr.UserId)
+    end
+end)
+
+MyStats.MouseButton1Click:Connect(function()
+    local c=LP.Character
+    if c then
+        local h=c:FindFirstChildOfClass("Humanoid")
+        if h then
+            print("HP:",h.Health,"Скорость:",h.WalkSpeed)
+        end
+    end
+end)
+
+TpBtn.MouseButton1Click:Connect(function()
+    local c=LP.Character
+    if c then
+        local hrp=c:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.CFrame=hrp.CFrame+Vector3.new(0,50,0)
+        end
+    end
+end)
+
+-- Визуал
+local rainbowLoop=nil
+local RB=makeBtn(Pages[3],"Радужный персонаж")
+local invisB=makeBtn(Pages[3],"Прозрачность",50)
+local fireB=makeBtn(Pages[3],"Огонь на теле",100)
+
+RB.MouseButton1Click:Connect(function()
+    if rainbowLoop then
+        rainbowLoop:Disconnect()
+        rainbowLoop=nil
+        RB.Text="Радужный персонаж"
+        return
+    end
+    RB.Text="Радужный (ВКЛ)"
+    local t=0
+    rainbowLoop=RS.Heartbeat:Connect(function(dt)
+        t=t+dt
+        local c=LP.Character
+        if c then
+            local hue=(t*0.5)%1
+            for _,p in ipairs(c:GetDescendants()) do
+                if p:IsA("BasePart") then
+                    p.Color=Color3.fromHSV(hue,0.8,1)
+                end
+            end
+        end
+    end)
+end)
+
+invisB.MouseButton1Click:Connect(function()
+    local c=LP.Character
+    if c then
+        for _,p in ipairs(c:GetDescendants()) do
+            if p:IsA("BasePart") and p.Name~="HumanoidRootPart" then
+                p.Transparency=p.Transparency==0 and 0.7 or 0
+            end
+        end
+    end
+end)
+
+fireB.MouseButton1Click:Connect(function()
+    local c=LP.Character
+    if c then
+        local hrp=c:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local f=Instance.new("Fire")
+            f.Size=5
+            f.Heat=10
+            f.Parent=hrp
+            task.delay(5,function() if f then f:Destroy() end end)
+        end
+    end
+end)
+
+-- Настройки
+makeLabel(Pages[4],"Настройки меню",10,CFG.Color)
+local s1=makeBtn(Pages[4],"Показать/Скрыть иконку",50)
+local s2=makeBtn(Pages[4],"Сбросить цвет",100)
+local s3=makeBtn(Pages[4],"Информация о скрипте",150)
+
+s1.MouseButton1Click:Connect(function()
+    Icon.Visible=not Icon.Visible
+end)
+
+s2.MouseButton1Click:Connect(function()
+    CFG.Color=Color3.fromRGB(100,150,255)
+    st(MF,CFG.Color,2)
+    st(Icon,CFG.Color)
+    TB.TextColor3=CFG.Color
+    selectTab(4)
+end)
+
+s3.MouseButton1Click:Connect(function()
+    print("=== Скрипт: Tabbed Menu ===")
+    print("Версия: 1.0")
+    print("Строк: ~380")
+    print("Автор: ты")
+end)
+
+Icon.MouseButton1Click:Connect(function()
+    MF.Visible=not MF.Visible
+end)
+
+CB.MouseButton1Click:Connect(function()
+    MF.Visible=false
+end)
+
+do
+    local d,ds,sp=false,nil,nil
+    TB.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+            d=true
+            ds=i.Position
+            sp=MF.Position
+            i.Changed:Connect(function()
+                if i.UserInputState==Enum.UserInputState.End then d=false end
+            end)
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if d and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+            local dd=i.Position-ds
+            MF.Position=UDim2.new(sp.X.Scale,sp.X.Offset+dd.X,sp.Y.Scale,sp.Y.Offset+dd.Y)
+        end
+    end)
+end
+
+print("[Tabbed Menu] Загружено.") local Players=game:GetService("Players")
+local UIS=game:GetService("UserInputService")
+local RS=game:GetService("RunService")
+local LP=Players.LocalPlayer
+local PG=LP:WaitForChild("PlayerGui")
+
+local CFG={
+    Color=Color3.fromRGB(255,150,200),
+    Loops={},
+}
+
+local SG=Instance.new("ScreenGui")
+SG.Name="ArtScript"
+SG.ResetOnSpawn=false
+SG.IgnoreGuiInset=true
+SG.Parent=PG
+
+local function cr(p,r)
+    local c=Instance.new("UICorner")
+    c.CornerRadius=UDim.new(0,r)
+    c.Parent=p
+    return c
+end
+
+local function st(p,col,t)
+    local s=Instance.new("UIStroke")
+    s.Color=col
+    s.Thickness=t or 1.5
+    s.Parent=p
+    return s
+end
+
+local Icon=Instance.new("TextButton")
+Icon.Size=UDim2.new(0,50,0,50)
+Icon.Position=UDim2.new(0,16,0.5,-25)
+Icon.BackgroundColor3=Color3.fromRGB(20,20,30)
+Icon.BorderSizePixel=0
+Icon.Text="🎨"
+Icon.TextColor3=CFG.Color
+Icon.TextSize=26
+Icon.Font=Enum.Font.GothamBold
+Icon.AutoButtonColor=false
+Icon.Parent=SG
+cr(Icon,25)
+st(Icon,CFG.Color)
+
+local MF=Instance.new("Frame")
+MF.Size=UDim2.new(0,300,0,380)
+MF.Position=UDim2.new(0.5,-150,0.5,-190)
+MF.BackgroundColor3=Color3.fromRGB(20,20,30)
+MF.BorderSizePixel=0
+MF.ClipsDescendants=true
+MF.Parent=SG
+cr(MF,14)
+st(MF,CFG.Color,2)
+
+local TB=Instance.new("TextLabel")
+TB.Size=UDim2.new(1,0,0,38)
+TB.BackgroundColor3=Color3.fromRGB(12,12,18)
+TB.BorderSizePixel=0
+TB.Text="  ХУДОЖЕСТВА"
+TB.TextColor3=CFG.Color
+TB.TextSize=13
+TB.Font=Enum.Font.GothamBold
+TB.TextXAlignment=Enum.TextXAlignment.Left
+TB.Parent=MF
+cr(TB,14)
+
+local CB=Instance.new("TextButton")
+CB.Size=UDim2.new(0,28,0,28)
+CB.Position=UDim2.new(1,-34,0,5)
+CB.BackgroundColor3=Color3.fromRGB(200,60,60)
+CB.BorderSizePixel=0
+CB.Text="x"
+CB.TextColor3=Color3.fromRGB(255,255,255)
+CB.TextSize=18
+CB.Font=Enum.Font.GothamBold
+CB.AutoButtonColor=false
+CB.Parent=TB
+cr(CB,14)
+
+local CT=Instance.new("Frame")
+CT.Size=UDim2.new(1,-16,1,-50)
+CT.Position=UDim2.new(0,8,0,46)
+CT.BackgroundTransparency=1
+CT.Parent=MF
+
+local Scroll=Instance.new("ScrollingFrame")
+Scroll.Size=UDim2.new(1,0,1,0)
+Scroll.BackgroundTransparency=1
+Scroll.BorderSizePixel=0
+Scroll.ScrollBarThickness=4
+Scroll.ScrollBarImageColor3=CFG.Color
+Scroll.CanvasSize=UDim2.new(0,0,0,0)
+Scroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
+Scroll.Parent=CT
+
+local List=Instance.new("UIListLayout")
+List.Padding=UDim.new(0,6)
+List.SortOrder=Enum.SortOrder.LayoutOrder
+List.Parent=Scroll
+
+local Pad=Instance.new("UIPadding")
+Pad.PaddingTop=UDim.new(0,5)
+Pad.PaddingBottom=UDim.new(0,5)
+Pad.PaddingLeft=UDim.new(0,5)
+Pad.PaddingRight=UDim.new(0,5)
+Pad.Parent=Scroll local buttons={}
+local names={
+    "Радужный",
+    "Спин-бот",
+    "Прозрачный",
+    "Огненный",
+    "Ледяной",
+    "Золотой",
+    "Мигание",
+    "След из шаров",
+    "Огромный",
+    "Маленький",
+    "Крутящийся",
+    "Пульсирующий",
+}
+
+for i,name in ipairs(names) do
+    local b=Instance.new("TextButton")
+    b.Size=UDim2.new(1,-10,0,36)
+    b.BackgroundColor3=Color3.fromRGB(35,35,55)
+    b.BorderSizePixel=0
+    b.Text=name
+    b.TextColor3=Color3.fromRGB(220,220,230)
+    b.TextSize=12
+    b.Font=Enum.Font.GothamBold
+    b.AutoButtonColor=false
+    b.Parent=Scroll
+    cr(b,8)
+    buttons[i]=b
+end
+
+local function getChar()
+    local c=LP.Character
+    if not c then return nil,nil,nil end
+    local h=c:FindFirstChildOfClass("Humanoid")
+    local hrp=c:FindFirstChild("HumanoidRootPart")
+    return c,h,hrp
+end
+
+local function loopKey(key,fn)
+    if CFG.Loops[key] then
+        CFG.Loops[key]:Disconnect()
+        CFG.Loops[key]=nil
+        return false
+    end
+    CFG.Loops[key]=fn()
+    return true
+end
+
+-- 1 Радужный
+buttons[1].MouseButton1Click:Connect(function()
+    local on=loopKey("rainbow",function()
+        local t=0
+        return RS.Heartbeat:Connect(function(dt)
+            t=t+dt
+            local c=getChar()
+            if c then
+                local hue=(t*0.5)%1
+                for _,p in ipairs(c:GetDescendants()) do
+                    if p:IsA("BasePart") then
+                        p.Color=Color3.fromHSV(hue,0.8,1)
+                    end
+                end
+            end
+        end)
+    end)
+    buttons[1].Text=on and "Радужный (ВКЛ)" or "Радужный"
+end)
+
+-- 2 Спин-бот
+buttons[2].MouseButton1Click:Connect(function()
+    local on=loopKey("spin",function()
+        return RS.Heartbeat:Connect(function()
+            local _,_,hrp=getChar()
+            if hrp then
+                hrp.CFrame=hrp.CFrame*CFrame.Angles(0,math.rad(15),0)
+            end
+        end)
+    end)
+    buttons[2].Text=on and "Спин-бот (ВКЛ)" or "Спин-бот"
+end)
+
+-- 3 Прозрачный
+buttons[3].MouseButton1Click:Connect(function()
+    local c=getChar()
+    if not c then return end
+    local trans=c:FindFirstChild("HumanoidRootPart") and c.HumanoidRootPart.Transparency or 0
+    if trans>0.5 then
+        for _,p in ipairs(c:GetDescendants()) do
+            if p:IsA("BasePart") and p.Name~="HumanoidRootPart" then
+                p.Transparency=0
+            end
+        end
+        buttons[3].Text="Прозрачный"
+    else
+        for _,p in ipairs(c:GetDescendants()) do
+            if p:IsA("BasePart") and p.Name~="HumanoidRootPart" then
+                p.Transparency=0.7
+            end
+        end
+        buttons[3].Text="Прозрачный (ВКЛ)"
+    end
+end) -- 4 Огненный
+buttons[4].MouseButton1Click:Connect(function()
+    local c=getChar()
+    if not c then return end
+    for _,p in ipairs(c:GetDescendants()) do
+        if p:IsA("BasePart") then
+            p.Color=Color3.fromRGB(255,100,0)
+            p.Material=Enum.Material.Neon
+        end
+    end
+    local hrp=c:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local f=Instance.new("Fire")
+        f.Size=6
+        f.Heat=15
+        f.Parent=hrp
+        task.delay(5,function() if f then f:Destroy() end end)
+    end
+end)
+
+-- 5 Ледяной
+buttons[5].MouseButton1Click:Connect(function()
+    local c=getChar()
+    if not c then return end
+    for _,p in ipairs(c:GetDescendants()) do
+        if p:IsA("BasePart") then
+            p.Color=Color3.fromRGB(100,200,255)
+            p.Material=Enum.Material.Ice
+        end
+    end
+end)
+
+-- 6 Золотой
+buttons[6].MouseButton1Click:Connect(function()
+    local c=getChar()
+    if not c then return end
+    for _,p in ipairs(c:GetDescendants()) do
+        if p:IsA("BasePart") then
+            p.Color=Color3.fromRGB(255,215,0)
+            p.Material=Enum.Material.Foil
+        end
+    end
+end)
+
+-- 7 Мигание
+buttons[7].MouseButton1Click:Connect(function()
+    local on=loopKey("blink",function()
+        return RS.Heartbeat:Connect(function()
+            local c=getChar()
+            if c then
+                for _,p in ipairs(c:GetDescendants()) do
+                    if p:IsA("BasePart") then
+                        p.Transparency=(p.Transparency==0) and 0.8 or 0
+                    end
+                end
+            end
+            task.wait(0.3)
+        end)
+    end)
+    buttons[7].Text=on and "Мигание (ВКЛ)" or "Мигание"
+end)
+
+-- 8 След из шаров
+buttons[8].MouseButton1Click:Connect(function()
+    local on=loopKey("trail",function()
+        return RS.Heartbeat:Connect(function()
+            local _,_,hrp=getChar()
+            if hrp then
+                local ball=Instance.new("Part")
+                ball.Size=Vector3.new(1.5,1.5,1.5)
+                ball.Shape=Enum.PartType.Ball
+                ball.Color=Color3.fromRGB(255,150,200)
+                ball.Material=Enum.Material.Neon
+                ball.Anchored=true
+                ball.CanCollide=false
+                ball.Position=hrp.Position
+                ball.Parent=workspace
+                task.delay(2,function() if ball then ball:Destroy() end end)
+            end
+        end)
+    end)
+    buttons[8].Text=on and "След (ВКЛ)" or "След из шаров"
+end)
+
+-- 9 Огромный
+buttons[9].MouseButton1Click:Connect(function()
+    local _,h=getChar()
+    if h then
+        if h:FindFirstChild("BodyWidthScale") then
+            h.BodyWidthScale.Value=2
+            h.BodyDepthScale.Value=2
+            h.BodyHeightScale.Value=2
+        end
+    end
+end)
+
+-- 10 Маленький
+buttons[10].MouseButton1Click:Connect(function()
+    local _,h=getChar()
+    if h then
+        if h:FindFirstChild("BodyWidthScale") then
+            h.BodyWidthScale.Value=0.5
+            h.BodyDepthScale.Value=0.5
+            h.BodyHeightScale.Value=0.5
+        end
+    end
+end)
+
+-- 11 Крутящийся
+buttons[11].MouseButton1Click:Connect(function()
+    local on=loopKey("rot",function()
+        return RS.Heartbeat:Connect(function()
+            local _,_,hrp=getChar()
+            if hrp then
+                hrp.CFrame=hrp.CFrame*CFrame.Angles(0,math.rad(30),math.rad(10))
+            end
+        end)
+    end)
+    buttons[11].Text=on and "Крутящийся (ВКЛ)" or "Крутящийся"
+end)
+
+-- 12 Пульсирующий
+buttons[12].MouseButton1Click:Connect(function()
+    local on=loopKey("pulse",function()
+        local t=0
+        return RS.Heartbeat:Connect(function(dt)
+            t=t+dt
+            local c=getChar()
+            if c then
+                local s=1+math.sin(t*3)*0.2
+                if c:FindFirstChildOfClass("Humanoid") and c.Humanoid:FindFirstChild("BodyWidthScale") then
+                    c.Humanoid.BodyWidthScale.Value=s
+                    c.Humanoid.BodyDepthScale.Value=s
+                end
+            end
+        end)
+    end)
+    buttons[12].Text=on and "Пульс (ВКЛ)" or "Пульсирующий"
+end)
+
+Icon.MouseButton1Click:Connect(function()
+    MF.Visible=not MF.Visible
+end)
+
+CB.MouseButton1Click:Connect(function()
+    MF.Visible=false
+end)
+
+do
+    local d,ds,sp=false,nil,nil
+    TB.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+            d=true
+            ds=i.Position
+            sp=MF.Position
+            i.Changed:Connect(function()
+                if i.UserInputState==Enum.UserInputState.End then d=false end
+            end)
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if d and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+            local dd=i.Position-ds
+            MF.Position=UDim2.new(sp.X.Scale,sp.X.Offset+dd.X,sp.Y.Scale,sp.Y.Offset+dd.Y)
+        end
+    end)
+end
+
+print("[Art Script] Загружено. 12 кнопок.")
