@@ -1,0 +1,154 @@
+local Players=game:GetService("Players")
+local UIS=game:GetService("UserInputService")
+local RS=game:GetService("RunService")
+local LP=Players.LocalPlayer
+local PG=LP:WaitForChild("PlayerGui")
+local cam=workspace.CurrentCamera
+
+local active=true
+local shiftHeld=false
+local camOffset=Vector3.new(1.75,0.5,0)
+local lockLoop=nil
+local iconFrame=nil
+
+-- Проверка: включён ли Shift Lock в игре
+local function isShiftLockEnabled()
+    local success,result=pcall(function()
+        return LP.DevEnableMouseLock
+    end)
+    return success and result
+end
+
+-- Иконка статуса
+local SG=Instance.new("ScreenGui")
+SG.Name="ShiftLockStatus"
+SG.ResetOnSpawn=false
+SG.IgnoreGuiInset=true
+SG.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+SG.Parent=PG
+
+iconFrame=Instance.new("Frame")
+iconFrame.Size=UDim2.new(0,120,0,28)
+iconFrame.Position=UDim2.new(0,16,0,10)
+iconFrame.BackgroundColor3=Color3.fromRGB(20,20,30)
+iconFrame.BackgroundTransparency=0.3
+iconFrame.BorderSizePixel=0
+iconFrame.Parent=SG
+
+local corner=Instance.new("UICorner")
+corner.CornerRadius=UDim.new(0,8)
+corner.Parent=iconFrame
+
+local lbl=Instance.new("TextLabel")
+lbl.Size=UDim2.new(1,0,1,0)
+lbl.BackgroundTransparency=1
+lbl.Text="🔒 SHIFT LOCK"
+lbl.TextColor3=Color3.fromRGB(100,255,180)
+lbl.TextSize=11
+lbl.Font=Enum.Font.GothamBold
+lbl.Parent=iconFrame
+
+-- Логика Shift Lock
+local function enableShiftLock()
+    if lockLoop then return end
+
+    lockLoop=RS.RenderStepped:Connect(function()
+        if not active then return end
+
+        local char=LP.Character
+        if not char then return end
+        local hrp=char:FindFirstChild("HumanoidRootPart")
+        local head=char:FindFirstChild("Head")
+        if not hrp then return end
+
+        -- Проверяем: зажат ли Shift и есть ли мышь
+        local shiftDown=UIS:IsKeyDown(Enum.KeyCode.LeftShift) or UIS:IsKeyDown(Enum.KeyCode.RightShift)
+
+        if shiftDown then
+            shiftHeld=true
+            UIS.MouseBehavior=Enum.MouseBehavior.LockCenter
+            -- Смещаем камеру вправо от персонажа (как настоящий Shift Lock)
+            if head then
+                cam.CFrame=cam.CFrame+Vector3.new(0,0,0)
+            end
+            -- Поворачиваем персонажа туда, куда смотрит камера
+            local look=cam.CFrame.LookVector
+            local flatLook=Vector3.new(look.X,0,look.Z)
+            if flatLook.Magnitude>0.01 then
+                hrp.CFrame=CFrame.new(hrp.Position,hrp.Position+flatLook.Unit)
+            end
+        else
+            if shiftHeld then
+                shiftHeld=false
+                UIS.MouseBehavior=Enum.MouseBehavior.Default
+            end
+        end
+    end)
+end
+
+local function disableShiftLock()
+    if lockLoop then
+        lockLoop:Disconnect()
+        lockLoop=nil
+    end
+    UIS.MouseBehavior=Enum.MouseBehavior.Default
+    shiftHeld=false
+end
+
+-- Автоопределение — включаем сразу
+enableShiftLock()
+
+-- Мобильная версия: включать при движении, выключать при остановке
+local mobileLoop=RS.Heartbeat:Connect(function()
+    if UIS.TouchEnabled and not UIS.KeyboardEnabled then
+        local char=LP.Character
+        if char then
+            local hum=char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                if hum.MoveDirection.Magnitude>0.1 then
+                    if not shiftHeld then
+                        shiftHeld=true
+                        UIS.MouseBehavior=Enum.MouseBehavior.LockCenter
+                        lbl.Text="🔒 SHIFT LOCK (движение)"
+                        lbl.TextColor3=Color3.fromRGB(100,255,180)
+                    end
+                    -- Поворачиваем к камере
+                    local hrp=char:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        local look=cam.CFrame.LookVector
+                        local flat=Vector3.new(look.X,0,look.Z)
+                        if flat.Magnitude>0.01 then
+                            hrp.CFrame=CFrame.new(hrp.Position,hrp.Position+flat.Unit)
+                        end
+                    end
+                else
+                    if shiftHeld then
+                        shiftHeld=false
+                        UIS.MouseBehavior=Enum.MouseBehavior.Default
+                        lbl.Text="🔒 SHIFT LOCK (ожидание)"
+                        lbl.TextColor3=Color3.fromRGB(150,150,170)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- Отслеживание отпускания Shift
+UIS.InputEnded:Connect(function(input)
+    if input.KeyCode==Enum.KeyCode.LeftShift or input.KeyCode==Enum.KeyCode.RightShift then
+        UIS.MouseBehavior=Enum.MouseBehavior.Default
+        shiftHeld=false
+    end
+end)
+
+-- Возврат Shift Lock при респавне
+LP.CharacterAdded:Connect(function()
+    task.wait(1)
+    if not lockLoop then enableShiftLock() end
+end)
+
+-- Если хочешь полностью выключить — вставь эту строку отдельно:
+-- disableShiftLock()
+
+print("[ShiftLock] Загружено. Зажми Shift для блокировки камеры.")
