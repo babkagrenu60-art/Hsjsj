@@ -1,0 +1,482 @@
+-- ============================================
+-- BABFT RETRO CYCLE FARM | by nikolay777
+-- Квадратный ретро-стиль | Цикл с DarknessPart
+-- ============================================
+
+local Players=game:GetService("Players")
+local UIS=game:GetService("UserInputService")
+local RS=game:GetService("RunService")
+local TW=game:GetService("TweenService")
+local LP=Players.LocalPlayer
+local PG=LP:WaitForChild("PlayerGui")
+
+local CFG={
+    Color=Color3.fromRGB(255,200,80),
+    BgColor=Color3.fromRGB(15,15,20),
+    BtnColor=Color3.fromRGB(35,35,50),
+    Size=UDim2.new(0,240,0,300),
+    AutoFarm=false,
+    Fly=false,
+    Noclip=false,
+}
+
+local cycleActive=false
+local cachedTarget=nil
+local cycleThread=nil
+local farmLoop=nil
+local collectLoop=nil
+
+local SG=Instance.new("ScreenGui")
+SG.Name="NikolayRetroCycle"
+SG.ResetOnSpawn=false
+SG.IgnoreGuiInset=true
+SG.Parent=PG
+
+local function st(p,col,t)
+    local s=Instance.new("UIStroke")
+    s.Color=col
+    s.Thickness=t or 2
+    s.Parent=p
+    return s
+end
+
+-- ===== ЗАГРУЗКА =====
+local LoadFrame=Instance.new("Frame")
+LoadFrame.Size=UDim2.new(1,0,1,0)
+LoadFrame.BackgroundColor3=Color3.fromRGB(0,0,0)
+LoadFrame.BackgroundTransparency=1
+LoadFrame.BorderSizePixel=0
+LoadFrame.ZIndex=100
+LoadFrame.Parent=SG
+
+local LoadText=Instance.new("TextLabel")
+LoadText.Size=UDim2.new(1,0,0,60)
+LoadText.Position=UDim2.new(0,0,0.4,-30)
+LoadText.BackgroundTransparency=1
+LoadText.Text="nikolay777"
+LoadText.TextColor3=CFG.Color
+LoadText.TextSize=34
+LoadText.Font=Enum.Font.Code
+LoadText.TextTransparency=1
+LoadText.ZIndex=101
+LoadText.Parent=LoadFrame
+
+local SubText=Instance.new("TextLabel")
+SubText.Size=UDim2.new(1,0,0,30)
+SubText.Position=UDim2.new(0,0,0.5,-15)
+SubText.BackgroundTransparency=1
+SubText.Text="BUILD A BOAT FOR TREASURE"
+SubText.TextColor3=Color3.fromRGB(200,200,200)
+SubText.TextSize=12
+SubText.Font=Enum.Font.Code
+SubText.TextTransparency=1
+SubText.ZIndex=101
+SubText.Parent=LoadFrame
+
+TW:Create(LoadFrame,TweenInfo.new(0.5),{BackgroundTransparency=0.3}):Play()
+TW:Create(LoadText,TweenInfo.new(0.6,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{TextTransparency=0}):Play()
+task.wait(0.5)
+TW:Create(SubText,TweenInfo.new(0.4),{TextTransparency=0}):Play()
+task.wait(1.5)
+TW:Create(LoadFrame,TweenInfo.new(0.6),{BackgroundTransparency=1}):Play()
+TW:Create(LoadText,TweenInfo.new(0.5),{TextTransparency=1}):Play()
+TW:Create(SubText,TweenInfo.new(0.5),{TextTransparency=1}):Play()
+task.wait(0.6)
+LoadFrame:Destroy()
+
+-- ===== ПАНЕЛЬ =====
+local Icon=Instance.new("TextButton")
+Icon.Size=UDim2.new(0,44,0,44)
+Icon.Position=UDim2.new(0,16,0.4,-22)
+Icon.BackgroundColor3=CFG.BgColor
+Icon.BorderSizePixel=0
+Icon.Text="⛵"
+Icon.TextColor3=CFG.Color
+Icon.TextSize=22
+Icon.Font=Enum.Font.Code
+Icon.AutoButtonColor=false
+Icon.Parent=SG
+st(Icon,CFG.Color,2)
+
+local MF=Instance.new("Frame")
+MF.Size=CFG.Size
+MF.Position=UDim2.new(0.5,-120,0.5,-150)
+MF.BackgroundColor3=CFG.BgColor
+MF.BorderSizePixel=0
+MF.ClipsDescendants=true
+MF.Parent=SG
+st(MF,CFG.Color,2)
+
+local TB=Instance.new("TextLabel")
+TB.Size=UDim2.new(1,0,0,32)
+TB.BackgroundColor3=Color3.fromRGB(8,8,12)
+TB.BorderSizePixel=0
+TB.Text="  ⛵ NIKOLAY777 CYCLE"
+TB.TextColor3=CFG.Color
+TB.TextSize=12
+TB.Font=Enum.Font.Code
+TB.TextXAlignment=Enum.TextXAlignment.Left
+TB.Parent=MF
+
+local CB=Instance.new("TextButton")
+CB.Size=UDim2.new(0,26,0,26)
+CB.Position=UDim2.new(1,-28,0,3)
+CB.BackgroundColor3=Color3.fromRGB(180,40,40)
+CB.BorderSizePixel=0
+CB.Text="X"
+CB.TextColor3=Color3.fromRGB(255,255,255)
+CB.TextSize=16
+CB.Font=Enum.Font.Code
+CB.AutoButtonColor=false
+CB.Parent=TB
+st(CB,Color3.fromRGB(255,100,100),2)
+
+local CT=Instance.new("Frame")
+CT.Size=UDim2.new(1,-12,1,-44)
+CT.Position=UDim2.new(0,6,0,38)
+CT.BackgroundTransparency=1
+CT.Parent=MF
+
+local StatusLbl=Instance.new("TextLabel")
+StatusLbl.Size=UDim2.new(1,0,0,16)
+StatusLbl.BackgroundTransparency=1
+StatusLbl.Text="> READY"
+StatusLbl.TextColor3=Color3.fromRGB(150,255,150)
+StatusLbl.TextSize=10
+StatusLbl.Font=Enum.Font.Code
+StatusLbl.TextXAlignment=Enum.TextXAlignment.Left
+StatusLbl.Parent=CT
+
+local function makeBtn(parent,text,y,color)
+    local b=Instance.new("TextButton")
+    b.Size=UDim2.new(1,0,0,32)
+    b.Position=UDim2.new(0,0,0,y)
+    b.BackgroundColor3=color or CFG.BtnColor
+    b.BorderSizePixel=0
+    b.Text="> "..text
+    b.TextColor3=Color3.fromRGB(220,220,230)
+    b.TextSize=11
+    b.Font=Enum.Font.Code
+    b.TextXAlignment=Enum.TextXAlignment.Left
+    b.AutoButtonColor=false
+    b.Parent=parent
+    st(b,Color3.fromRGB(80,80,100),1)
+    return b
+end
+
+local FarmBtn=makeBtn(CT,"ЦИКЛ ФАРМ",22,Color3.fromRGB(30,50,30))
+local ResetBtn=makeBtn(CT,"РЕСПАВН",56,Color3.fromRGB(50,35,25))
+local AutoCollect=makeBtn(CT,"АВТО-СБОР",90,Color3.fromRGB(50,50,25))
+local FlyBtn=makeBtn(CT,"FLY",124,Color3.fromRGB(30,40,60))
+local NoclipBtn=makeBtn(CT,"NOCLIP",158,Color3.fromRGB(50,30,60))
+local InfoBtn=makeBtn(CT,"INFO",192,Color3.fromRGB(40,40,50))
+
+-- ===== ПОИСК =====
+local function findTarget()
+    local bs=workspace:FindFirstChild("BoatStages")
+    if bs then
+        local dp=bs:FindFirstChild("DarknessPart",true)
+        if dp then return dp end
+    end
+    return workspace:FindFirstChild("DarknessPart",true)
+end
+
+-- ===== ОДИН ЦИКЛ =====
+local function runOneCycle()
+    cachedTarget=findTarget()
+    if not cachedTarget then
+        StatusLbl.Text="> ЦЕЛЬ НЕ НАЙДЕНА"
+        StatusLbl.TextColor3=Color3.fromRGB(255,100,100)
+        return false
+    end
+
+    StatusLbl.Text="> ЛЕТИМ К "..cachedTarget.Name
+    StatusLbl.TextColor3=Color3.fromRGB(150,255,150)
+
+    local c0=LP.Character
+    if c0 then
+        for _,p in ipairs(c0:GetDescendants()) do
+            if p:IsA("BasePart") then p.CanCollide=false end
+        end
+    end
+
+    local reached=false
+    local startTime=tick()
+    while cycleActive do
+        local c=LP.Character
+        if not c then break end
+        local hrp=c:FindFirstChild("HumanoidRootPart")
+        if not hrp then break end
+
+        if not cachedTarget or not cachedTarget.Parent then
+            cachedTarget=findTarget()
+            if not cachedTarget then break end
+        end
+
+        local centerPos=cachedTarget.Position
+        local dist=(centerPos-hrp.Position).Magnitude
+
+        if dist<2 then
+            reached=true
+            break
+        end
+
+        hrp.CFrame=hrp.CFrame:Lerp(CFrame.new(centerPos),0.15)
+        task.wait(0.03)
+
+        if tick()-startTime>20 then break end
+    end
+
+    if not reached then
+        StatusLbl.Text="> НЕ ДОЛЕТЕЛ"
+        StatusLbl.TextColor3=Color3.fromRGB(255,150,150)
+        return false
+    end
+
+    StatusLbl.Text="> В ЦЕНТРЕ · УМИРАЮ"
+    StatusLbl.TextColor3=Color3.fromRGB(255,100,100)
+    task.wait(0.3)
+
+    local c=LP.Character
+    if c then
+        local h=c:FindFirstChildOfClass("Humanoid")
+        if h then h.Health=0 end
+    end
+
+    return true
+end
+
+-- ===== ЗАПУСК ЦИКЛА =====
+local function startCycle()
+    if cycleThread then return end
+    cycleActive=true
+    cycleThread=task.spawn(function()
+        while cycleActive do
+            local ok=runOneCycle()
+            if not cycleActive then break end
+
+            StatusLbl.Text="> ЖДУ РЕСПАВН..."
+            StatusLbl.TextColor3=Color3.fromRGB(255,200,80)
+
+            local waited=0
+            while cycleActive and waited<15 do
+                local c=LP.Character
+                if c then
+                    local h=c:FindFirstChildOfClass("Humanoid")
+                    if h and h.Health>0 then break end
+                end
+                task.wait(0.5)
+                waited=waited+0.5
+            end
+
+            if not cycleActive then break end
+            task.wait(1)
+            if not cycleActive then break end
+            StatusLbl.Text="> НОВЫЙ ЦИКЛ..."
+            task.wait(0.5)
+        end
+        cycleThread=nil
+    end)
+end
+
+local function stopCycle()
+    cycleActive=false
+    StatusLbl.Text="> OFF"
+    StatusLbl.TextColor3=Color3.fromRGB(180,180,190)
+    cachedTarget=nil
+    local c=LP.Character
+    if c then
+        for _,p in ipairs(c:GetDescendants()) do
+            if p:IsA("BasePart") and p.Name~="HumanoidRootPart" then
+                p.CanCollide=true
+            end
+        end
+    end
+end
+
+FarmBtn.MouseButton1Click:Connect(function()
+    CFG.AutoFarm=not CFG.AutoFarm
+    if CFG.AutoFarm then
+        FarmBtn.Text="> ЦИКЛ [ВКЛ]"
+        FarmBtn.BackgroundColor3=Color3.fromRGB(50,80,50)
+        startCycle()
+    else
+        FarmBtn.Text="> ЦИКЛ ФАРМ"
+        FarmBtn.BackgroundColor3=Color3.fromRGB(30,50,30)
+        stopCycle()
+    end
+end)
+
+ResetBtn.MouseButton1Click:Connect(function()
+    local c=LP.Character
+    if c then
+        local h=c:FindFirstChildOfClass("Humanoid")
+        if h then h.Health=0 end
+    end
+end)
+
+AutoCollect.MouseButton1Click:Connect(function()
+    if collectLoop then
+        collectLoop:Disconnect()
+        collectLoop=nil
+        AutoCollect.Text="> АВТО-СБОР"
+        AutoCollect.BackgroundColor3=Color3.fromRGB(50,50,25)
+        return
+    end
+    AutoCollect.Text="> АВТО-СБОР [ВКЛ]"
+    AutoCollect.BackgroundColor3=Color3.fromRGB(80,80,40)
+    collectLoop=RS.Heartbeat:Connect(function()
+        local c=LP.Character
+        if not c then return end
+        local hrp=c:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        for _,obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") then
+                local n=obj.Name:lower()
+                if n:find("gold") or n:find("coin") then
+                    local d=(obj.Position-hrp.Position).Magnitude
+                    if d<30 then
+                        hrp.CFrame=CFrame.new(obj.Position+Vector3.new(0,3,0))
+                        break
+                    end
+                end
+            end
+        end
+    end)
+end)
+
+FlyBtn.MouseButton1Click:Connect(function()
+    CFG.Fly=not CFG.Fly
+    if CFG.Fly then
+        FlyBtn.Text="> FLY [ВКЛ]"
+        FlyBtn.BackgroundColor3=Color3.fromRGB(50,70,100)
+        local c=LP.Character
+        if c then
+            local hrp=c:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local bv=Instance.new("BodyVelocity")
+                bv.Name="FlyVelocity"
+                bv.MaxForce=Vector3.new(1e5,1e5,1e5)
+                bv.Velocity=Vector3.new(0,0,0)
+                bv.Parent=hrp
+            end
+        end
+        task.spawn(function()
+            while CFG.Fly do
+                local c2=LP.Character
+                if c2 then
+                    local hrp2=c2:FindFirstChild("HumanoidRootPart")
+                    if hrp2 then
+                        local bv=hrp2:FindFirstChild("FlyVelocity")
+                        if bv then
+                            local cam=workspace.CurrentCamera
+                            bv.Velocity=cam.CFrame.LookVector*50
+                        end
+                    end
+                end
+                task.wait(0.1)
+            end
+        end)
+    else
+        FlyBtn.Text="> FLY"
+        FlyBtn.BackgroundColor3=Color3.fromRGB(30,40,60)
+        local c=LP.Character
+        if c then
+            local hrp=c:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local bv=hrp:FindFirstChild("FlyVelocity")
+                if bv then bv:Destroy() end
+            end
+        end
+    end
+end)
+
+NoclipBtn.MouseButton1Click:Connect(function()
+    CFG.Noclip=not CFG.Noclip
+    if CFG.Noclip then
+        NoclipBtn.Text="> NOCLIP [ВКЛ]"
+        NoclipBtn.BackgroundColor3=Color3.fromRGB(80,50,100)
+        task.spawn(function()
+            while CFG.Noclip do
+                local c=LP.Character
+                if c then
+                    for _,p in ipairs(c:GetDescendants()) do
+                        if p:IsA("BasePart") then p.CanCollide=false end
+                    end
+                end
+                task.wait(0.1)
+            end
+        end)
+    else
+        NoclipBtn.Text="> NOCLIP"
+        NoclipBtn.BackgroundColor3=Color3.fromRGB(50,30,60)
+        local c=LP.Character
+        if c then
+            for _,p in ipairs(c:GetDescendants()) do
+                if p:IsA("BasePart") then p.CanCollide=true end
+            end
+        end
+    end
+end)
+
+InfoBtn.MouseButton1Click:Connect(function()
+    print("=== nikolay777 CYCLE FARM ===")
+    print("Игра: Build A Boat For Treasure")
+    print("Цикл: полёт к DarknessPart → смерть → респавн → снова")
+end)
+
+-- ===== ЗАКРЫТИЕ =====
+CB.MouseButton1Click:Connect(function()
+    MF.Visible=false
+end)
+
+Icon.MouseButton1Click:Connect(function()
+    MF.Visible=not MF.Visible
+end)
+
+-- ===== ПЕРЕТАСКИВАНИЕ =====
+local dragEnabled=false
+local dragConn=nil
+
+TB.InputBegan:Connect(function(i)
+    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+        local pos=i.Position
+        local cbPos=CB.AbsolutePosition
+        local cbSize=CB.AbsoluteSize
+        if pos.X>=cbPos.X and pos.X<=cbPos.X+cbSize.X and pos.Y>=cbPos.Y and pos.Y<=cbPos.Y+cbSize.Y then
+            return
+        end
+        dragEnabled=true
+        local ds=i.Position
+        local sp=MF.Position
+        if dragConn then dragConn:Disconnect() end
+        dragConn=UIS.InputChanged:Connect(function(ii)
+            if dragEnabled and (ii.UserInputType==Enum.UserInputType.MouseMovement or ii.UserInputType==Enum.UserInputType.Touch) then
+                local dd=ii.Position-ds
+                MF.Position=UDim2.new(sp.X.Scale,sp.X.Offset+dd.X,sp.Y.Scale,sp.Y.Offset+dd.Y)
+            end
+        end)
+    end
+end)
+
+UIS.InputEnded:Connect(function(ii)
+    if ii.UserInputType==Enum.UserInputType.MouseButton1 or ii.UserInputType==Enum.UserInputType.Touch then
+        dragEnabled=false
+        if dragConn then dragConn:Disconnect();dragConn=nil end
+    end
+end)
+
+-- ===== ПОСЛЕ РЕСПАВНА =====
+LP.CharacterAdded:Connect(function()
+    task.wait(0.3)
+    if CFG.AutoFarm then
+        local c=LP.Character
+        if c then
+            for _,p in ipairs(c:GetDescendants()) do
+                if p:IsA("BasePart") then p.CanCollide=false end
+            end
+        end
+    end
+end)
+
+print("[nikolay777 CYCLE FARM] Загружено.")
