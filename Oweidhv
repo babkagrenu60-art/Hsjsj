@@ -1,0 +1,652 @@
+-- ============================================
+-- RAINBOW CHARACTER | ЧАСТЬ 1 из 3 | строки 1-300
+-- Радужный персонаж + частицы + эффекты
+-- ============================================
+
+local Players=game:GetService("Players")
+local UIS=game:GetService("UserInputService")
+local RS=game:GetService("RunService")
+local TW=game:GetService("TweenService")
+local LP=Players.LocalPlayer
+local PG=LP:WaitForChild("PlayerGui")
+
+local CFG={
+    Color=Color3.fromRGB(255,100,200),
+    Color2=Color3.fromRGB(100,150,255),
+    Size=UDim2.new(0,300,0,400),
+    RainbowSpeed=0.5,
+    ParticleRate=15,
+    TrailEnabled=true,
+    AuraEnabled=true,
+    FireEnabled=false,
+    GlowEnabled=true,
+}
+
+-- Состояние
+local CFG_Loops={}
+local rainbowLoop=nil
+local trailLoop=nil
+local auraLoop=nil
+local fireLoop=nil
+local glowLoop=nil
+local particles={}
+
+-- ===== GUI =====
+local SG=Instance.new("ScreenGui")
+SG.Name="RainbowChar"
+SG.ResetOnSpawn=false
+SG.IgnoreGuiInset=true
+SG.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+SG.Parent=PG
+
+local function cr(p,r)
+    local c=Instance.new("UICorner")
+    c.CornerRadius=UDim.new(0,r)
+    c.Parent=p
+    return c
+end
+
+local function st(p,col,t)
+    local s=Instance.new("UIStroke")
+    s.Color=col
+    s.Thickness=t or 1.5
+    s.Parent=p
+    return s
+end
+
+local function grad(p,c1,c2,rot)
+    local g=Instance.new("UIGradient")
+    g.Color=ColorSequence.new(c1,c2)
+    g.Rotation=rot or 0
+    g.Parent=p
+    return g
+end
+
+-- Иконка с пульсацией
+local Icon=Instance.new("TextButton")
+Icon.Size=UDim2.new(0,52,0,52)
+Icon.Position=UDim2.new(0,16,0.4,-26)
+Icon.BackgroundColor3=Color3.fromRGB(20,15,30)
+Icon.BorderSizePixel=0
+Icon.Text="🌈"
+Icon.TextColor3=CFG.Color
+Icon.TextSize=24
+Icon.Font=Enum.Font.GothamBold
+Icon.AutoButtonColor=false
+Icon.Parent=SG
+cr(Icon,26)
+st(Icon,CFG.Color,2)
+grad(Icon,CFG.Color,CFG.Color2,45)
+
+task.spawn(function()
+    while Icon.Parent do
+        local c1=Color3.fromRGB(math.random(100,255),math.random(50,150),math.random(150,255))
+        local c2=Color3.fromRGB(math.random(150,255),math.random(100,200),math.random(50,150))
+        TW:Create(Icon,TweenInfo.new(0.8),{BackgroundColor3=c1}):Play()
+        task.wait(0.8)
+        TW:Create(Icon,TweenInfo.new(0.8),{BackgroundColor3=c2}):Play()
+        task.wait(0.8)
+    end
+end)
+
+-- Главное окно
+local MF=Instance.new("Frame")
+MF.Size=UDim2.new(0,0,0,0)
+MF.Position=UDim2.new(0.5,-150,0.5,-200)
+MF.BackgroundColor3=Color3.fromRGB(18,15,25)
+MF.BorderSizePixel=0
+MF.ClipsDescendants=true
+MF.Parent=SG
+cr(MF,16)
+st(MF,CFG.Color,2)
+grad(MF,Color3.fromRGB(30,20,40),Color3.fromRGB(15,10,20),90)
+
+TW:Create(MF,TweenInfo.new(0.5,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{
+    Size=CFG.Size
+}):Play()
+
+-- Заголовок
+local TB=Instance.new("TextLabel")
+TB.Size=UDim2.new(1,0,0,44)
+TB.BackgroundColor3=Color3.fromRGB(10,8,15)
+TB.BorderSizePixel=0
+TB.Text="  🌈 РАДУЖНЫЙ ПЕРСОНАЖ"
+TB.TextColor3=Color3.fromRGB(255,255,255)
+TB.TextSize=13
+TB.Font=Enum.Font.GothamBold
+TB.TextXAlignment=Enum.TextXAlignment.Left
+TB.Parent=MF
+cr(TB,16)
+grad(TB,CFG.Color,CFG.Color2,0)
+
+local CB=Instance.new("TextButton")
+CB.Size=UDim2.new(0,28,0,28)
+CB.Position=UDim2.new(1,-34,0,8)
+CB.BackgroundColor3=Color3.fromRGB(200,60,60)
+CB.BorderSizePixel=0
+CB.Text="x"
+CB.TextColor3=Color3.fromRGB(255,255,255)
+CB.TextSize=18
+CB.Font=Enum.Font.GothamBold
+CB.AutoButtonColor=false
+CB.Parent=TB
+cr(CB,14)
+
+-- Вкладки
+local TabFrame=Instance.new("Frame")
+TabFrame.Size=UDim2.new(1,-16,0,32)
+TabFrame.Position=UDim2.new(0,8,0,50)
+TabFrame.BackgroundTransparency=1
+TabFrame.Parent=MF
+
+local tabs={"ЦВЕТ","ЧАСТИЦЫ","ЭФФЕКТЫ"}
+local TabButtons={}
+local Pages={}
+
+for i,name in ipairs(tabs) do
+    local btn=Instance.new("TextButton")
+    btn.Size=UDim2.new(1/#tabs,-4,1,0)
+    btn.Position=UDim2.new((i-1)/#tabs,0,0,0)
+    btn.BackgroundColor3=Color3.fromRGB(30,25,45)
+    btn.BorderSizePixel=0
+    btn.Text=name
+    btn.TextColor3=Color3.fromRGB(160,150,190)
+    btn.TextSize=11
+    btn.Font=Enum.Font.GothamBold
+    btn.AutoButtonColor=false
+    btn.Parent=TabFrame
+    cr(btn,10)
+    TabButtons[i]=btn
+end
+
+local function makePage()
+    local f=Instance.new("Frame")
+    f.Size=UDim2.new(1,0,1,-90)
+    f.Position=UDim2.new(0,0,0,88)
+    f.BackgroundTransparency=1
+    f.Visible=false
+    f.Parent=MF
+    return f
+end
+
+for i=1,#tabs do
+    Pages[i]=makePage()
+end
+
+local function selectTab(idx)
+    for i,btn in ipairs(TabButtons) do
+        if i==idx then
+            TW:Create(btn,TweenInfo.new(0.2),{BackgroundColor3=CFG.Color}):Play()
+            btn.TextColor3=Color3.fromRGB(255,255,255)
+            Pages[i].Visible=true
+        else
+            TW:Create(btn,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(30,25,45)}):Play()
+            btn.TextColor3=Color3.fromRGB(160,150,190)
+            Pages[i].Visible=false
+        end
+    end
+end
+
+for i,btn in ipairs(TabButtons) do
+    btn.MouseButton1Click:Connect(function() selectTab(i) end)
+end
+
+selectTab(1)
+
+local function makeBtn(parent,text,y,color)
+    local b=Instance.new("TextButton")
+    b.Size=UDim2.new(1,-10,0,40)
+    b.Position=UDim2.new(0,5,0,y)
+    b.BackgroundColor3=color or Color3.fromRGB(30,25,45)
+    b.BorderSizePixel=0
+    b.Text=text
+    b.TextColor3=Color3.fromRGB(220,210,240)
+    b.TextSize=12
+    b.Font=Enum.Font.GothamBold
+    b.AutoButtonColor=false
+    b.Parent=parent
+    cr(b,10)
+    return b
+end
+
+local function makeLabel(parent,text,y,color,size)
+    local l=Instance.new("TextLabel")
+    l.Size=UDim2.new(1,-10,0,size or 20)
+    l.Position=UDim2.new(0,5,0,y)
+    l.BackgroundTransparency=1
+    l.Text=text
+    l.TextColor3=color or Color3.fromRGB(160,150,190)
+    l.TextSize=11
+    l.Font=Enum.Font.Gotham
+    l.TextXAlignment=Enum.TextXAlignment.Left
+    l.Parent=parent
+    return l
+end
+
+local function getChar()
+    local c=LP.Character
+    if not c then return nil,nil,nil end
+    local h=c:FindFirstChildOfClass("Humanoid")
+    local hrp=c:FindFirstChild("HumanoidRootPart")
+    return c,h,hrp
+end
+-- ============================================
+-- RAINBOW CHARACTER | ЧАСТЬ 2 из 3 | строки 301-600
+-- ============================================
+
+makeLabel(Pages[1],"Скорость радуги: 0.5",30,Color3.fromRGB(200,200,220),16)
+
+local rainbowSlider=Instance.new("Frame")
+rainbowSlider.Size=UDim2.new(1,-10,0,20)
+rainbowSlider.Position=UDim2.new(0,5,0,50)
+rainbowSlider.BackgroundColor3=Color3.fromRGB(40,35,55)
+rainbowSlider.BorderSizePixel=0
+rainbowSlider.Parent=Pages[1]
+cr(rainbowSlider,10)
+
+local rainbowFill=Instance.new("Frame")
+rainbowFill.Size=UDim2.new(0.5,0,1,0)
+rainbowFill.BackgroundColor3=CFG.Color
+rainbowFill.BorderSizePixel=0
+rainbowFill.Parent=rainbowSlider
+cr(rainbowFill,10)
+grad(rainbowFill,CFG.Color,CFG.Color2,0)
+
+local rainbowKnob=Instance.new("Frame")
+rainbowKnob.Size=UDim2.new(0,16,0,16)
+rainbowKnob.Position=UDim2.new(0.5,-8,0.5,-8)
+rainbowKnob.BackgroundColor3=Color3.fromRGB(255,255,255)
+rainbowKnob.BorderSizePixel=0
+rainbowKnob.ZIndex=2
+rainbowKnob.Parent=rainbowSlider
+cr(rainbowKnob,8)
+
+local function setRainbowSpeed(x)
+    local rel=(x-rainbowSlider.AbsolutePosition.X)/rainbowSlider.AbsoluteSize.X
+    rel=math.clamp(rel,0,1)
+    CFG.RainbowSpeed=0.1+rel*1.9
+    rainbowFill.Size=UDim2.new(rel,0,1,0)
+    rainbowKnob.Position=UDim2.new(rel,-8,0.5,-8)
+end
+
+local draggingRainbow=false
+rainbowSlider.InputBegan:Connect(function(input)
+    if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+        draggingRainbow=true
+        setRainbowSpeed(input.Position.X)
+    end
+end)
+UIS.InputChanged:Connect(function(input)
+    if draggingRainbow and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then
+        setRainbowSpeed(input.Position.X)
+    end
+end)
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+        draggingRainbow=false
+    end
+end)
+
+local RB=makeBtn(Pages[1],"🌈 ВКЛЮЧИТЬ РАДУГУ",90,Color3.fromRGB(50,30,70))
+local RB2=makeBtn(Pages[1],"🎨 СЛУЧАЙНЫЙ ЦВЕТ",135,Color3.fromRGB(40,40,60))
+local RB3=makeBtn(Pages[1],"⚪ ОБЫЧНЫЙ ЦВЕТ",180,Color3.fromRGB(40,40,50))
+
+RB.MouseButton1Click:Connect(function()
+    if rainbowLoop then
+        rainbowLoop:Disconnect()
+        rainbowLoop=nil
+        RB.Text="🌈 ВКЛЮЧИТЬ РАДУГУ"
+        RB.BackgroundColor3=Color3.fromRGB(50,30,70)
+        return
+    end
+    RB.Text="🌈 РАДУГА (ВКЛ)"
+    RB.BackgroundColor3=Color3.fromRGB(80,50,110)
+    local t=0
+    rainbowLoop=RS.Heartbeat:Connect(function(dt)
+        t=t+dt*CFG.RainbowSpeed
+        local c=getChar()
+        if c then
+            local hue=(t*0.3)%1
+            for _,p in ipairs(c:GetDescendants()) do
+                if p:IsA("BasePart") then
+                    p.Color=Color3.fromHSV((hue+p.Position.Y*0.01)%1,0.8,1)
+                end
+            end
+        end
+    end)
+end)
+
+RB2.MouseButton1Click:Connect(function()
+    local c=getChar()
+    if not c then return end
+    local col=Color3.fromRGB(math.random(50,255),math.random(50,255),math.random(50,255))
+    for _,p in ipairs(c:GetDescendants()) do
+        if p:IsA("BasePart") then
+            p.Color=col
+        end
+    end
+end)
+
+RB3.MouseButton1Click:Connect(function()
+    if rainbowLoop then
+        rainbowLoop:Disconnect()
+        rainbowLoop=nil
+        RB.Text="🌈 ВКЛЮЧИТЬ РАДУГУ"
+        RB.BackgroundColor3=Color3.fromRGB(50,30,70)
+    end
+    local c=getChar()
+    if not c then return end
+    for _,p in ipairs(c:GetDescendants()) do
+        if p:IsA("BasePart") then
+            p.Color=Color3.fromRGB(255,255,255)
+        end
+    end
+end)
+
+makeLabel(Pages[2],"ЧАСТИЦЫ И СЛЕД",10,CFG.Color,20)
+
+local PT1=makeBtn(Pages[2],"✨ ЧАСТИЦЫ ВОКРУГ",40,Color3.fromRGB(50,40,70))
+local PT2=makeBtn(Pages[2],"🔥 ОГОНЬ",85,Color3.fromRGB(70,40,20))
+local PT3=makeBtn(Pages[2],"💨 ДЫМ",130,Color3.fromRGB(40,40,50))
+local PT4=makeBtn(Pages[2],"⭐ ЗВЁЗДЫ",175,Color3.fromRGB(60,50,80))
+local PT5=makeBtn(Pages[2],"🦋 БАБОЧКИ",220,Color3.fromRGB(50,60,70))
+
+local function makeParticles(name,texture,color,size,rate)
+    local c=getChar()
+    if not c then return end
+    local hrp=c:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local old=hrp:FindFirstChild(name)
+    if old then old:Destroy() end
+    local att=Instance.new("Attachment")
+    att.Name=name.."Att"
+    att.Parent=hrp
+    local emit=Instance.new("ParticleEmitter")
+    emit.Name=name
+    emit.Texture=texture
+    emit.Rate=rate or CFG.ParticleRate
+    emit.Lifetime=NumberRange.new(1,2)
+    emit.Speed=NumberRange.new(2,5)
+    emit.SpreadAngle=Vector2.new(180,180)
+    emit.Size=NumberSequence.new(size or 0.5)
+    emit.Color=ColorSequence.new(color or Color3.fromRGB(255,255,255))
+    emit.Transparency=NumberSequence.new(0.3)
+    emit.Parent=att
+    return emit
+end
+
+PT1.MouseButton1Click:Connect(function()
+    local e=makeParticles("Sparkles","rbxassetid://243660364",Color3.fromRGB(255,200,255),0.5,15)
+    if e then PT1.Text="✨ ЧАСТИЦЫ (ВКЛ)" end
+end)
+
+PT2.MouseButton1Click:Connect(function()
+    local c=getChar()
+    if not c then return end
+    local hrp=c:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local old=hrp:FindFirstChild("Fire")
+        if old then old:Destroy() end
+        local f=Instance.new("Fire")
+        f.Size=6
+        f.Heat=10
+        f.Parent=hrp
+        PT2.Text="🔥 ОГОНЬ (ВКЛ)"
+    end
+end)
+
+PT3.MouseButton1Click:Connect(function()
+    local e=makeParticles("Smoke","rbxassetid://243660364",Color3.fromRGB(100,100,100),1,10)
+    if e then PT3.Text="💨 ДЫМ (ВКЛ)" end
+end)
+
+PT4.MouseButton1Click:Connect(function()
+    local e=makeParticles("Stars","rbxassetid://243660364",Color3.fromRGB(255,255,150),0.7,12)
+    if e then PT4.Text="⭐ ЗВЁЗДЫ (ВКЛ)" end
+end)
+
+PT5.MouseButton1Click:Connect(function()
+    local e=makeParticles("Butterflies","rbxassetid://243660364",Color3.fromRGB(200,255,200),0.8,8)
+    if e then PT5.Text="🦋 БАБОЧКИ (ВКЛ)" end
+end) -- ============================================
+-- RAINBOW CHARACTER | ЧАСТЬ 3 из 3 | строки 601-900
+-- ============================================
+
+makeLabel(Pages[3],"ЭФФЕКТЫ И СВЕЧЕНИЕ",10,CFG.Color,20)
+
+local EF1=makeBtn(Pages[3],"🌟 АУРА (СВЕЧЕНИЕ)",40,Color3.fromRGB(50,50,80))
+local EF2=makeBtn(Pages[3],"🌈 РАДУЖНЫЙ СЛЕД",85,Color3.fromRGB(60,40,80))
+local EF3=makeBtn(Pages[3],"⚡ ЭЛЕКТРО",130,Color3.fromRGB(70,60,30))
+local EF4=makeBtn(Pages[3],"❄️ СНЕГ",175,Color3.fromRGB(40,60,80))
+local EF5=makeBtn(Pages[3],"💚 МАТЕРИАЛ NEON",220,Color3.fromRGB(40,70,50))
+
+EF1.MouseButton1Click:Connect(function()
+    local c=getChar()
+    if not c then return end
+    local hrp=c:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local old=hrp:FindFirstChild("Aura")
+    if old then old:Destroy() end
+    local att=Instance.new("Attachment")
+    att.Name="AuraAtt"
+    att.Parent=hrp
+    local emit=Instance.new("ParticleEmitter")
+    emit.Name="Aura"
+    emit.Texture="rbxassetid://243660364"
+    emit.Rate=30
+    emit.Lifetime=NumberRange.new(0.5,1)
+    emit.Speed=NumberRange.new(0,2)
+    emit.SpreadAngle=Vector2.new(180,180)
+    emit.Size=NumberSequence.new({
+        NumberSequenceKeypoint.new(0,0.5),
+        NumberSequenceKeypoint.new(0.5,1.5),
+        NumberSequenceKeypoint.new(1,0)
+    })
+    emit.Color=ColorSequence.new({
+        ColorSequenceKeypoint.new(0,Color3.fromRGB(255,100,200)),
+        ColorSequenceKeypoint.new(0.5,Color3.fromRGB(100,150,255)),
+        ColorSequenceKeypoint.new(1,Color3.fromRGB(200,255,100))
+    })
+    emit.Transparency=NumberSequence.new(0.3)
+    emit.Parent=att
+    EF1.Text="🌟 АУРА (ВКЛ)"
+end)
+
+EF2.MouseButton1Click:Connect(function()
+    if CFG_Loops.trail then
+        CFG_Loops.trail:Disconnect()
+        CFG_Loops.trail=nil
+        EF2.Text="🌈 РАДУЖНЫЙ СЛЕД"
+        return
+    end
+    EF2.Text="🌈 СЛЕД (ВКЛ)"
+    local t=0
+    CFG_Loops.trail=RS.Heartbeat:Connect(function(dt)
+        t=t+dt
+        local _,_,hrp=getChar()
+        if hrp then
+            local part=Instance.new("Part")
+            part.Size=Vector3.new(1.5,1.5,1.5)
+            part.Shape=Enum.PartType.Ball
+            part.Color=Color3.fromHSV((t*0.5)%1,0.8,1)
+            part.Material=Enum.Material.Neon
+            part.Anchored=true
+            part.CanCollide=false
+            part.Position=hrp.Position
+            part.Parent=workspace
+            task.delay(1.5,function()
+                if part then part:Destroy() end
+            end)
+        end
+    end)
+end)
+
+EF3.MouseButton1Click:Connect(function()
+    local c=getChar()
+    if not c then return end
+    local hrp=c:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local old=hrp:FindFirstChild("Electric")
+        if old then old:Destroy() end
+        local att=Instance.new("Attachment")
+        att.Name="ElectricAtt"
+        att.Parent=hrp
+        local emit=Instance.new("ParticleEmitter")
+        emit.Name="Electric"
+        emit.Texture="rbxassetid://243660364"
+        emit.Rate=25
+        emit.Lifetime=NumberRange.new(0.3,0.7)
+        emit.Speed=NumberRange.new(5,10)
+        emit.SpreadAngle=Vector2.new(180,180)
+        emit.Size=NumberSequence.new(0.5)
+        emit.Color=ColorSequence.new(Color3.fromRGB(255,255,100))
+        emit.Transparency=NumberSequence.new(0.2)
+        emit.Parent=att
+        EF3.Text="⚡ ЭЛЕКТРО (ВКЛ)"
+    end
+end)
+
+EF4.MouseButton1Click:Connect(function()
+    local c=getChar()
+    if not c then return end
+    local hrp=c:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local old=hrp:FindFirstChild("Snow")
+        if old then old:Destroy() end
+        local att=Instance.new("Attachment")
+        att.Name="SnowAtt"
+        att.Parent=hrp
+        local emit=Instance.new("ParticleEmitter")
+        emit.Name="Snow"
+        emit.Texture="rbxassetid://243660364"
+        emit.Rate=20
+        emit.Lifetime=NumberRange.new(1,2)
+        emit.Speed=NumberRange.new(1,3)
+        emit.SpreadAngle=Vector2.new(180,180)
+        emit.Size=NumberSequence.new(0.4)
+        emit.Color=ColorSequence.new(Color3.fromRGB(200,230,255))
+        emit.Transparency=NumberSequence.new(0.3)
+        emit.Parent=att
+        EF4.Text="❄️ СНЕГ (ВКЛ)"
+    end
+end)
+
+EF5.MouseButton1Click:Connect(function()
+    local c=getChar()
+    if not c then return end
+    for _,p in ipairs(c:GetDescendants()) do
+        if p:IsA("BasePart") then
+            p.Material=Enum.Material.Neon
+        end
+    end
+    EF5.Text="💚 NEON (ВКЛ)"
+end)
+
+-- Кнопка сброса
+local RESET=makeBtn(Pages[3],"🗑️ СБРОСИТЬ ВСЁ",280,Color3.fromRGB(80,40,40))
+
+RESET.MouseButton1Click:Connect(function()
+    -- Останавливаем все циклы
+    if rainbowLoop then rainbowLoop:Disconnect();rainbowLoop=nil end
+    for key,conn in pairs(CFG_Loops) do
+        if conn then conn:Disconnect() end
+        CFG_Loops[key]=nil
+    end
+    -- Удаляем частицы
+    local c=getChar()
+    if c then
+        local hrp=c:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            for _,child in ipairs(hrp:GetChildren()) do
+                if child:IsA("ParticleEmitter") or child:IsA("Fire") or child:IsA("Attachment") then
+                    if child.Name~="RootJoint" and child.Name~="OriginalSize" then
+                        child:Destroy()
+                    end
+                end
+            end
+        end
+        -- Возвращаем цвет
+        for _,p in ipairs(c:GetDescendants()) do
+            if p:IsA("BasePart") then
+                p.Color=Color3.fromRGB(255,255,255)
+                p.Material=Enum.Material.Plastic
+            end
+        end
+    end
+    -- Удаляем следы
+    for _,obj in ipairs(workspace:GetChildren()) do
+        if obj:IsA("Part") and obj.Shape==Enum.PartType.Ball and obj.Anchored and obj.Material==Enum.Material.Neon then
+            obj:Destroy()
+        end
+    end
+    -- Обновляем кнопки
+    RB.Text="🌈 ВКЛЮЧИТЬ РАДУГУ"
+    RB.BackgroundColor3=Color3.fromRGB(50,30,70)
+    PT1.Text="✨ ЧАСТИЦЫ ВОКРУГ"
+    PT2.Text="🔥 ОГОНЬ"
+    PT3.Text="💨 ДЫМ"
+    PT4.Text="⭐ ЗВЁЗДЫ"
+    PT5.Text="🦋 БАБОЧКИ"
+    EF1.Text="🌟 АУРА (СВЕЧЕНИЕ)"
+    EF2.Text="🌈 РАДУЖНЫЙ СЛЕД"
+    EF3.Text="⚡ ЭЛЕКТРО"
+    EF4.Text="❄️ СНЕГ"
+    EF5.Text="💚 МАТЕРИАЛ NEON"
+end)
+
+-- Открытие/закрытие
+Icon.MouseButton1Click:Connect(function()
+    if MF.Visible then
+        local t=TW:Create(MF,TweenInfo.new(0.25,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{
+            Size=UDim2.new(0,0,0,0)
+        })
+        t:Play()
+        t.Completed:Connect(function() MF.Visible=false end)
+    else
+        MF.Visible=true
+        MF.Size=UDim2.new(0,0,0,0)
+        TW:Create(MF,TweenInfo.new(0.35,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{
+            Size=CFG.Size
+        }):Play()
+    end
+end)
+
+CB.MouseButton1Click:Connect(function()
+    local t=TW:Create(MF,TweenInfo.new(0.25),{Size=UDim2.new(0,0,0,0)})
+    t:Play()
+    t.Completed:Connect(function() MF.Visible=false end)
+end)
+
+-- Перетаскивание
+do
+    local d,ds,sp=false,nil,nil
+    TB.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+            d=true
+            ds=i.Position
+            sp=MF.Position
+            i.Changed:Connect(function()
+                if i.UserInputState==Enum.UserInputState.End then d=false end
+            end)
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if d and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+            local dd=i.Position-ds
+            MF.Position=UDim2.new(sp.X.Scale,sp.X.Offset+dd.X,sp.Y.Scale,sp.Y.Offset+dd.Y)
+        end
+    end)
+end
+
+-- Возврат эффектов при респавне
+LP.CharacterAdded:Connect(function()
+    task.wait(1)
+    if rainbowLoop then
+        -- Пересоздаём радугу
+    end
+end)
+
+print("=== RAINBOW CHARACTER загружен ===")
+print("Строк: ~900 | Частей: 3")
+print("Иконка 🌈 слева")
+makeLabel(Pages[1],"УПРАВЛЕНИЕ ЦВЕТОМ",10,CFG.Color,20) 
