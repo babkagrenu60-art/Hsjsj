@@ -1,0 +1,366 @@
+-- ============================================
+-- BABFT AUTO FARM PRO | by nikolay777
+-- Расширенная версия | Для телефона
+-- ============================================
+
+local Players=game:GetService("Players")
+local UIS=game:GetService("UserInputService")
+local RS=game:GetService("RunService")
+local TW=game:GetService("TweenService")
+local LP=Players.LocalPlayer
+local PG=LP:WaitForChild("PlayerGui")
+
+local CFG={
+    Color=Color3.fromRGB(255,200,80),
+    Color2=Color3.fromRGB(255,100,50),
+    Size=UDim2.new(0,300,0,420),
+    AutoFarm=false,
+    AutoReset=true,
+    Fly=false,
+    Noclip=false,
+    Speed=false,
+    InfiniteBlocks=false,
+    AutoBuilder=false,
+    AutoCollect=false,
+    GodMode=false,
+    AntiAFK=false,
+}
+
+local SG=Instance.new("ScreenGui")
+SG.Name="NikolayFarmPro"
+SG.ResetOnSpawn=false
+SG.IgnoreGuiInset=true
+SG.Parent=PG
+
+local function cr(p,r) local c=Instance.new("UICorner");c.CornerRadius=UDim.new(0,r);c.Parent=p;return c end
+local function st(p,col,t) local s=Instance.new("UIStroke");s.Color=col;s.Thickness=t or 1.5;s.Parent=p;return s end
+
+-- ===== ЗАГРУЗОЧНЫЙ ЭКРАН С НИКОМ =====
+local LoadFrame=Instance.new("Frame")
+LoadFrame.Size=UDim2.new(1,0,1,0)
+LoadFrame.BackgroundColor3=Color3.fromRGB(10,10,15)
+LoadFrame.BackgroundTransparency=1
+LoadFrame.BorderSizePixel=0
+LoadFrame.ZIndex=100
+LoadFrame.Parent=SG
+
+local LoadText=Instance.new("TextLabel")
+LoadText.Size=UDim2.new(1,0,0,60)
+LoadText.Position=UDim2.new(0,0,0.4,-30)
+LoadText.BackgroundTransparency=1
+LoadText.Text="nikolay777"
+LoadText.TextColor3=CFG.Color
+LoadText.TextSize=36
+LoadText.Font=Enum.Font.GothamBold
+LoadText.TextTransparency=1
+LoadText.ZIndex=101
+LoadText.Parent=LoadFrame
+
+local SubText=Instance.new("TextLabel")
+SubText.Size=UDim2.new(1,0,0,30)
+SubText.Position=UDim2.new(0,0,0.5,-15)
+SubText.BackgroundTransparency=1
+SubText.Text="Build A Boat For Treasure"
+SubText.TextColor3=Color3.fromRGB(200,200,200)
+SubText.TextSize=14
+SubText.Font=Enum.Font.Gotham
+SubText.TextTransparency=1
+SubText.ZIndex=101
+SubText.Parent=LoadFrame
+
+TW:Create(LoadFrame,TweenInfo.new(0.5),{BackgroundTransparency=0.4}):Play()
+TW:Create(LoadText,TweenInfo.new(0.6,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{TextTransparency=0,TextSize=36}):Play()
+task.wait(0.5)
+TW:Create(SubText,TweenInfo.new(0.4),{TextTransparency=0}):Play()
+task.wait(1.5)
+TW:Create(LoadFrame,TweenInfo.new(0.6),{BackgroundTransparency=1}):Play()
+TW:Create(LoadText,TweenInfo.new(0.5),{TextTransparency=1}):Play()
+TW:Create(SubText,TweenInfo.new(0.5),{TextTransparency=1}):Play()
+task.wait(0.6)
+LoadFrame:Destroy()
+
+-- ===== ПАНЕЛЬ =====
+local Icon=Instance.new("TextButton")
+Icon.Size=UDim2.new(0,48,0,48)
+Icon.Position=UDim2.new(0,16,0.4,-24)
+Icon.BackgroundColor3=Color3.fromRGB(20,15,10)
+Icon.BorderSizePixel=0
+Icon.Text="⛵"
+Icon.TextColor3=CFG.Color
+Icon.TextSize=24
+Icon.Font=Enum.Font.GothamBold
+Icon.AutoButtonColor=false
+Icon.Parent=SG
+cr(Icon,24)
+st(Icon,CFG.Color,2)
+
+local MF=Instance.new("Frame")
+MF.Size=CFG.Size
+MF.Position=UDim2.new(0.5,-150,0.5,-210)
+MF.BackgroundColor3=Color3.fromRGB(20,15,10)
+MF.BorderSizePixel=0
+MF.ClipsDescendants=true
+MF.Parent=SG
+cr(MF,14)
+st(MF,CFG.Color,2)
+
+local TB=Instance.new("TextLabel")
+TB.Size=UDim2.new(1,0,0,40)
+TB.BackgroundColor3=Color3.fromRGB(15,10,8)
+TB.BorderSizePixel=0
+TB.Text="  ⛵ nikolay777 PRO"
+TB.TextColor3=CFG.Color
+TB.TextSize=13
+TB.Font=Enum.Font.GothamBold
+TB.TextXAlignment=Enum.TextXAlignment.Left
+TB.Parent=MF
+cr(TB,14)
+
+local CB=Instance.new("TextButton")
+CB.Size=UDim2.new(0,28,0,28)
+CB.Position=UDim2.new(1,-34,0,6)
+CB.BackgroundColor3=Color3.fromRGB(200,60,60)
+CB.BorderSizePixel=0
+CB.Text="x"
+CB.TextColor3=Color3.fromRGB(255,255,255)
+CB.TextSize=18
+CB.Font=Enum.Font.GothamBold
+CB.AutoButtonColor=false
+CB.Parent=TB
+cr(CB,14)
+
+-- Вкладки
+local TabFrame=Instance.new("Frame")
+TabFrame.Size=UDim2.new(1,-16,0,30)
+TabFrame.Position=UDim2.new(0,8,0,46)
+TabFrame.BackgroundTransparency=1
+TabFrame.Parent=MF
+
+local tabs={"ФАРМ","ИГРОК","ВИЗУАЛ"}
+local TabButtons={}
+local Pages={}
+
+for i,name in ipairs(tabs) do
+    local btn=Instance.new("TextButton")
+    btn.Size=UDim2.new(1/#tabs,-4,1,0)
+    btn.Position=UDim2.new((i-1)/#tabs,0,0,0)
+    btn.BackgroundColor3=Color3.fromRGB(35,25,20)
+    btn.BorderSizePixel=0
+    btn.Text=name
+    btn.TextColor3=Color3.fromRGB(180,160,140)
+    btn.TextSize=10
+    btn.Font=Enum.Font.GothamBold
+    btn.AutoButtonColor=false
+    btn.Parent=TabFrame
+    cr(btn,8)
+    TabButtons[i]=btn
+end
+
+local function makePage()
+    local f=Instance.new("Frame")
+    f.Size=UDim2.new(1,0,1,-86)
+    f.Position=UDim2.new(0,0,0,84)
+    f.BackgroundTransparency=1
+    f.Visible=false
+    f.Parent=MF
+    return f
+end
+
+for i=1,#tabs do
+    Pages[i]=makePage()
+end
+
+local function selectTab(idx)
+    for i,btn in ipairs(TabButtons) do
+        if i==idx then
+            btn.BackgroundColor3=CFG.Color
+            btn.TextColor3=Color3.fromRGB(0,0,0)
+            Pages[i].Visible=true
+        else
+            btn.BackgroundColor3=Color3.fromRGB(35,25,20)
+            btn.TextColor3=Color3.fromRGB(180,160,140)
+            Pages[i].Visible=false
+        end
+    end
+end
+
+for i,btn in ipairs(TabButtons) do
+    btn.MouseButton1Click:Connect(function() selectTab(i) end)
+end
+
+selectTab(1)
+
+local function makeBtn(parent,text,y,color)
+    local b=Instance.new("TextButton")
+    b.Size=UDim2.new(1,-10,0,36)
+    b.Position=UDim2.new(0,5,0,y)
+    b.BackgroundColor3=color or Color3.fromRGB(35,25,20)
+    b.BorderSizePixel=0
+    b.Text=text
+    b.TextColor3=Color3.fromRGB(220,200,180)
+    b.TextSize=11
+    b.Font=Enum.Font.GothamBold
+    b.AutoButtonColor=false
+    b.Parent=parent
+    cr(b,10)
+    return b
+end
+
+local function getChar()
+    local c=LP.Character
+    if not c then return nil,nil,nil end
+    local h=c:FindFirstChildOfClass("Humanoid")
+    local hrp=c:FindFirstChild("HumanoidRootPart")
+    return c,h,hrp
+end
+
+local function getShip()
+    for _,obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj.Name:lower():find("boat") then
+            return obj
+        end
+    end
+    return nil
+end
+
+-- ===== ВКЛАДКА ФАРМ =====
+local StatusLbl=Instance.new("TextLabel")
+StatusLbl.Size=UDim2.new(1,-10,0,18)
+StatusLbl.Position=UDim2.new(0,5,0,0)
+StatusLbl.BackgroundTransparency=1
+StatusLbl.Text="Готов к фарму"
+StatusLbl.TextColor3=Color3.fromRGB(180,180,190)
+StatusLbl.TextSize=11
+StatusLbl.Font=Enum.Font.Gotham
+StatusLbl.TextXAlignment=Enum.TextXAlignment.Left
+StatusLbl.Parent=Pages[1]
+
+local FarmBtn=makeBtn(Pages[1],"▶  АВТОФАРМ ЗОЛОТА",24,Color3.fromRGB(30,50,30))
+local ResetBtn=makeBtn(Pages[1],"🔄  СБРОС ПЕРСОНАЖА",64,Color3.fromRGB(50,35,25))
+local AutoCollectBtn=makeBtn(Pages[1],"💰  АВТО-СБОР ЗОЛОТА",104,Color3.fromRGB(50,50,25))
+local AutoBuildBtn=makeBtn(Pages[1],"🔨  АВТО-ПОСТРОЙКА",144,Color3.fromRGB(40,40,60))
+local InfiniteBtn=makeBtn(Pages[1],"♾️  БЕСКОНЕЧНЫЕ БЛОКИ",184,Color3.fromRGB(50,30,60))
+local SpawnBtn=makeBtn(Pages[1],"🚀  ФИКС СПАВНА",224,Color3.fromRGB(30,50,60))
+
+-- ===== ЛОГИКА ФАРМА =====
+local farmLoop=nil
+local collectLoop=nil
+local buildLoop=nil
+local spawnLoop=nil
+
+FarmBtn.MouseButton1Click:Connect(function()
+    CFG.AutoFarm=not CFG.AutoFarm
+    if CFG.AutoFarm then
+        FarmBtn.Text="⏹  ОСТАНОВИТЬ ФАРМ"
+        FarmBtn.BackgroundColor3=Color3.fromRGB(60,30,30)
+        StatusLbl.Text="⛵ Фарм активен..."
+        StatusLbl.TextColor3=Color3.fromRGB(150,255,150)
+        if farmLoop then farmLoop:Disconnect() end
+        farmLoop=RS.Heartbeat:Connect(function()
+            if not CFG.AutoFarm then return end
+            local _,_,hrp=getChar()
+            if hrp then
+                local target=Vector3.new(0,100,0)
+                for _,obj in ipairs(workspace:GetDescendants()) do
+                    if obj:IsA("BasePart") and obj.Name:lower():find("treasure") then
+                        target=obj.Position
+                        break
+                    end
+                end
+                if hrp.Position.Y<target.Y-50 then
+                    hrp.CFrame=CFrame.new(target)
+                end
+            end
+        end)
+    else
+        FarmBtn.Text="▶  АВТОФАРМ ЗОЛОТА"
+        FarmBtn.BackgroundColor3=Color3.fromRGB(30,50,30)
+        StatusLbl.Text="Остановлено"
+        StatusLbl.TextColor3=Color3.fromRGB(180,180,190)
+        if farmLoop then farmLoop:Disconnect();farmLoop=nil end
+    end
+end)
+
+ResetBtn.MouseButton1Click:Connect(function()
+    local c=getChar()
+    if c then
+        local h=c:FindFirstChildOfClass("Humanoid")
+        if h then h.Health=0 end
+    end
+end)
+
+AutoCollectBtn.MouseButton1Click:Connect(function()
+    CFG.AutoCollect=not CFG.AutoCollect
+    if CFG.AutoCollect then
+        AutoCollectBtn.Text="💰  АВТО-СБОР (ВКЛ)"
+        AutoCollectBtn.BackgroundColor3=Color3.fromRGB(70,70,40)
+        if collectLoop then collectLoop:Disconnect() end
+        collectLoop=RS.Heartbeat:Connect(function()
+            if not CFG.AutoCollect then return end
+            local _,_,hrp=getChar()
+            if hrp then
+                for _,obj in ipairs(workspace:GetDescendants()) do
+                    if obj:IsA("BasePart") then
+                        local n=obj.Name:lower()
+                        if n:find("gold") or n:find("coin") or n:find("treasure") then
+                            local d=(obj.Position-hrp.Position).Magnitude
+                            if d<50 then
+                                hrp.CFrame=CFrame.new(obj.Position+Vector3.new(0,3,0))
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    else
+        AutoCollectBtn.Text="💰  АВТО-СБОР ЗОЛОТА"
+        AutoCollectBtn.BackgroundColor3=Color3.fromRGB(50,50,25)
+        if collectLoop then collectLoop:Disconnect();collectLoop=nil end
+    end
+end)
+
+AutoBuildBtn.MouseButton1Click:Connect(function()
+    CFG.AutoBuilder=not CFG.AutoBuilder
+    if CFG.AutoBuilder then
+        AutoBuildBtn.Text="🔨  АВТО-СТРОЙКА (ВКЛ)"
+        AutoBuildBtn.BackgroundColor3=Color3.fromRGB(60,60,90)
+        local ship=getShip()
+        if ship then
+            for i=1,10 do
+                local block=Instance.new("Part")
+                block.Size=Vector3.new(4,1,4)
+                block.Color=Color3.fromHSV(math.random(),0.8,1)
+                block.Material=Enum.Material.Neon
+                block.Position=Vector3.new(i*5,10,0)
+                block.Parent=ship
+                task.wait(0.1)
+            end
+        end
+    else
+        AutoBuildBtn.Text="🔨  АВТО-ПОСТРОЙКА"
+        AutoBuildBtn.BackgroundColor3=Color3.fromRGB(40,40,60)
+    end
+end)
+
+InfiniteBtn.MouseButton1Click:Connect(function()
+    CFG.InfiniteBlocks=not CFG.InfiniteBlocks
+    if CFG.InfiniteBlocks then
+        InfiniteBtn.Text="♾️  БЛОКИ (ВКЛ)"
+        InfiniteBtn.BackgroundColor3=Color3.fromRGB(70,40,90)
+    else
+        InfiniteBtn.Text="♾️  БЕСКОНЕЧНЫЕ БЛОКИ"
+        InfiniteBtn.BackgroundColor3=Color3.fromRGB(50,30,60)
+    end
+end)
+
+SpawnBtn.MouseButton1Click:Connect(function()
+    CFG.AutoReset=not CFG.AutoReset
+    if CFG.AutoReset then
+        SpawnBtn.Text="🚀  ФИКС СПАВНА (ВКЛ)"
+        SpawnBtn.BackgroundColor3=Color3.fromRGB(40,70,90)
+    else
+        SpawnBtn.Text="🚀  ФИКС СПАВНА"
+        SpawnBtn.BackgroundColor3=Color3.fromRGB(30,50,60)
+    end
+end)
