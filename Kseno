@@ -1,0 +1,251 @@
+-- ============================================
+-- SCRIPT EDITOR | Встроенный редактор как в Xeno
+-- Вставляй код, сохраняй, запускай
+-- ============================================
+
+local Players=game:GetService("Players")
+local UIS=game:GetService("UserInputService")
+local TW=game:GetService("TweenService")
+local LP=Players.LocalPlayer
+local PG=LP:WaitForChild("PlayerGui")
+
+local SG=Instance.new("ScreenGui")
+SG.Name="ScriptEditor"
+SG.ResetOnSpawn=false
+SG.IgnoreGuiInset=true
+SG.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+SG.Parent=PG
+
+local function cr(p,r)
+    local c=Instance.new("UICorner")
+    c.CornerRadius=UDim.new(0,r)
+    c.Parent=p
+    return c
+end
+
+local function st(p,col,t)
+    local s=Instance.new("UIStroke")
+    s.Color=col
+    s.Thickness=t or 1.5
+    s.Parent=p
+    return s
+end
+
+-- Иконка
+local Icon=Instance.new("TextButton")
+Icon.Size=UDim2.new(0,50,0,50)
+Icon.Position=UDim2.new(0,16,0.4,-25)
+Icon.BackgroundColor3=Color3.fromRGB(20,20,30)
+Icon.BorderSizePixel=0
+Icon.Text="📝"
+Icon.TextColor3=Color3.fromRGB(100,200,255)
+Icon.TextSize=26
+Icon.Font=Enum.Font.GothamBold
+Icon.AutoButtonColor=false
+Icon.Parent=SG
+cr(Icon,25)
+st(Icon,Color3.fromRGB(100,200,255))
+
+-- Главное окно
+local MF=Instance.new("Frame")
+MF.Size=UDim2.new(0,320,0,400)
+MF.Position=UDim2.new(0.5,-160,0.5,-200)
+MF.BackgroundColor3=Color3.fromRGB(20,20,30)
+MF.BorderSizePixel=0
+MF.ClipsDescendants=true
+MF.Parent=SG
+cr(MF,12)
+st(MF,Color3.fromRGB(100,200,255),2)
+
+local TB=Instance.new("TextLabel")
+TB.Size=UDim2.new(1,0,0,36)
+TB.BackgroundColor3=Color3.fromRGB(12,12,18)
+TB.BorderSizePixel=0
+TB.Text="  📝 SCRIPT EDITOR"
+TB.TextColor3=Color3.fromRGB(100,200,255)
+TB.TextSize=13
+TB.Font=Enum.Font.GothamBold
+TB.TextXAlignment=Enum.TextXAlignment.Left
+TB.Parent=MF
+cr(TB,12)
+
+local CB=Instance.new("TextButton")
+CB.Size=UDim2.new(0,28,0,28)
+CB.Position=UDim2.new(1,-34,0,4)
+CB.BackgroundColor3=Color3.fromRGB(200,60,60)
+CB.BorderSizePixel=0
+CB.Text="X"
+CB.TextColor3=Color3.fromRGB(255,255,255)
+CB.TextSize=16
+CB.Font=Enum.Font.GothamBold
+CB.AutoButtonColor=false
+CB.Parent=TB
+cr(CB,14)
+
+-- Поле ввода скрипта
+local CodeBox=Instance.new("TextBox")
+CodeBox.Size=UDim2.new(1,-20,1,-140)
+CodeBox.Position=UDim2.new(0,10,0,46)
+CodeBox.BackgroundColor3=Color3.fromRGB(15,15,22)
+CodeBox.BorderSizePixel=0
+CodeBox.Text="-- Вставь сюда свой скрипт\n-- Потом нажми ЗАПУСТИТЬ или СОХРАНИТЬ\nprint('Привет, мир!')"
+CodeBox.TextColor3=Color3.fromRGB(200,220,255)
+CodeBox.TextSize=11
+CodeBox.Font=Enum.Font.Code
+CodeBox.TextWrapped=true
+CodeBox.TextXAlignment=Enum.TextXAlignment.Left
+CodeBox.TextYAlignment=Enum.TextYAlignment.Top
+CodeBox.MultiLine=true
+CodeBox.ClearTextOnFocus=false
+CodeBox.Parent=MF
+cr(CodeBox,8)
+
+-- Кнопка ЗАПУСТИТЬ
+local RunBtn=Instance.new("TextButton")
+RunBtn.Size=UDim2.new(0.5,-15,0,40)
+RunBtn.Position=UDim2.new(0,10,1,-85)
+RunBtn.BackgroundColor3=Color3.fromRGB(30,60,40)
+RunBtn.BorderSizePixel=0
+RunBtn.Text="▶  ЗАПУСТИТЬ"
+RunBtn.TextColor3=Color3.fromRGB(150,255,180)
+RunBtn.TextSize=12
+RunBtn.Font=Enum.Font.GothamBold
+RunBtn.AutoButtonColor=false
+RunBtn.Parent=MF
+cr(RunBtn,10)
+st(RunBtn,Color3.fromRGB(100,200,100))
+
+-- Кнопка СОХРАНИТЬ
+local SaveBtn=Instance.new("TextButton")
+SaveBtn.Size=UDim2.new(0.5,-15,0,40)
+SaveBtn.Position=UDim2.new(0.5,5,1,-85)
+SaveBtn.BackgroundColor3=Color3.fromRGB(40,40,60)
+SaveBtn.BorderSizePixel=0
+SaveBtn.Text="💾  СОХРАНИТЬ"
+SaveBtn.TextColor3=Color3.fromRGB(180,180,255)
+SaveBtn.TextSize=12
+SaveBtn.Font=Enum.Font.GothamBold
+SaveBtn.AutoButtonColor=false
+SaveBtn.Parent=MF
+cr(SaveBtn,10)
+st(SaveBtn,Color3.fromRGB(120,120,200))
+
+-- Кнопка ЗАГРУЗИТЬ
+local LoadBtn=Instance.new("TextButton")
+LoadBtn.Size=UDim2.new(1,-20,0,30)
+LoadBtn.Position=UDim2.new(0,10,1,-40)
+LoadBtn.BackgroundColor3=Color3.fromRGB(30,30,45)
+LoadBtn.BorderSizePixel=0
+LoadBtn.Text="📂  ЗАГРУЗИТЬ СОХРАНЁННЫЙ"
+LoadBtn.TextColor3=Color3.fromRGB(180,180,220)
+LoadBtn.TextSize=11
+LoadBtn.Font=Enum.Font.GothamBold
+LoadBtn.AutoButtonColor=false
+LoadBtn.Parent=MF
+cr(LoadBtn,8)
+
+-- Статус
+local StatusLbl=Instance.new("TextLabel")
+StatusLbl.Size=UDim2.new(1,-20,0,16)
+StatusLbl.Position=UDim2.new(0,10,1,-55)
+StatusLbl.BackgroundTransparency=1
+StatusLbl.Text="> Готов"
+StatusLbl.TextColor3=Color3.fromRGB(150,255,150)
+StatusLbl.TextSize=10
+StatusLbl.Font=Enum.Font.Code
+StatusLbl.TextXAlignment=Enum.TextXAlignment.Left
+StatusLbl.Parent=MF
+
+-- ===== ЛОГИКА =====
+local SAVE_KEY="XenoStyleScript"
+
+-- Сохранить
+SaveBtn.MouseButton1Click:Connect(function()
+    local code=CodeBox.Text
+    local success,err=pcall(function()
+        if writefile then
+            writefile(SAVE_KEY..".lua",code)
+        elseif setclipboard then
+            setclipboard(code)
+        end
+    end)
+    if success then
+        StatusLbl.Text="> СОХРАНЕНО"
+        StatusLbl.TextColor3=Color3.fromRGB(150,255,150)
+    else
+        StatusLbl.Text="> ОШИБКА СОХРАНЕНИЯ"
+        StatusLbl.TextColor3=Color3.fromRGB(255,150,150)
+    end
+end)
+
+-- Загрузить
+LoadBtn.MouseButton1Click:Connect(function()
+    local code=nil
+    if readfile then
+        local success,result=pcall(function()
+            return readfile(SAVE_KEY..".lua")
+        end)
+        if success then code=result end
+    end
+    if code then
+        CodeBox.Text=code
+        StatusLbl.Text="> ЗАГРУЖЕНО"
+        StatusLbl.TextColor3=Color3.fromRGB(150,255,150)
+    else
+        StatusLbl.Text="> НЕЧЕГО ЗАГРУЖАТЬ"
+        StatusLbl.TextColor3=Color3.fromRGB(255,150,150)
+    end
+end)
+
+-- Запустить
+RunBtn.MouseButton1Click:Connect(function()
+    local code=CodeBox.Text
+    StatusLbl.Text="> ЗАПУСК..."
+    StatusLbl.TextColor3=Color3.fromRGB(255,200,80)
+    local success,err=pcall(function()
+        local func=loadstring(code)
+        if func then
+            func()
+        else
+            error("Ошибка компиляции")
+        end
+    end)
+    if success then
+        StatusLbl.Text="> ЗАПУЩЕНО"
+        StatusLbl.TextColor3=Color3.fromRGB(150,255,150)
+    else
+        StatusLbl.Text="> ОШИБКА: "..tostring(err):sub(1,40)
+        StatusLbl.TextColor3=Color3.fromRGB(255,100,100)
+    end
+end)
+
+-- Открытие/закрытие
+Icon.MouseButton1Click:Connect(function()
+    MF.Visible=not MF.Visible
+end)
+CB.MouseButton1Click:Connect(function()
+    MF.Visible=false
+end)
+
+-- Перетаскивание
+do
+    local d,ds,sp=false,nil,nil
+    TB.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+            d=true
+            ds=i.Position
+            sp=MF.Position
+            i.Changed:Connect(function()
+                if i.UserInputState==Enum.UserInputState.End then d=false end
+            end)
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if d and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+            local dd=i.Position-ds
+            MF.Position=UDim2.new(sp.X.Scale,sp.X.Offset+dd.X,sp.Y.Scale,sp.Y.Offset+dd.Y)
+        end
+    end)
+end
+
+print("[Script Editor] Загружено. Вставь код в поле и нажми ЗАПУСТИТЬ.")
