@@ -1,0 +1,537 @@
+-- ============================================
+-- XENO SCRIPT EDITOR v2 | by ZERGI
+-- Лого: 116499801831802
+-- tg: https://t.me/+rGagnmbZpMowM2Ni
+-- ============================================
+
+local Players=game:GetService("Players")
+local UIS=game:GetService("UserInputService")
+local TW=game:GetService("TweenService")
+local LP=Players.LocalPlayer
+local PG=LP:WaitForChild("PlayerGui")
+
+local CFG={
+    Color=Color3.fromRGB(90,170,255),
+    BgColor=Color3.fromRGB(18,18,24),
+    XenoLogo="rbxassetid://116499801831802",
+}
+
+local SG=Instance.new("ScreenGui")
+SG.Name="XenoScriptEditor"
+SG.ResetOnSpawn=false
+SG.IgnoreGuiInset=true
+SG.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+SG.Parent=PG
+
+local function cr(p,r)
+    local c=Instance.new("UICorner")
+    c.CornerRadius=UDim.new(0,r)
+    c.Parent=p
+    return c
+end
+
+local function st(p,col,t)
+    local s=Instance.new("UIStroke")
+    s.Color=col
+    s.Thickness=t or 1.5
+    s.Parent=p
+    return s
+end
+
+-- ===== ИКОНКА =====
+local Icon=Instance.new("ImageButton")
+Icon.Size=UDim2.new(0,54,0,54)
+Icon.Position=UDim2.new(0,16,0.4,-27)
+Icon.BackgroundColor3=CFG.BgColor
+Icon.BorderSizePixel=0
+Icon.Image=CFG.XenoLogo
+Icon.ImageColor3=Color3.fromRGB(255,255,255)
+Icon.AutoButtonColor=false
+Icon.Parent=SG
+cr(Icon,16)
+st(Icon,CFG.Color,2)
+
+-- ===== ГЛАВНОЕ ОКНО =====
+local MF=Instance.new("Frame")
+MF.Size=UDim2.new(0,340,0,440)
+MF.Position=UDim2.new(0.5,-170,0.5,-220)
+MF.BackgroundColor3=CFG.BgColor
+MF.BorderSizePixel=0
+MF.ClipsDescendants=true
+MF.Parent=SG
+cr(MF,10)
+st(MF,CFG.Color,2)
+
+-- Верхняя панель
+local TopBar=Instance.new("Frame")
+TopBar.Size=UDim2.new(1,0,0,48)
+TopBar.BackgroundColor3=Color3.fromRGB(12,12,18)
+TopBar.BorderSizePixel=0
+TopBar.Parent=MF
+cr(TopBar,10)
+
+local TopLogo=Instance.new("ImageLabel")
+TopLogo.Size=UDim2.new(0,34,0,34)
+TopLogo.Position=UDim2.new(0,10,0,7)
+TopLogo.BackgroundTransparency=1
+TopLogo.Image=CFG.XenoLogo
+TopLogo.Parent=TopBar
+
+local TopTitle=Instance.new("TextLabel")
+TopTitle.Size=UDim2.new(0.6,0,1,0)
+TopTitle.Position=UDim2.new(0,52,0,0)
+TopTitle.BackgroundTransparency=1
+TopTitle.Text="XENO EDITOR"
+TopTitle.TextColor3=Color3.fromRGB(255,255,255)
+TopTitle.TextSize=14
+TopTitle.Font=Enum.Font.GothamBlack
+TopTitle.TextXAlignment=Enum.TextXAlignment.Left
+TopTitle.Parent=TopBar
+
+local TopSub=Instance.new("TextLabel")
+TopSub.Size=UDim2.new(0.25,0,1,0)
+TopSub.Position=UDim2.new(0.68,0,0,0)
+TopSub.BackgroundTransparency=1
+TopSub.Text="v2.0"
+TopSub.TextColor3=CFG.Color
+TopSub.TextSize=10
+TopSub.Font=Enum.Font.Code
+TopSub.TextXAlignment=Enum.TextXAlignment.Right
+TopSub.Parent=TopBar
+
+local CloseBtn=Instance.new("TextButton")
+CloseBtn.Size=UDim2.new(0,30,0,30)
+CloseBtn.Position=UDim2.new(1,-40,0,9)
+CloseBtn.BackgroundColor3=Color3.fromRGB(180,40,40)
+CloseBtn.BorderSizePixel=0
+CloseBtn.Text="X"
+CloseBtn.TextColor3=Color3.fromRGB(255,255,255)
+CloseBtn.TextSize=14
+CloseBtn.Font=Enum.Font.GothamBold
+CloseBtn.AutoButtonColor=false
+CloseBtn.Parent=TopBar
+cr(CloseBtn,8)
+
+-- Вкладки
+local TabFrame=Instance.new("Frame")
+TabFrame.Size=UDim2.new(1,-16,0,30)
+TabFrame.Position=UDim2.new(0,8,0,54)
+TabFrame.BackgroundTransparency=1
+TabFrame.Parent=MF
+
+local tabs={"EDITOR","SAVED","INFO"}
+local TabButtons={}
+local Pages={}
+
+for i,name in ipairs(tabs) do
+    local btn=Instance.new("TextButton")
+    btn.Size=UDim2.new(1/#tabs,-4,1,0)
+    btn.Position=UDim2.new((i-1)/#tabs,0,0,0)
+    btn.BackgroundColor3=Color3.fromRGB(22,22,30)
+    btn.BorderSizePixel=0
+    btn.Text=name
+    btn.TextColor3=Color3.fromRGB(140,140,160)
+    btn.TextSize=10
+    btn.Font=Enum.Font.GothamBlack
+    btn.AutoButtonColor=false
+    btn.Parent=TabFrame
+    cr(btn,6)
+    TabButtons[i]=btn
+end
+
+local function makePage()
+    local f=Instance.new("Frame")
+    f.Size=UDim2.new(1,-16,1,-96)
+    f.Position=UDim2.new(0,8,0,90)
+    f.BackgroundTransparency=1
+    f.Visible=false
+    f.Parent=MF
+    return f
+end
+
+for i=1,#tabs do
+    Pages[i]=makePage()
+end
+
+local function selectTab(idx)
+    for i,btn in ipairs(TabButtons) do
+        if i==idx then
+            btn.BackgroundColor3=CFG.Color
+            btn.TextColor3=Color3.fromRGB(255,255,255)
+            Pages[i].Visible=true
+        else
+            btn.BackgroundColor3=Color3.fromRGB(22,22,30)
+            btn.TextColor3=Color3.fromRGB(140,140,160)
+            Pages[i].Visible=false
+        end
+    end
+end
+
+for i,btn in ipairs(TabButtons) do
+    btn.MouseButton1Click:Connect(function() selectTab(i) end)
+end
+
+selectTab(1)
+
+-- ===== ВКЛАДКА EDITOR =====
+local CodeBox=Instance.new("TextBox")
+CodeBox.Size=UDim2.new(1,0,1,-100)
+CodeBox.Position=UDim2.new(0,0,0,0)
+CodeBox.BackgroundColor3=Color3.fromRGB(12,12,18)
+CodeBox.BorderSizePixel=0
+CodeBox.Text="-- Вставь сюда свой скрипт\n-- Потом нажми ЗАПУСТИТЬ\nprint('Hello Xeno!')"
+CodeBox.TextColor3=Color3.fromRGB(200,220,255)
+CodeBox.TextSize=11
+CodeBox.Font=Enum.Font.Code
+CodeBox.TextWrapped=true
+CodeBox.TextXAlignment=Enum.TextXAlignment.Left
+CodeBox.TextYAlignment=Enum.TextYAlignment.Top
+CodeBox.MultiLine=true
+CodeBox.ClearTextOnFocus=false
+CodeBox.Parent=Pages[1]
+cr(CodeBox,8)
+st(CodeBox,Color3.fromRGB(40,40,60),1)
+
+local StatusLbl=Instance.new("TextLabel")
+StatusLbl.Size=UDim2.new(1,0,0,16)
+StatusLbl.Position=UDim2.new(0,0,1,-60)
+StatusLbl.BackgroundTransparency=1
+StatusLbl.Text="> Ready"
+StatusLbl.TextColor3=Color3.fromRGB(150,255,150)
+StatusLbl.TextSize=10
+StatusLbl.Font=Enum.Font.Code
+StatusLbl.TextXAlignment=Enum.TextXAlignment.Left
+StatusLbl.Parent=Pages[1]
+
+-- 3 кнопки в ряд
+local RunBtn=Instance.new("TextButton")
+RunBtn.Size=UDim2.new(0.33,-4,0,38)
+RunBtn.Position=UDim2.new(0,0,1,-44)
+RunBtn.BackgroundColor3=Color3.fromRGB(30,60,90)
+RunBtn.BorderSizePixel=0
+RunBtn.Text="▶ ЗАПУСК"
+RunBtn.TextColor3=Color3.fromRGB(150,200,255)
+RunBtn.TextSize=11
+RunBtn.Font=Enum.Font.GothamBold
+RunBtn.AutoButtonColor=false
+RunBtn.Parent=Pages[1]
+cr(RunBtn,8)
+st(RunBtn,CFG.Color,1)
+
+local SaveBtn=Instance.new("TextButton")
+SaveBtn.Size=UDim2.new(0.33,-4,0,38)
+SaveBtn.Position=UDim2.new(0.34,0,1,-44)
+SaveBtn.BackgroundColor3=Color3.fromRGB(30,30,45)
+SaveBtn.BorderSizePixel=0
+SaveBtn.Text="💾 СОХР"
+SaveBtn.TextColor3=Color3.fromRGB(180,180,255)
+SaveBtn.TextSize=11
+SaveBtn.Font=Enum.Font.GothamBold
+SaveBtn.AutoButtonColor=false
+SaveBtn.Parent=Pages[1]
+cr(SaveBtn,8)
+st(SaveBtn,Color3.fromRGB(80,80,140),1)
+
+local ClearBtn=Instance.new("TextButton")
+ClearBtn.Size=UDim2.new(0.33,-4,0,38)
+ClearBtn.Position=UDim2.new(0.67,0,1,-44)
+ClearBtn.BackgroundColor3=Color3.fromRGB(80,30,30)
+ClearBtn.BorderSizePixel=0
+ClearBtn.Text="🗑 ОЧИСТ"
+ClearBtn.TextColor3=Color3.fromRGB(255,180,180)
+ClearBtn.TextSize=11
+ClearBtn.Font=Enum.Font.GothamBold
+ClearBtn.AutoButtonColor=false
+ClearBtn.Parent=Pages[1]
+cr(ClearBtn,8)
+st(ClearBtn,Color3.fromRGB(200,80,80),1)
+
+-- ===== ВКЛАДКА SAVED =====
+local SavedScroll=Instance.new("ScrollingFrame")
+SavedScroll.Size=UDim2.new(1,0,1,-44)
+SavedScroll.BackgroundTransparency=1
+SavedScroll.BorderSizePixel=0
+SavedScroll.ScrollBarThickness=3
+SavedScroll.ScrollBarImageColor3=CFG.Color
+SavedScroll.CanvasSize=UDim2.new(0,0,0,0)
+SavedScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
+SavedScroll.Parent=Pages[2]
+
+local SavedList=Instance.new("UIListLayout")
+SavedList.Padding=UDim.new(0,6)
+SavedList.SortOrder=Enum.SortOrder.LayoutOrder
+SavedList.Parent=SavedScroll
+
+local ClearAllBtn=Instance.new("TextButton")
+ClearAllBtn.Size=UDim2.new(1,0,0,34)
+ClearAllBtn.Position=UDim2.new(0,0,1,-38)
+ClearAllBtn.BackgroundColor3=Color3.fromRGB(80,30,30)
+ClearAllBtn.BorderSizePixel=0
+ClearAllBtn.Text="🗑  УДАЛИТЬ ВСЕ СКРИПТЫ"
+ClearAllBtn.TextColor3=Color3.fromRGB(255,180,180)
+ClearAllBtn.TextSize=11
+ClearAllBtn.Font=Enum.Font.GothamBold
+ClearAllBtn.AutoButtonColor=false
+ClearAllBtn.Parent=Pages[2]
+cr(ClearAllBtn,8)
+st(ClearAllBtn,Color3.fromRGB(200,80,80),1)
+
+-- ===== ВКЛАДКА INFO =====
+local InfoLbl=Instance.new("TextLabel")
+InfoLbl.Size=UDim2.new(1,0,1,0)
+InfoLbl.BackgroundTransparency=1
+InfoLbl.Text=[[XENO SCRIPT EDITOR v2.0
+
+Возможности:
+• Вставка скрипта в поле
+• Запуск через loadstring
+• Сохранение в файл
+• Список сохранённых
+• Удаление отдельного скрипта
+• Удаление всех скриптов
+• Автосохранение списка
+
+by ZERGI
+tg: t.me/+rGagnmbZpMowM2Ni
+
+Лого: 116499801831802]]
+InfoLbl.TextColor3=Color3.fromRGB(180,180,200)
+InfoLbl.TextSize=11
+InfoLbl.Font=Enum.Font.Code
+InfoLbl.TextWrapped=true
+InfoLbl.TextXAlignment=Enum.TextXAlignment.Left
+InfoLbl.TextYAlignment=Enum.TextYAlignment.Top
+InfoLbl.Parent=Pages[3]
+
+-- ===== ЛОГИКА =====
+local SAVE_KEY="XenoEditorScript"
+local SAVED_LIST_KEY="XenoEditorList"
+local savedScripts={}
+
+-- Функция сохранения списка в файл
+local function saveListToFile()
+    if not writefile then return end
+    local data=""
+    for _,s in ipairs(savedScripts) do
+        data=data..s.name.."\n===\n"..s.code.."\n===\n"
+    end
+    pcall(function() writefile(SAVED_LIST_KEY..".txt",data) end)
+end
+
+-- Загрузка списка из файла
+local function loadListFromFile()
+    if not readfile then return end
+    local ok,data=pcall(function() return readfile(SAVED_LIST_KEY..".txt") end)
+    if not ok or not data then return end
+    local parts={}
+    for chunk in data:gmatch("([^=]+)===") do
+        table.insert(parts,chunk)
+    end
+    -- Простой парсер: имя, код, имя, код...
+    local i=1
+    while i<#parts do
+        local name=parts[i]:gsub("^%s*(.-)%s*$","%1")
+        local code=parts[i+1]
+        if name and code and name~="" then
+            table.insert(savedScripts,{name=name,code=code})
+        end
+        i=i+2
+    end
+end
+
+local function refreshSaved()
+    for _,c in ipairs(SavedScroll:GetChildren()) do
+        if c:IsA("Frame") then c:Destroy() end
+    end
+    for i,script in ipairs(savedScripts) do
+        local row=Instance.new("Frame")
+        row.Size=UDim2.new(1,-6,0,36)
+        row.BackgroundColor3=Color3.fromRGB(22,22,30)
+        row.BorderSizePixel=0
+        row.Parent=SavedScroll
+        cr(row,6)
+        st(row,Color3.fromRGB(40,40,60),1)
+
+        local loadBtn=Instance.new("TextButton")
+        loadBtn.Size=UDim2.new(1,-40,1,0)
+        loadBtn.BackgroundTransparency=1
+        loadBtn.Text="📄  "..script.name
+        loadBtn.TextColor3=Color3.fromRGB(200,200,220)
+        loadBtn.TextSize=11
+        loadBtn.Font=Enum.Font.GothamBold
+        loadBtn.TextXAlignment=Enum.TextXAlignment.Left
+        loadBtn.AutoButtonColor=false
+        loadBtn.Parent=row
+        loadBtn.MouseButton1Click:Connect(function()
+            CodeBox.Text=script.code
+            selectTab(1)
+            StatusLbl.Text="> Загружен: "..script.name
+            StatusLbl.TextColor3=Color3.fromRGB(150,255,150)
+        end)
+
+        local delBtn=Instance.new("TextButton")
+        delBtn.Size=UDim2.new(0,34,0,28)
+        delBtn.Position=UDim2.new(1,-38,0,4)
+        delBtn.BackgroundColor3=Color3.fromRGB(140,40,40)
+        delBtn.BorderSizePixel=0
+        delBtn.Text="🗑"
+        delBtn.TextColor3=Color3.fromRGB(255,255,255)
+        delBtn.TextSize=14
+        delBtn.Font=Enum.Font.GothamBold
+        delBtn.AutoButtonColor=false
+        delBtn.Parent=row
+        cr(delBtn,6)
+        st(delBtn,Color3.fromRGB(200,80,80),1)
+        delBtn.MouseButton1Click:Connect(function()
+            local name=script.name
+            table.remove(savedScripts,i)
+            refreshSaved()
+            saveListToFile()
+            StatusLbl.Text="> Удалён: "..name
+            StatusLbl.TextColor3=Color3.fromRGB(255,150,150)
+        end)
+    end
+end
+
+-- Сохранить
+SaveBtn.MouseButton1Click:Connect(function()
+    local code=CodeBox.Text
+    if code=="" or code=="-- Вставь сюда свой скрипт\n-- Потом нажми ЗАПУСТИТЬ\nprint('Hello Xeno!')" then
+        StatusLbl.Text="> ПУСТО"
+        StatusLbl.TextColor3=Color3.fromRGB(255,150,150)
+        return
+    end
+    table.insert(savedScripts,{name="Script_"..(#savedScripts+1),code=code})
+    refreshSaved()
+    saveListToFile()
+    StatusLbl.Text="> СОХРАНЕНО"
+    StatusLbl.TextColor3=Color3.fromRGB(150,255,150)
+end)
+
+-- Запустить
+RunBtn.MouseButton1Click:Connect(function()
+    local code=CodeBox.Text
+    StatusLbl.Text="> ЗАПУСК..."
+    StatusLbl.TextColor3=Color3.fromRGB(255,200,80)
+    local ok,err=pcall(function()
+        local func=loadstring(code)
+        if func then func() else error("Ошибка компиляции") end
+    end)
+    if ok then
+        StatusLbl.Text="> ЗАПУЩЕНО"
+        StatusLbl.TextColor3=Color3.fromRGB(150,255,150)
+    else
+        StatusLbl.Text="> ОШИБКА: "..tostring(err):sub(1,35)
+        StatusLbl.TextColor3=Color3.fromRGB(255,100,100)
+    end
+end)
+
+-- Очистить поле
+ClearBtn.MouseButton1Click:Connect(function()
+    CodeBox.Text=""
+    StatusLbl.Text="> ПОЛЕ ОЧИЩЕНО"
+    StatusLbl.TextColor3=Color3.fromRGB(255,200,80)
+end)
+
+-- Удалить всё
+ClearAllBtn.MouseButton1Click:Connect(function()
+    savedScripts={}
+    refreshSaved()
+    if delfile then
+        pcall(function() delfile(SAVED_LIST_KEY..".txt") end)
+        pcall(function() delfile(SAVE_KEY..".lua") end)
+    end
+    if writefile then
+        pcall(function() writefile(SAVED_LIST_KEY..".txt","") end)
+    end
+    StatusLbl.Text="> ВСЁ УДАЛЕНО"
+    StatusLbl.TextColor3=Color3.fromRGB(255,150,150)
+end)
+
+-- Загрузка списка при старте
+loadListFromFile()
+refreshSaved()
+
+-- Автозагрузка последнего в поле
+if readfile then
+    local ok,result=pcall(function() return readfile(SAVE_KEY..".lua") end)
+    if ok and result and result~="" then
+        CodeBox.Text=result
+    end
+end
+
+-- ===== ЗАКРЫТИЕ С ЛОГО =====
+local function closeWithXeno()
+    MF.Visible=false
+    local XenoOverlay=Instance.new("Frame")
+    XenoOverlay.Size=UDim2.new(1,0,1,0)
+    XenoOverlay.BackgroundColor3=Color3.fromRGB(0,0,0)
+    XenoOverlay.BackgroundTransparency=1
+    XenoOverlay.BorderSizePixel=0
+    XenoOverlay.ZIndex=999
+    XenoOverlay.Parent=SG
+
+    local XenoImg=Instance.new("ImageLabel")
+    XenoImg.Size=UDim2.new(0,140,0,140)
+    XenoImg.Position=UDim2.new(0.5,-70,0.5,-70)
+    XenoImg.BackgroundTransparency=1
+    XenoImg.Image=CFG.XenoLogo
+    XenoImg.ImageTransparency=1
+    XenoImg.ZIndex=1000
+    XenoImg.Parent=XenoOverlay
+
+    local XenoText=Instance.new("TextLabel")
+    XenoText.Size=UDim2.new(1,0,0,30)
+    XenoText.Position=UDim2.new(0,0,0.6,0)
+    XenoText.BackgroundTransparency=1
+    XenoText.Text="XENO"
+    XenoText.TextColor3=CFG.Color
+    XenoText.TextSize=24
+    XenoText.Font=Enum.Font.GothamBlack
+    XenoText.TextTransparency=1
+    XenoText.ZIndex=1000
+    XenoText.Parent=XenoOverlay
+
+    TW:Create(XenoOverlay,TweenInfo.new(0.4),{BackgroundTransparency=0.4}):Play()
+    TW:Create(XenoImg,TweenInfo.new(0.4,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{ImageTransparency=0}):Play()
+    TW:Create(XenoText,TweenInfo.new(0.4),{TextTransparency=0}):Play()
+    task.wait(1.2)
+    TW:Create(XenoOverlay,TweenInfo.new(0.5),{BackgroundTransparency=1}):Play()
+    TW:Create(XenoImg,TweenInfo.new(0.5),{ImageTransparency=1}):Play()
+    TW:Create(XenoText,TweenInfo.new(0.5),{TextTransparency=1}):Play()
+    task.wait(0.6)
+    XenoOverlay:Destroy()
+end
+
+CloseBtn.MouseButton1Click:Connect(closeWithXeno)
+
+Icon.MouseButton1Click:Connect(function()
+    if MF.Visible then
+        closeWithXeno()
+    else
+        MF.Visible=true
+    end
+end)
+
+-- Перетаскивание
+do
+    local d,ds,sp=false,nil,nil
+    TopBar.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+            d=true
+            ds=i.Position
+            sp=MF.Position
+            i.Changed:Connect(function()
+                if i.UserInputState==Enum.UserInputState.End then d=false end
+            end)
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if d and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+            local dd=i.Position-ds
+            MF.Position=UDim2.new(sp.X.Scale,sp.X.Offset+dd.X,sp.Y.Scale,sp.Y.Offset+dd.Y)
+        end
+    end)
+end
+
+print("[XENO EDITOR v2] Загружено. by ZERGI")
