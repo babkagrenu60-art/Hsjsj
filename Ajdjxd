@@ -1,0 +1,870 @@
+-- ============================================
+-- XENO SCRIPT EDITOR v2.2 | by ZERGI
+-- Mobile Optimized Edition
+-- Лого: 116499801831802
+-- tg: https://t.me/+rGagnmbZpMowM2Ni
+-- ============================================
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local TW = game:GetService("TweenService")
+local RS = game:GetService("RunService")
+local LP = Players.LocalPlayer
+local PG = LP:WaitForChild("PlayerGui")
+
+local CFG = {
+    Color = Color3.fromRGB(90, 170, 255),
+    BgColor = Color3.fromRGB(18, 18, 24),
+    PanelColor = Color3.fromRGB(24, 24, 32),
+    InputColor = Color3.fromRGB(14, 14, 20),
+    BorderColor = Color3.fromRGB(45, 45, 60),
+    TextColor = Color3.fromRGB(210, 220, 240),
+    TextDim = Color3.fromRGB(130, 140, 160),
+    SuccessColor = Color3.fromRGB(80, 200, 120),
+    XenoLogo = "rbxassetid://116499801831802",
+}
+
+local SG = Instance.new("ScreenGui")
+SG.Name = "XenoScriptEditor"
+SG.ResetOnSpawn = false
+SG.IgnoreGuiInset = true
+SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+SG.DisplayOrder = 999
+SG.Parent = PG
+
+local function corner(parent, radius)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, radius)
+    c.Parent = parent
+    return c
+end
+
+local function stroke(parent, color, thickness)
+    local s = Instance.new("UIStroke")
+    s.Color = color
+    s.Thickness = thickness or 1
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    s.Parent = parent
+    return s
+end
+
+local function padding(parent, top, right, bottom, left)
+    local p = Instance.new("UIPadding")
+    p.PaddingTop = UDim.new(0, top or 0)
+    p.PaddingRight = UDim.new(0, right or 0)
+    p.PaddingBottom = UDim.new(0, bottom or 0)
+    p.PaddingLeft = UDim.new(0, left or 0)
+    p.Parent = parent
+    return p
+end
+
+-- ===== ИКОНКА (маленькая, для мобилы) =====
+local Icon = Instance.new("ImageButton")
+Icon.Name = "Icon"
+Icon.Size = UDim2.new(0, 42, 0, 42)
+Icon.Position = UDim2.new(0, 10, 0.35, -21)
+Icon.BackgroundColor3 = CFG.BgColor
+Icon.BorderSizePixel = 0
+Icon.Image = CFG.XenoLogo
+Icon.ImageColor3 = Color3.fromRGB(255, 255, 255)
+Icon.AutoButtonColor = false
+Icon.Parent = SG
+corner(Icon, 6)
+stroke(Icon, CFG.BorderColor, 1)
+
+-- Пульс на иконке
+local iconPulse = TW:Create(Icon, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Size = UDim2.new(0, 46, 0, 46)})
+iconPulse:Play()
+
+-- ===== ГЛАВНОЕ ОКНО (компактное для мобилы) =====
+local MF = Instance.new("Frame")
+MF.Name = "MainFrame"
+MF.Size = UDim2.new(0, 290, 0, 360)
+MF.Position = UDim2.new(0.5, -145, 0.5, -180)
+MF.BackgroundColor3 = CFG.BgColor
+MF.BorderSizePixel = 0
+MF.ClipsDescendants = true
+MF.Parent = SG
+corner(MF, 8)
+local mainStroke = stroke(MF, CFG.BorderColor, 1)
+
+-- ===== ПАНЕЛЬ ПРЕВЬЮ (для анимации разлёта частиц) =====
+local particleLayer = Instance.new("Frame")
+particleLayer.Name = "Particles"
+particleLayer.Size = UDim2.new(1, 0, 1, 0)
+particleLayer.BackgroundTransparency = 1
+particleLayer.ZIndex = 500
+particleLayer.Parent = SG
+
+-- ===== ВЕРХНЯЯ ПАНЕЛЬ =====
+local TopBar = Instance.new("Frame")
+TopBar.Name = "TopBar"
+TopBar.Size = UDim2.new(1, 0, 0, 40)
+TopBar.BackgroundColor3 = Color3.fromRGB(12, 12, 18)
+TopBar.BorderSizePixel = 0
+TopBar.Parent = MF
+
+local TopLogo = Instance.new("ImageLabel")
+TopLogo.Size = UDim2.new(0, 24, 0, 24)
+TopLogo.Position = UDim2.new(0, 10, 0, 8)
+TopLogo.BackgroundTransparency = 1
+TopLogo.Image = CFG.XenoLogo
+TopLogo.Parent = TopBar
+
+local TopTitle = Instance.new("TextLabel")
+TopTitle.Size = UDim2.new(0.6, 0, 1, 0)
+TopTitle.Position = UDim2.new(0, 42, 0, 0)
+TopTitle.BackgroundTransparency = 1
+TopTitle.Text = "XENO EDITOR"
+TopTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+TopTitle.TextSize = 11
+TopTitle.Font = Enum.Font.GothamBold
+TopTitle.TextXAlignment = Enum.TextXAlignment.Left
+TopTitle.Parent = TopBar
+
+local TopSub = Instance.new("TextLabel")
+TopSub.Size = UDim2.new(0, 40, 1, 0)
+TopSub.Position = UDim2.new(1, -76, 0, 0)
+TopSub.BackgroundTransparency = 1
+TopSub.Text = "v2.2"
+TopSub.TextColor3 = CFG.TextDim
+TopSub.TextSize = 9
+TopSub.Font = Enum.Font.Code
+TopSub.TextXAlignment = Enum.TextXAlignment.Right
+TopSub.Parent = TopBar
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Name = "Close"
+CloseBtn.Size = UDim2.new(0, 24, 0, 24)
+CloseBtn.Position = UDim2.new(1, -32, 0, 8)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 52)
+CloseBtn.BorderSizePixel = 0
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(220, 220, 230)
+CloseBtn.TextSize = 12
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.AutoButtonColor = false
+CloseBtn.Parent = TopBar
+corner(CloseBtn, 4)
+stroke(CloseBtn, CFG.BorderColor, 1)
+
+-- ===== ВКЛАДКИ =====
+local TabFrame = Instance.new("Frame")
+TabFrame.Size = UDim2.new(1, -16, 0, 28)
+TabFrame.Position = UDim2.new(0, 8, 0, 46)
+TabFrame.BackgroundTransparency = 1
+TabFrame.Parent = MF
+
+local tabNames = {"EDITOR", "SAVED", "INFO"}
+local TabButtons = {}
+local Pages = {}
+
+for i, name in ipairs(tabNames) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1 / #tabNames, -3, 1, 0)
+    btn.Position = UDim2.new((i - 1) / #tabNames, 1.5, 0, 0)
+    btn.BackgroundColor3 = CFG.PanelColor
+    btn.BorderSizePixel = 0
+    btn.Text = name
+    btn.TextColor3 = CFG.TextDim
+    btn.TextSize = 9
+    btn.Font = Enum.Font.GothamBold
+    btn.AutoButtonColor = false
+    btn.Parent = TabFrame
+    corner(btn, 4)
+    stroke(btn, CFG.BorderColor, 1)
+    TabButtons[i] = btn
+end
+
+local function makePage()
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(1, -16, 1, -86)
+    f.Position = UDim2.new(0, 8, 0, 78)
+    f.BackgroundTransparency = 1
+    f.Visible = false
+    f.Parent = MF
+    return f
+end
+
+for i = 1, #tabNames do
+    Pages[i] = makePage()
+end
+
+local function selectTab(idx)
+    for i, btn in ipairs(TabButtons) do
+        local isActive = i == idx
+        TW:Create(btn, TweenInfo.new(0.2), {
+            BackgroundColor3 = isActive and CFG.Color or CFG.PanelColor
+        }):Play()
+        btn.TextColor3 = isActive and Color3.fromRGB(255, 255, 255) or CFG.TextDim
+        Pages[i].Visible = isActive
+    end
+end
+
+for i, btn in ipairs(TabButtons) do
+    btn.MouseButton1Click:Connect(function()
+        selectTab(i)
+    end)
+end
+
+selectTab(1)
+
+-- ===== ВКЛАДКА EDITOR =====
+local EditorFrame = Instance.new("Frame")
+EditorFrame.Size = UDim2.new(1, 0, 1, -68)
+EditorFrame.BackgroundColor3 = CFG.InputColor
+EditorFrame.BorderSizePixel = 0
+EditorFrame.Parent = Pages[1]
+corner(EditorFrame, 6)
+stroke(EditorFrame, CFG.BorderColor, 1)
+
+local CodeBox = Instance.new("TextBox")
+CodeBox.Size = UDim2.new(1, -12, 1, -12)
+CodeBox.Position = UDim2.new(0, 6, 0, 6)
+CodeBox.BackgroundTransparency = 1
+CodeBox.BorderSizePixel = 0
+CodeBox.Text = "-- Вставь сюда свой скрипт\n-- Потом нажми ЗАПУСК\nprint('Hello Xeno!')"
+CodeBox.TextColor3 = CFG.TextColor
+CodeBox.PlaceholderText = "-- Введи скрипт..."
+CodeBox.PlaceholderColor3 = CFG.TextDim
+CodeBox.TextSize = 10
+CodeBox.Font = Enum.Font.Code
+CodeBox.TextWrapped = true
+CodeBox.TextXAlignment = Enum.TextXAlignment.Left
+CodeBox.TextYAlignment = Enum.TextYAlignment.Top
+CodeBox.MultiLine = true
+CodeBox.ClearTextOnFocus = false
+CodeBox.Parent = EditorFrame
+
+local StatusLbl = Instance.new("TextLabel")
+StatusLbl.Size = UDim2.new(1, 0, 0, 14)
+StatusLbl.Position = UDim2.new(0, 0, 1, -52)
+StatusLbl.BackgroundTransparency = 1
+StatusLbl.Text = "> Ready"
+StatusLbl.TextColor3 = CFG.SuccessColor
+StatusLbl.TextSize = 9
+StatusLbl.Font = Enum.Font.Code
+StatusLbl.TextXAlignment = Enum.TextXAlignment.Left
+StatusLbl.Parent = Pages[1]
+
+local RunBtn = Instance.new("TextButton")
+RunBtn.Size = UDim2.new(0.33, -3, 0, 34)
+RunBtn.Position = UDim2.new(0, 0, 1, -34)
+RunBtn.BackgroundColor3 = Color3.fromRGB(30, 60, 90)
+RunBtn.BorderSizePixel = 0
+RunBtn.Text = "ЗАПУСК"
+RunBtn.TextColor3 = Color3.fromRGB(180, 220, 255)
+RunBtn.TextSize = 10
+RunBtn.Font = Enum.Font.GothamBold
+RunBtn.AutoButtonColor = false
+RunBtn.Parent = Pages[1]
+corner(RunBtn, 6)
+stroke(RunBtn, CFG.Color, 1)
+
+local SaveBtn = Instance.new("TextButton")
+SaveBtn.Size = UDim2.new(0.33, -3, 0, 34)
+SaveBtn.Position = UDim2.new(0.335, 0, 1, -34)
+SaveBtn.BackgroundColor3 = CFG.PanelColor
+SaveBtn.BorderSizePixel = 0
+SaveBtn.Text = "СОХР"
+SaveBtn.TextColor3 = CFG.TextColor
+SaveBtn.TextSize = 10
+SaveBtn.Font = Enum.Font.GothamBold
+SaveBtn.AutoButtonColor = false
+SaveBtn.Parent = Pages[1]
+corner(SaveBtn, 6)
+stroke(SaveBtn, CFG.BorderColor, 1)
+
+local ClearBtn = Instance.new("TextButton")
+ClearBtn.Size = UDim2.new(0.33, -3, 0, 34)
+ClearBtn.Position = UDim2.new(0.67, 0, 1, -34)
+ClearBtn.BackgroundColor3 = Color3.fromRGB(50, 26, 26)
+ClearBtn.BorderSizePixel = 0
+ClearBtn.Text = "ОЧИСТ"
+ClearBtn.TextColor3 = Color3.fromRGB(240, 180, 180)
+ClearBtn.TextSize = 10
+ClearBtn.Font = Enum.Font.GothamBold
+ClearBtn.AutoButtonColor = false
+ClearBtn.Parent = Pages[1]
+corner(ClearBtn, 6)
+stroke(ClearBtn, Color3.fromRGB(120, 50, 50), 1)
+
+-- ===== ВКЛАДКА SAVED =====
+local SavedScroll = Instance.new("ScrollingFrame")
+SavedScroll.Size = UDim2.new(1, 0, 1, -40)
+SavedScroll.BackgroundColor3 = CFG.InputColor
+SavedScroll.BorderSizePixel = 0
+SavedScroll.ScrollBarThickness = 3
+SavedScroll.ScrollBarImageColor3 = CFG.Color
+SavedScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+SavedScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+SavedScroll.Parent = Pages[2]
+corner(SavedScroll, 6)
+stroke(SavedScroll, CFG.BorderColor, 1)
+padding(SavedScroll, 5, 5, 5, 5)
+
+local SavedList = Instance.new("UIListLayout")
+SavedList.Padding = UDim.new(0, 4)
+SavedList.SortOrder = Enum.SortOrder.LayoutOrder
+SavedList.Parent = SavedScroll
+
+local ClearAllBtn = Instance.new("TextButton")
+ClearAllBtn.Size = UDim2.new(1, 0, 0, 34)
+ClearAllBtn.Position = UDim2.new(0, 0, 1, -36)
+ClearAllBtn.BackgroundColor3 = Color3.fromRGB(50, 26, 26)
+ClearAllBtn.BorderSizePixel = 0
+ClearAllBtn.Text = "УДАЛИТЬ ВСЕ"
+ClearAllBtn.TextColor3 = Color3.fromRGB(240, 180, 180)
+ClearAllBtn.TextSize = 10
+ClearAllBtn.Font = Enum.Font.GothamBold
+ClearAllBtn.AutoButtonColor = false
+ClearAllBtn.Parent = Pages[2]
+corner(ClearAllBtn, 6)
+stroke(ClearAllBtn, Color3.fromRGB(120, 50, 50), 1)
+
+-- ===== ВКЛАДКА INFO =====
+local InfoFrame = Instance.new("Frame")
+InfoFrame.Size = UDim2.new(1, 0, 1, 0)
+InfoFrame.BackgroundColor3 = CFG.InputColor
+InfoFrame.BorderSizePixel = 0
+InfoFrame.Parent = Pages[3]
+corner(InfoFrame, 6)
+stroke(InfoFrame, CFG.BorderColor, 1)
+padding(InfoFrame, 10, 10, 10, 10)
+
+local InfoLbl = Instance.new("TextLabel")
+InfoLbl.Size = UDim2.new(1, 0, 1, 0)
+InfoLbl.BackgroundTransparency = 1
+InfoLbl.Text = [[XENO SCRIPT EDITOR v2.2
+
+Mobile Edition
+
+Возможности:
+- Редактор Lua прямо в игре
+- Запуск через loadstring
+- Сохранение в память
+- Список скриптов
+- Анимация частиц при закрытии
+
+Управление:
+- Тап по иконке XENO - открыть
+- X в верхнем углу - закрыть
+- Перетаскивание за верх
+
+by ZERGI
+tg: t.me/+rGagnmbZpMowM2Ni]]
+InfoLbl.TextColor3 = CFG.TextColor
+InfoLbl.TextSize = 10
+InfoLbl.Font = Enum.Font.Code
+InfoLbl.TextWrapped = true
+InfoLbl.TextXAlignment = Enum.TextXAlignment.Left
+InfoLbl.TextYAlignment = Enum.TextYAlignment.Top
+InfoLbl.Parent = InfoFrame
+
+-- ===== СОХРАНЕНИЕ / ЗАГРУЗКА =====
+local SAVE_KEY = "XenoEditor_LastCode"
+local SAVED_INDEX = "XenoEditor_Scripts"
+local savedScripts = {}
+local scriptCounter = 0
+
+local function encode(str)
+    local out = {}
+    for i = 1, #str do
+        local b = str:byte(i)
+        out[i] = string.format("%02x", bit32.bxor(b, 42))
+    end
+    return table.concat(out)
+end
+
+local function decode(hex)
+    local out = {}
+    for i = 1, #hex, 2 do
+        local byte = tonumber(hex:sub(i, i + 1), 16)
+        if byte then
+            out[#out + 1] = string.char(bit32.bxor(byte, 42))
+        end
+    end
+    return table.concat(out)
+end
+
+local function safeWrite(name, data)
+    if not writefile then return false end
+    return pcall(function() writefile(name, data) end)
+end
+
+local function safeRead(name)
+    if not readfile then return nil end
+    local ok, data = pcall(function() return readfile(name) end)
+    if ok then return data end
+    return nil
+end
+
+local function safeDelete(name)
+    if not delfile then return end
+    pcall(function() delfile(name) end)
+end
+
+local function saveScriptsToDisk()
+    local lines = {}
+    for _, s in ipairs(savedScripts) do
+        local safeName = s.name:gsub("\n", " "):gsub("|", "/")
+        lines[#lines + 1] = safeName .. "|" .. encode(s.code)
+    end
+    safeWrite(SAVED_INDEX .. ".txt", table.concat(lines, "\n"))
+end
+
+local function loadScriptsFromDisk()
+    savedScripts = {}
+    scriptCounter = 0
+    local data = safeRead(SAVED_INDEX .. ".txt")
+    if not data or data == "" then return end
+    for line in data:gmatch("[^\n]+") do
+        local name, encoded = line:match("^(.-)|(.+)$")
+        if name and encoded then
+            local code = decode(encoded)
+            if code and code ~= "" then
+                table.insert(savedScripts, {name = name, code = code})
+                local num = tonumber(name:match("(%d+)$"))
+                if num and num > scriptCounter then
+                    scriptCounter = num
+                end
+            end
+        end
+    end
+    if scriptCounter == 0 then
+        scriptCounter = #savedScripts
+    end
+end
+
+local function refreshSaved()
+    for _, c in ipairs(SavedScroll:GetChildren()) do
+        if c:IsA("Frame") then c:Destroy() end
+    end
+    if #savedScripts == 0 then
+        local empty = Instance.new("TextLabel")
+        empty.Size = UDim2.new(1, 0, 0, 40)
+        empty.BackgroundTransparency = 1
+        empty.Text = "Нет сохранённых"
+        empty.TextColor3 = CFG.TextDim
+        empty.TextSize = 10
+        empty.Font = Enum.Font.Code
+        empty.LayoutOrder = 1
+        empty.Parent = SavedScroll
+        return
+    end
+    for i, script in ipairs(savedScripts) do
+        local row = Instance.new("Frame")
+        row.Size = UDim2.new(1, 0, 0, 34)
+        row.BackgroundColor3 = CFG.PanelColor
+        row.BorderSizePixel = 0
+        row.LayoutOrder = i
+        row.Parent = SavedScroll
+        corner(row, 6)
+        stroke(row, CFG.BorderColor, 1)
+
+        local loadBtn = Instance.new("TextButton")
+        loadBtn.Size = UDim2.new(1, -40, 1, 0)
+        loadBtn.BackgroundTransparency = 1
+        loadBtn.Text = script.name
+        loadBtn.TextColor3 = CFG.TextColor
+        loadBtn.TextSize = 10
+        loadBtn.Font = Enum.Font.GothamBold
+        loadBtn.TextXAlignment = Enum.TextXAlignment.Left
+        loadBtn.AutoButtonColor = false
+        loadBtn.Parent = row
+        padding(loadBtn, 0, 0, 0, 8)
+
+        loadBtn.MouseButton1Click:Connect(function()
+            CodeBox.Text = script.code
+            selectTab(1)
+            StatusLbl.Text = "> Загружен: " .. script.name
+            StatusLbl.TextColor3 = CFG.SuccessColor
+        end)
+
+        local delBtn = Instance.new("TextButton")
+        delBtn.Size = UDim2.new(0, 28, 0, 26)
+        delBtn.Position = UDim2.new(1, -32, 0, 4)
+        delBtn.BackgroundColor3 = Color3.fromRGB(50, 26, 26)
+        delBtn.BorderSizePixel = 0
+        delBtn.Text = "X"
+        delBtn.TextColor3 = Color3.fromRGB(240, 180, 180)
+        delBtn.TextSize = 11
+        delBtn.Font = Enum.Font.GothamBold
+        delBtn.AutoButtonColor = false
+        delBtn.Parent = row
+        corner(delBtn, 4)
+        stroke(delBtn, Color3.fromRGB(120, 50, 50), 1)
+
+        delBtn.MouseButton1Click:Connect(function()
+            local removed = script.name
+            table.remove(savedScripts, i)
+            refreshSaved()
+            saveScriptsToDisk()
+            StatusLbl.Text = "> Удалён: " .. removed
+            StatusLbl.TextColor3 = Color3.fromRGB(255, 150, 150)
+        end)
+    end
+end
+
+SaveBtn.MouseButton1Click:Connect(function()
+    local code = CodeBox.Text
+    if code == "" or code:find("Вставь сюда свой скрипт") then
+        StatusLbl.Text = "> Поле пустое"
+        StatusLbl.TextColor3 = Color3.fromRGB(255, 150, 150)
+        return
+    end
+    scriptCounter = scriptCounter + 1
+    local name = "Script_" .. scriptCounter
+    table.insert(savedScripts, {name = name, code = code})
+    refreshSaved()
+    saveScriptsToDisk()
+    safeWrite(SAVE_KEY .. ".lua", code)
+    StatusLbl.Text = "> Сохранено: " .. name
+    StatusLbl.TextColor3 = CFG.SuccessColor
+end)
+
+RunBtn.MouseButton1Click:Connect(function()
+    local code = CodeBox.Text
+    StatusLbl.Text = "> Запуск..."
+    StatusLbl.TextColor3 = Color3.fromRGB(255, 200, 80)
+    local ok, err = pcall(function()
+        local func = loadstring(code)
+        if func then func() else error("Ошибка компиляции") end
+    end)
+    if ok then
+        StatusLbl.Text = "> Запущено"
+        StatusLbl.TextColor3 = CFG.SuccessColor
+    else
+        StatusLbl.Text = "> Ошибка: " .. tostring(err):sub(1, 28)
+        StatusLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
+    end
+end)
+
+ClearBtn.MouseButton1Click:Connect(function()
+    CodeBox.Text = ""
+    StatusLbl.Text = "> Очищено"
+    StatusLbl.TextColor3 = Color3.fromRGB(255, 200, 80)
+end)
+
+ClearAllBtn.MouseButton1Click:Connect(function()
+    savedScripts = {}
+    scriptCounter = 0
+    refreshSaved()
+    safeDelete(SAVED_INDEX .. ".txt")
+    safeDelete(SAVE_KEY .. ".lua")
+    safeWrite(SAVED_INDEX .. ".txt", "")
+    StatusLbl.Text = "> Всё удалено"
+    StatusLbl.TextColor3 = Color3.fromRGB(255, 150, 150)
+end)
+
+loadScriptsFromDisk()
+refreshSaved()
+
+do
+    local lastCode = safeRead(SAVE_KEY .. ".lua")
+    if lastCode and lastCode ~= "" then
+        CodeBox.Text = lastCode
+    end
+end
+
+-- ============================================
+-- АНИМАЦИЯ ЧАСТИЦ ПРИ ОТКРЫТИИ / ЗАКРЫТИИ
+-- ============================================
+local function getColorAtPosition(pos)
+    -- Разные оттенки для интересного эффекта
+    local t = (pos.X + pos.Y) % 3
+    if t < 1 then
+        return CFG.Color
+    elseif t < 2 then
+        return Color3.fromRGB(140, 200, 255)
+    else
+        return Color3.fromRGB(70, 130, 200)
+    end
+end
+
+local function spawnParticles(targetPos, count, fromCenter)
+    -- targetPos: Vector2 на экране, куда летят частицы
+    -- count: количество частиц
+    -- fromCenter: если true — частицы летят ИЗ targetPos, иначе К targetPos
+    local particles = {}
+    local viewSize = workspace.CurrentCamera.ViewportSize
+
+    for i = 1, count do
+        local p = Instance.new("Frame")
+        p.Size = UDim2.new(0, 4, 0, 4)
+        p.BackgroundColor3 = CFG.Color
+        p.BorderSizePixel = 0
+        p.ZIndex = 600
+        p.Parent = particleLayer
+        corner(p, 1)
+
+        -- Стартовая позиция — от центра панели
+        local startX, startY
+        if fromCenter then
+            startX = targetPos.X + math.random(-3, 3)
+            startY = targetPos.Y + math.random(-3, 3)
+        else
+            startX = viewSize.X / 2 + math.random(-100, 100)
+            startY = viewSize.Y / 2 + math.random(-150, 150)
+        end
+
+        local endX, endY
+        if fromCenter then
+            -- Разлёт от targetPos в стороны
+            endX = startX + math.random(-90, 90)
+            endY = startY + math.random(-90, 90)
+        else
+            -- Слёт к targetPos
+            endX = targetPos.X + math.random(-3, 3)
+            endY = targetPos.Y + math.random(-3, 3)
+        end
+
+        p.Position = UDim2.new(0, startX, 0, startY)
+        p.BackgroundColor3 = getColorAtPosition(Vector2.new(startX, startY))
+        p.BackgroundTransparency = 0
+        p.Size = UDim2.new(0, math.random(3, 6), 0, math.random(3, 6))
+        corner(p, 2)
+
+        table.insert(particles, {
+            obj = p,
+            startPos = Vector2.new(startX, startY),
+            endPos = Vector2.new(endX, endY),
+        })
+    end
+
+    -- Анимация полёта
+    local duration = fromCenter and 0.5 or 0.45
+    local startTime = tick()
+
+    local conn
+    conn = RS.RenderStepped:Connect(function()
+        local elapsed = tick() - startTime
+        local alpha = math.clamp(elapsed / duration, 0, 1)
+        -- Ease out cubic
+        local eased = 1 - (1 - alpha) ^ 3
+
+        for _, data in ipairs(particles) do
+            if data.obj and data.obj.Parent then
+                local x = data.startPos.X + (data.endPos.X - data.startPos.X) * eased
+                local y = data.startPos.Y + (data.endPos.Y - data.startPos.Y) * eased
+                data.obj.Position = UDim2.new(0, x, 0, y)
+                data.obj.BackgroundTransparency = alpha * 0.7
+                data.obj.Size = UDim2.new(0, math.max(2, 6 * (1 - alpha * 0.6)), 0, math.max(2, 6 * (1 - alpha * 0.6)))
+            end
+        end
+
+        if alpha >= 1 then
+            conn:Disconnect()
+            for _, data in ipairs(particles) do
+                if data.obj and data.obj.Parent then
+                    data.obj:Destroy()
+                end
+            end
+        end
+    end)
+end
+
+-- Получить абсолютную позицию иконки на экране
+local function getIconAbsolutePosition()
+    return Icon.AbsolutePosition + Icon.AbsoluteSize / 2
+end
+
+-- ===== ЗАКРЫТИЕ С АНИМАЦИЕЙ =====
+local isAnimating = false
+
+local function closeWithParticles()
+    if isAnimating then return end
+    isAnimating = true
+
+    local iconPos = getIconAbsolutePosition()
+
+    -- 1. Частицы летят ОТ панели к иконке
+    spawnParticles(iconPos, 30, false)
+
+    -- 2. Панель сжимается и летит к иконке
+    local startPos = MF.AbsolutePosition
+    local startSize = MF.AbsoluteSize
+    local targetX = iconPos.X - startSize.X / 2
+    local targetY = iconPos.Y - startSize.Y / 2
+
+    local shrinkTween = TW:Create(MF, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        Size = UDim2.new(0, 0, 0, 0),
+        Position = UDim2.new(0, iconPos.X, 0, iconPos.Y),
+        BackgroundTransparency = 1
+    })
+
+    TW:Create(mainStroke, TweenInfo.new(0.4), {Transparency = 1}):Play()
+    for _, desc in ipairs(MF:GetDescendants()) do
+        if desc:IsA("GuiObject") and not desc:IsA("UIStroke") then
+            pcall(function()
+                TW:Create(desc, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
+            end)
+            if desc:IsA("TextLabel") or desc:IsA("TextButton") or desc:IsA("TextBox") then
+                pcall(function()
+                    TW:Create(desc, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
+                end)
+            end
+            if desc:IsA("ImageLabel") or desc:IsA("ImageButton") then
+                pcall(function()
+                    TW:Create(desc, TweenInfo.new(0.3), {ImageTransparency = 1}):Play()
+                end)
+            end
+        end
+    end
+
+    shrinkTween:Play()
+
+    shrinkTween.Completed:Connect(function()
+        MF.Visible = false
+        -- Восстановить прозрачность
+        MF.BackgroundTransparency = 0
+        MF.Size = UDim2.new(0, 290, 0, 360)
+        MF.Position = UDim2.new(0.5, -145, 0.5, -180)
+        mainStroke.Transparency = 0
+        for _, desc in ipairs(MF:GetDescendants()) do
+            if desc:IsA("GuiObject") and not desc:IsA("UIStroke") then
+                pcall(function()
+                    desc.BackgroundTransparency = desc:GetAttribute("OrigBgT") or 0
+                end)
+            end
+        end
+
+        -- Иконка пульсирует при возврате
+        local pulseTween = TW:Create(Icon, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 52, 0, 52)
+        })
+        pulseTween:Play()
+        pulseTween.Completed:Connect(function()
+            TW:Create(Icon, TweenInfo.new(0.3), {Size = UDim2.new(0, 42, 0, 42)}):Play()
+        end)
+
+        isAnimating = false
+    end)
+end
+
+-- ===== ОТКРЫТИЕ С АНИМАЦИЕЙ =====
+local function openWithParticles()
+    if isAnimating then return end
+    isAnimating = true
+
+    local iconPos = getIconAbsolutePosition()
+
+    -- 1. Иконка сжимается
+    TW:Create(Icon, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        Size = UDim2.new(0, 20, 0, 20)
+    }):Play()
+
+    -- 2. Частицы летят К иконке (собираются)
+    spawnParticles(iconPos, 25, false)
+
+    task.wait(0.15)
+
+    -- 3. Показываем панель с анимацией "вылета"
+    MF.Visible = true
+    MF.Size = UDim2.new(0, 0, 0, 0)
+    MF.Position = UDim2.new(0, iconPos.X, 0, iconPos.Y)
+    MF.BackgroundTransparency = 1
+    mainStroke.Transparency = 1
+
+    -- Скрываем содержимое на время анимации
+    for _, desc in ipairs(MF:GetDescendants()) do
+        if desc:IsA("GuiObject") and not desc:IsA("UIStroke") then
+            if not desc:GetAttribute("OrigBgT") then
+                desc:SetAttribute("OrigBgT", desc.BackgroundTransparency)
+            end
+            desc.BackgroundTransparency = 1
+        end
+        if desc:IsA("TextLabel") or desc:IsA("TextButton") or desc:IsA("TextBox") then
+            if not desc:GetAttribute("OrigTextT") then
+                desc:SetAttribute("OrigTextT", desc.TextTransparency)
+            end
+            desc.TextTransparency = 1
+        end
+        if desc:IsA("ImageLabel") or desc:IsA("ImageButton") then
+            if not desc:GetAttribute("OrigImgT") then
+                desc:SetAttribute("OrigImgT", desc.ImageTransparency)
+            end
+            desc.ImageTransparency = 1
+        end
+    end
+
+    local expandTween = TW:Create(MF, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, 290, 0, 360),
+        Position = UDim2.new(0.5, -145, 0.5, -180),
+        BackgroundTransparency = 0
+    })
+    TW:Create(mainStroke, TweenInfo.new(0.5), {Transparency = 0}):Play()
+    expandTween:Play()
+
+    -- Восстанавливаем содержимое с задержкой
+    task.spawn(function()
+        task.wait(0.25)
+        for _, desc in ipairs(MF:GetDescendants()) do
+            if desc:IsA("GuiObject") and not desc:IsA("UIStroke") then
+                local origBg = desc:GetAttribute("OrigBgT") or 0
+                pcall(function()
+                    TW:Create(desc, TweenInfo.new(0.3), {BackgroundTransparency = origBg}):Play()
+                end)
+            end
+            if desc:IsA("TextLabel") or desc:IsA("TextButton") or desc:IsA("TextBox") then
+                local origT = desc:GetAttribute("OrigTextT") or 0
+                pcall(function()
+                    TW:Create(desc, TweenInfo.new(0.3), {TextTransparency = origT}):Play()
+                end)
+            end
+            if desc:IsA("ImageLabel") or desc:IsA("ImageButton") then
+                local origI = desc:GetAttribute("OrigImgT") or 0
+                pcall(function()
+                    TW:Create(desc, TweenInfo.new(0.3), {ImageTransparency = origI}):Play()
+                end)
+            end
+        end
+    end)
+
+    -- Иконка возвращается в норм размер
+    TW:Create(Icon, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, 42, 0, 42)
+    }):Play()
+
+    task.wait(0.5)
+    isAnimating = false
+end
+
+CloseBtn.MouseButton1Click:Connect(closeWithParticles)
+
+Icon.MouseButton1Click:Connect(function()
+    if MF.Visible then
+        closeWithParticles()
+    else
+        openWithParticles()
+    end
+end)
+
+-- Перетаскивание
+do
+    local dragging = false
+    local dragStart = nil
+    local startPos = nil
+
+    TopBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = MF.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    UIS.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            MF.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+print("[XENO EDITOR v2.2 Mobile] Загружено. by ZERGI")
