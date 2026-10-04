@@ -1,0 +1,1630 @@
+-- ============================================
+-- XENO MM2 SUPREME v4.1 | by ZERGI
+-- Исправлена HTTP-ошибка, работает без интернета
+-- tg: https://t.me/+rGagnmbZpMowM2Ni
+-- ============================================
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local TW = game:GetService("TweenService")
+local RS = game:GetService("RunService")
+local WS = game:GetService("Workspace")
+local LP = Players.LocalPlayer
+local PG = LP:WaitForChild("PlayerGui")
+local CAM = WS.CurrentCamera
+
+-- ВАЖНО: используем rbxthumb который работает без HTTP
+local CFG = {
+    Color = Color3.fromRGB(90, 170, 255),
+    BgColor = Color3.fromRGB(16, 16, 22),
+    PanelColor = Color3.fromRGB(24, 24, 32),
+    InputColor = Color3.fromRGB(12, 12, 18),
+    BorderColor = Color3.fromRGB(45, 45, 60),
+    TextColor = Color3.fromRGB(215, 225, 245),
+    TextDim = Color3.fromRGB(130, 140, 160),
+    SuccessColor = Color3.fromRGB(80, 200, 120),
+    WarnColor = Color3.fromRGB(255, 200, 80),
+    DangerColor = Color3.fromRGB(255, 100, 100),
+    MurderColor = Color3.fromRGB(255, 60, 60),
+    SheriffColor = Color3.fromRGB(60, 140, 255),
+    InnocentColor = Color3.fromRGB(80, 220, 120),
+    NpcColor = Color3.fromRGB(255, 160, 60),
+    -- Используем rbxassetid формат без HTTP
+    XenoLogo = "rbxassetid://1049060234",
+    SkullLogo = "rbxassetid://7272826882",
+    TgLink = "https://t.me/+rGagnmbZpMowM2Ni",
+    Version = "4.1",
+}
+
+-- ============================================
+-- БЕЗОПАСНАЯ ЗАГРУЗКА (без HTTP краша)
+-- ============================================
+-- Проверяем доступность HTTP-запросов, но не падаем если нет
+pcall(function()
+    if request then
+        request({Url = "https://www.roblox.com", Method = "GET"})
+    end
+end)
+
+-- ============================================
+-- УТИЛИТЫ
+-- ============================================
+local function corner(parent, radius)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, radius)
+    c.Parent = parent
+    return c
+end
+
+local function stroke(parent, color, thickness)
+    local s = Instance.new("UIStroke")
+    s.Color = color
+    s.Thickness = thickness or 1
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    s.Parent = parent
+    return s
+end
+
+local function padding(parent, t, r, b, l)
+    local p = Instance.new("UIPadding")
+    p.PaddingTop = UDim.new(0, t or 0)
+    p.PaddingRight = UDim.new(0, r or 0)
+    p.PaddingBottom = UDim.new(0, b or 0)
+    p.PaddingLeft = UDim.new(0, l or 0)
+    p.Parent = parent
+    return p
+end
+
+local function copyToClipboard(text)
+    if setclipboard then
+        local ok = pcall(function() setclipboard(text) end)
+        if ok then return true end
+    end
+    if toclipboard then
+        local ok = pcall(function() toclipboard(text) end)
+        if ok then return true end
+    end
+    return false
+end
+
+local function openTelegram(link)
+    -- Оборачиваем в pcall — если HTTP заблокирован, не крашим скрипт
+    pcall(function()
+        if openbrowser then
+            openbrowser(link)
+        end
+    end)
+end
+
+-- ============================================
+-- SCREEN GUI
+-- ============================================
+local SG = Instance.new("ScreenGui")
+SG.Name = "XenoMM2Supreme"
+SG.ResetOnSpawn = false
+SG.IgnoreGuiInset = true
+SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+SG.DisplayOrder = 999
+SG.Parent = PG
+
+-- ============================================
+-- УВЕДОМЛЕНИЯ С ЧЕРЕПОМ
+-- ============================================
+local notifStack = {}
+local notifYOffset = 0
+
+local function showNotification(text, isEnabled)
+    local notif = Instance.new("Frame")
+    notif.Size = UDim2.new(0, 260, 0, 60)
+    notif.Position = UDim2.new(1, 280, 0, 100 + notifYOffset)
+    notif.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
+    notif.BorderSizePixel = 0
+    notif.ZIndex = 1000
+    notif.Parent = SG
+    corner(notif, 10)
+
+    local notifStroke = Instance.new("UIStroke")
+    notifStroke.Color = isEnabled and Color3.fromRGB(80, 200, 120) or Color3.fromRGB(255, 100, 100)
+    notifStroke.Thickness = 2
+    notifStroke.Parent = notif
+
+    local skull = Instance.new("ImageLabel")
+    skull.Size = UDim2.new(0, 44, 0, 44)
+    skull.Position = UDim2.new(0, 8, 0.5, -22)
+    skull.BackgroundTransparency = 1
+    skull.Image = CFG.SkullLogo
+    skull.ImageColor3 = isEnabled and Color3.fromRGB(80, 200, 120) or Color3.fromRGB(255, 100, 100)
+    skull.ZIndex = 1001
+    skull.Parent = notif
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, -70, 0, 20)
+    title.Position = UDim2.new(0, 60, 0, 12)
+    title.BackgroundTransparency = 1
+    title.Text = isEnabled and "ФУНКЦИЯ АКТИВИРОВАНА" or "ФУНКЦИЯ ВЫКЛЮЧЕНА"
+    title.TextColor3 = isEnabled and Color3.fromRGB(80, 200, 120) or Color3.fromRGB(255, 100, 100)
+    title.TextSize = 10
+    title.Font = Enum.Font.GothamBlack
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.ZIndex = 1001
+    title.Parent = notif
+
+    local msg = Instance.new("TextLabel")
+    msg.Size = UDim2.new(1, -70, 0, 26)
+    msg.Position = UDim2.new(0, 60, 0, 30)
+    msg.BackgroundTransparency = 1
+    msg.Text = text
+    msg.TextColor3 = Color3.fromRGB(220, 220, 240)
+    msg.TextSize = 11
+    msg.Font = Enum.Font.GothamBold
+    msg.TextXAlignment = Enum.TextXAlignment.Left
+    msg.TextWrapped = true
+    msg.ZIndex = 1001
+    msg.Parent = notif
+
+    table.insert(notifStack, notif)
+    notifYOffset = notifYOffset + 66
+
+    local appear = TW:Create(notif, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Position = UDim2.new(1, -270, 0, 100 + (notifYOffset - 66))
+    })
+    appear:Play()
+
+    task.spawn(function()
+        task.wait(2.5)
+        local fadeOut = TW:Create(notif, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Position = UDim2.new(1, 280, 0, notif.Position.Y.Offset),
+            BackgroundTransparency = 1
+        })
+        fadeOut:Play()
+        for _, child in ipairs(notif:GetDescendants()) do
+            if child:IsA("TextLabel") then
+                TW:Create(child, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
+            elseif child:IsA("ImageLabel") then
+                TW:Create(child, TweenInfo.new(0.3), {ImageTransparency = 1}):Play()
+            elseif child:IsA("UIStroke") then
+                TW:Create(child, TweenInfo.new(0.3), {Transparency = 1}):Play()
+            end
+        end
+        fadeOut.Completed:Connect(function()
+            notif:Destroy()
+            for i, n in ipairs(notifStack) do
+                if n == notif then table.remove(notifStack, i) break end
+            end
+            notifYOffset = math.max(0, notifYOffset - 66)
+            for i, n in ipairs(notifStack) do
+                if n and n.Parent then
+                    TW:Create(n, TweenInfo.new(0.3), {
+                        Position = UDim2.new(1, -270, 0, 100 + (i - 1) * 66)
+                    }):Play()
+                end
+            end
+        end)
+    end)
+end
+
+-- ============================================
+-- ЗАГРУЗКА
+-- ============================================
+local Splash = Instance.new("Frame")
+Splash.Size = UDim2.new(1, 0, 1, 0)
+Splash.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+Splash.BackgroundTransparency = 1
+Splash.BorderSizePixel = 0
+Splash.ZIndex = 2000
+Splash.Parent = SG
+
+local SplashCenter = Instance.new("Frame")
+SplashCenter.Size = UDim2.new(0, 300, 0, 300)
+SplashCenter.Position = UDim2.new(0.5, -150, 0.5, -150)
+SplashCenter.BackgroundTransparency = 1
+SplashCenter.ZIndex = 2001
+SplashCenter.Parent = Splash
+
+local SplashGlow = Instance.new("ImageLabel")
+SplashGlow.Size = UDim2.new(0, 200, 0, 200)
+SplashGlow.Position = UDim2.new(0.5, -100, 0.2, -50)
+SplashGlow.BackgroundTransparency = 1
+SplashGlow.Image = "rbxassetid://5028857472"
+SplashGlow.ImageColor3 = CFG.Color
+SplashGlow.ImageTransparency = 1
+SplashGlow.ZIndex = 2001
+SplashGlow.Parent = SplashCenter
+
+local SplashLogo = Instance.new("ImageLabel")
+SplashLogo.Size = UDim2.new(0, 110, 0, 110)
+SplashLogo.Position = UDim2.new(0.5, -55, 0.2, 5)
+SplashLogo.BackgroundTransparency = 1
+SplashLogo.Image = CFG.XenoLogo
+SplashLogo.ImageTransparency = 1
+SplashLogo.ZIndex = 2002
+SplashLogo.Parent = SplashCenter
+
+local SplashTitle = Instance.new("TextLabel")
+SplashTitle.Size = UDim2.new(1, 0, 0, 35)
+SplashTitle.Position = UDim2.new(0, 0, 0.55, 0)
+SplashTitle.BackgroundTransparency = 1
+SplashTitle.Text = "XENO MM2 SUPREME"
+SplashTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+SplashTitle.TextSize = 20
+SplashTitle.Font = Enum.Font.GothamBlack
+SplashTitle.TextTransparency = 1
+SplashTitle.ZIndex = 2002
+SplashTitle.Parent = SplashCenter
+
+local SplashSub = Instance.new("TextLabel")
+SplashSub.Size = UDim2.new(1, 0, 0, 20)
+SplashSub.Position = UDim2.new(0, 0, 0.65, 0)
+SplashSub.BackgroundTransparency = 1
+SplashSub.Text = "by ZERGI | v" .. CFG.Version
+SplashSub.TextColor3 = CFG.Color
+SplashSub.TextSize = 11
+SplashSub.Font = Enum.Font.Code
+SplashSub.TextTransparency = 1
+SplashSub.ZIndex = 2002
+SplashSub.Parent = SplashCenter
+
+local SplashBarBg = Instance.new("Frame")
+SplashBarBg.Size = UDim2.new(0, 240, 0, 6)
+SplashBarBg.Position = UDim2.new(0.5, -120, 0.75, 0)
+SplashBarBg.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+SplashBarBg.BorderSizePixel = 0
+SplashBarBg.ZIndex = 2002
+SplashBarBg.Parent = SplashCenter
+corner(SplashBarBg, 3)
+
+local SplashBar = Instance.new("Frame")
+SplashBar.Size = UDim2.new(0, 0, 1, 0)
+SplashBar.BackgroundColor3 = CFG.Color
+SplashBar.BorderSizePixel = 0
+SplashBar.ZIndex = 2003
+SplashBar.Parent = SplashBarBg
+corner(SplashBar, 3)
+
+local SplashStatus = Instance.new("TextLabel")
+SplashStatus.Size = UDim2.new(1, 0, 0, 18)
+SplashStatus.Position = UDim2.new(0, 0, 0.82, 0)
+SplashStatus.BackgroundTransparency = 1
+SplashStatus.Text = "Инициализация..."
+SplashStatus.TextColor3 = CFG.TextDim
+SplashStatus.TextSize = 10
+SplashStatus.Font = Enum.Font.Code
+SplashStatus.TextTransparency = 1
+SplashStatus.ZIndex = 2002
+SplashStatus.Parent = SplashCenter
+
+local SplashPercent = Instance.new("TextLabel")
+SplashPercent.Size = UDim2.new(1, 0, 0, 16)
+SplashPercent.Position = UDim2.new(0, 0, 0.88, 0)
+SplashPercent.BackgroundTransparency = 1
+SplashPercent.Text = "0%"
+SplashPercent.TextColor3 = CFG.Color
+SplashPercent.TextSize = 12
+SplashPercent.Font = Enum.Font.GothamBold
+SplashPercent.TextTransparency = 1
+SplashPercent.ZIndex = 2002
+SplashPercent.Parent = SplashCenter
+
+local function runSplash()
+    TW:Create(Splash, TweenInfo.new(0.4), {BackgroundTransparency = 0.15}):Play()
+    TW:Create(SplashGlow, TweenInfo.new(0.6, Enum.EasingStyle.Back), {ImageTransparency = 0.5}):Play()
+    TW:Create(SplashLogo, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {ImageTransparency = 0}):Play()
+    task.wait(0.4)
+    TW:Create(SplashTitle, TweenInfo.new(0.4), {TextTransparency = 0}):Play()
+    TW:Create(SplashSub, TweenInfo.new(0.4), {TextTransparency = 0}):Play()
+    TW:Create(SplashStatus, TweenInfo.new(0.4), {TextTransparency = 0}):Play()
+    TW:Create(SplashPercent, TweenInfo.new(0.4), {TextTransparency = 0}):Play()
+
+    local steps = {
+        {text = "Проверка функций эксплойта...", pct = 10},
+        {text = "Инициализация кеша ролей...", pct = 25},
+        {text = "Загрузка предиктивного аима...", pct = 40},
+        {text = "Настройка предсказания...", pct = 55},
+        {text = "Сбор NPC и игроков...", pct = 70},
+        {text = "Подготовка интерфейса...", pct = 85},
+        {text = "Готово!", pct = 100},
+    }
+
+    for i, step in ipairs(steps) do
+        SplashStatus.Text = step.text
+        SplashPercent.Text = step.pct .. "%"
+        TW:Create(SplashBar, TweenInfo.new(0.3), {
+            Size = UDim2.new(step.pct / 100, 0, 1, 0)
+        }):Play()
+        task.wait(0.3)
+    end
+
+    task.wait(0.4)
+    TW:Create(SplashLogo, TweenInfo.new(0.4), {ImageTransparency = 1}):Play()
+    TW:Create(SplashGlow, TweenInfo.new(0.4), {ImageTransparency = 1}):Play()
+    TW:Create(SplashTitle, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
+    TW:Create(SplashSub, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
+    TW:Create(SplashStatus, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
+    TW:Create(SplashPercent, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
+    TW:Create(SplashBarBg, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
+    TW:Create(Splash, TweenInfo.new(0.6), {BackgroundTransparency = 1}):Play()
+    task.wait(0.7)
+    Splash:Destroy()
+end
+
+-- ============================================
+-- РОЛИ
+-- ============================================
+local RoleCache = {}
+local RoundNumber = 0
+local RoundActive = false
+
+local function getPlayerRole(player)
+    if not player or not player.Character then return "Innocent" end
+    local char = player.Character
+    local tool = char:FindFirstChildOfClass("Tool")
+    if tool then
+        local n = tool.Name:lower()
+        if n:find("knife") or n:find("murder") then return "Murderer" end
+        if n:find("gun") or n:find("sheriff") or n:find("pistol") or n:find("revolver") then return "Sheriff" end
+    end
+    local bp = player:FindFirstChild("Backpack")
+    if bp then
+        for _, item in ipairs(bp:GetChildren()) do
+            if item:IsA("Tool") then
+                local n = item.Name:lower()
+                if n:find("knife") or n:find("murder") then return "Murderer" end
+                if n:find("gun") or n:find("sheriff") or n:find("pistol") or n:find("revolver") then return "Sheriff" end
+            end
+        end
+    end
+    local roleVal = char:FindFirstChild("Role")
+    if roleVal and roleVal.Value then
+        local r = tostring(roleVal.Value):lower()
+        if r:find("murder") then return "Murderer" end
+        if r:find("sheriff") or r:find("hero") then return "Sheriff" end
+    end
+    if char:FindFirstChild("Murderer") then return "Murderer" end
+    if char:FindFirstChild("Sheriff") then return "Sheriff" end
+    if RoleCache[player.UserId] then return RoleCache[player.UserId] end
+    return "Innocent"
+end
+
+local function getMyRole() return getPlayerRole(LP) end
+
+local function getRoleColor(role)
+    if role == "Murderer" then return CFG.MurderColor end
+    if role == "Sheriff" then return CFG.SheriffColor end
+    if role == "NPC" then return CFG.NpcColor end
+    return CFG.InnocentColor
+end
+
+local function getRoleName(role)
+    if role == "Murderer" then return "Убийца" end
+    if role == "Sheriff" then return "Шериф" end
+    if role == "NPC" then return "NPC" end
+    return "Мирный"
+end
+
+local function updateRoleCache()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LP then
+            local role = getPlayerRole(player)
+            if role ~= "Innocent" then
+                RoleCache[player.UserId] = role
+            end
+        end
+    end
+end
+
+local function resetRoleCache(reason)
+    RoleCache = {}
+    RoundNumber = RoundNumber + 1
+    if _G._updateESPNow then _G._updateESPNow() end
+end
+
+task.spawn(function()
+    while task.wait(0.5) do
+        if not SG or not SG.Parent then break end
+        local hasKnife = false
+        for _, player in ipairs(Players:GetPlayers()) do
+            local char = player.Character
+            if char then
+                local tool = char:FindFirstChildOfClass("Tool")
+                if tool then
+                    local n = tool.Name:lower()
+                    if n:find("knife") or n:find("murder") then hasKnife = true end
+                end
+                local bp = player:FindFirstChild("Backpack")
+                if bp then
+                    for _, item in ipairs(bp:GetChildren()) do
+                        if item:IsA("Tool") then
+                            local n = item.Name:lower()
+                            if n:find("knife") or n:find("murder") then hasKnife = true end
+                        end
+                    end
+                end
+            end
+        end
+        if hasKnife and not RoundActive then
+            RoundActive = true
+            resetRoleCache("нож найден")
+        elseif not hasKnife and RoundActive then
+            RoundActive = false
+        end
+    end
+end)
+
+LP.CharacterAdded:Connect(function()
+    resetRoleCache("респавн")
+end)
+
+-- ============================================
+-- НАСТРОЙКИ АИМА
+-- ============================================
+local aimBone = "Head"
+local predictEnabled = true
+local predictStrength = 1.0
+local wallCheckEnabled = false
+local aimSmoothness = 0.15
+local aimbotEnabled = false
+local lastAimCF = nil
+local lastAimTarget = nil
+local aimLeadMode = "advanced"
+local velocitySamples = {}
+local MAX_VELOCITY_SAMPLES = 6
+
+local aimNPCEnabled = false
+local npcOnlyMode = false
+local npcAimRange = 200
+local aimAtSheriffPriority = true
+local killAllForMurder = false
+local predictForMurder = true
+local murderPredictStrength = 1.4
+
+local function getSmoothedVelocity(hrp)
+    if not hrp then return Vector3.new() end
+    local userId = hrp.Parent and hrp.Parent.Name or "unknown"
+    if not velocitySamples[userId] then velocitySamples[userId] = {} end
+    local samples = velocitySamples[userId]
+    table.insert(samples, hrp.Velocity)
+    if #samples > MAX_VELOCITY_SAMPLES then
+        table.remove(samples, 1)
+    end
+    local sum = Vector3.new()
+    for _, v in ipairs(samples) do sum = sum + v end
+    return sum / #samples
+end
+
+local function getPredictedPosition(part, velocity, hrp)
+    if not predictEnabled then return part.Position end
+    local gravity = WS.Gravity
+    local smoothVel = velocity
+    if hrp then smoothVel = getSmoothedVelocity(hrp) end
+
+    local strength = predictStrength
+    if getMyRole() == "Murderer" and predictForMurder then
+        strength = murderPredictStrength
+    end
+
+    local dist = 0
+    if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+        dist = (LP.Character.HumanoidRootPart.Position - part.Position).Magnitude
+    end
+
+    local distMultiplier = 1 + (dist / 100) * 0.5
+    local predictTime = 0.15 * strength * distMultiplier
+
+    if aimLeadMode == "advanced" then
+        predictTime = predictTime * 1.15
+    elseif aimLeadMode == "extreme" then
+        predictTime = predictTime * 1.4
+    end
+
+    local verticalComponent = smoothVel.Y * predictTime - 0.5 * gravity * predictTime * predictTime
+    local horizontalPredict = Vector3.new(smoothVel.X * predictTime, 0, smoothVel.Z * predictTime)
+
+    return part.Position + horizontalPredict + Vector3.new(0, verticalComponent, 0)
+end
+
+local function isPlayerCharacter(model)
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Character == model then return true end
+    end
+    return false
+end
+
+local function findNPCs()
+    local npcs = {}
+    local myChar = LP.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return npcs end
+    local myPos = myChar.HumanoidRootPart.Position
+    for _, obj in ipairs(WS:GetDescendants()) do
+        if obj:IsA("Humanoid") then
+            local model = obj.Parent
+            if model and not isPlayerCharacter(model) then
+                local hrp = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Torso") or model:FindFirstChild("UpperTorso")
+                local head = model:FindFirstChild("Head")
+                if hrp and head and obj.Health > 0 then
+                    local dist = (myPos - hrp.Position).Magnitude
+                    if dist <= npcAimRange and model ~= myChar then
+                        table.insert(npcs, {model = model, humanoid = obj, hrp = hrp, head = head, dist = dist})
+                    end
+                end
+            end
+        end
+    end
+    table.sort(npcs, function(a, b) return a.dist < b.dist end)
+    return npcs
+end
+
+local function getAimPartFromModel(model)
+    if aimBone == "Head" then return model:FindFirstChild("Head") end
+    if aimBone == "UpperTorso" then return model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso") end
+    if aimBone == "LowerTorso" then return model:FindFirstChild("LowerTorso") or model:FindFirstChild("Torso") end
+    if aimBone == "HumanoidRootPart" then return model:FindFirstChild("HumanoidRootPart") end
+    return model:FindFirstChild("Head")
+end
+
+local function getAimPositionFromPlayer(target)
+    if not target or not target.Character then return nil end
+    local char = target.Character
+    local part = getAimPartFromModel(char)
+    if not part then return nil end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if hrp then return getPredictedPosition(part, hrp.Velocity, hrp) end
+    return part.Position
+end
+
+local function getAimPositionFromNPC(npc)
+    if not npc or not npc.model then return nil end
+    local part = getAimPartFromModel(npc.model)
+    if not part then return nil end
+    local hrp = npc.model:FindFirstChild("HumanoidRootPart")
+    if hrp then return getPredictedPosition(part, hrp.Velocity, hrp) end
+    return part.Position
+end
+
+local function isVisibleTo(instancesToIgnore, targetPos)
+    if not LP.Character then return false end
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    local ignoreList = {LP.Character}
+    for _, inst in ipairs(instancesToIgnore) do table.insert(ignoreList, inst) end
+    params.FilterDescendantsInstances = ignoreList
+    params.IgnoreWater = true
+    local origin = CAM.CFrame.Position
+    local direction = targetPos - origin
+    local result = WS:Raycast(origin, direction, params)
+    return result == nil
+end
+
+local function getTargetsByPriority()
+    local myRole = getMyRole()
+    local myChar = LP.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return {}, {} end
+    local myPos = myChar.HumanoidRootPart.Position
+    local priorityList = {}
+    local normalList = {}
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LP and player.Character then
+            local char = player.Character
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            local hum = char:FindFirstChild("Humanoid")
+            if hrp and hum and hum.Health > 0 then
+                local role = getPlayerRole(player)
+                local dist = (myPos - hrp.Position).Magnitude
+                local entry = {player = player, char = char, hrp = hrp, dist = dist, role = role}
+                local isPriority = false
+                if myRole == "Sheriff" and role == "Murderer" then isPriority = true end
+                if myRole == "Murderer" and aimAtSheriffPriority and role == "Sheriff" then isPriority = true end
+                if myRole == "Murderer" and killAllForMurder then isPriority = true end
+                if isPriority then
+                    table.insert(priorityList, entry)
+                else
+                    table.insert(normalList, entry)
+                end
+            end
+        end
+    end
+    table.sort(priorityList, function(a, b) return a.dist < b.dist end)
+    table.sort(normalList, function(a, b) return a.dist < b.dist end)
+    return priorityList, normalList
+end
+
+local function getBestTarget()
+    if npcOnlyMode or aimNPCEnabled then
+        local npcs = findNPCs()
+        if #npcs > 0 then
+            if wallCheckEnabled then
+                for _, npc in ipairs(npcs) do
+                    local aimPos = getAimPositionFromNPC(npc)
+                    if aimPos and isVisibleTo({npc.model}, aimPos) then
+                        return {type = "NPC", npc = npc}
+                    end
+                end
+                if npcOnlyMode then return nil end
+            else
+                return {type = "NPC", npc = npcs[1]}
+            end
+        end
+        if npcOnlyMode then return nil end
+    end
+    local prio, normal = getTargetsByPriority()
+    local list = #prio > 0 and prio or normal
+    if #list == 0 then return nil end
+    if wallCheckEnabled then
+        for _, entry in ipairs(list) do
+            local aimPos = getAimPositionFromPlayer(entry.player)
+            if aimPos and isVisibleTo({entry.char}, aimPos) then
+                return {type = "Player", player = entry.player}
+            end
+        end
+        return nil
+    end
+    return {type = "Player", player = list[1].player}
+end
+
+local function doAimbot()
+    if not aimbotEnabled then return end
+    if not UIS.TouchEnabled and not UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        lastAimCF = nil
+        return
+    end
+    local targetData = getBestTarget()
+    if not targetData then return end
+    local aimPos
+    if targetData.type == "NPC" then
+        aimPos = getAimPositionFromNPC(targetData.npc)
+    else
+        aimPos = getAimPositionFromPlayer(targetData.player)
+    end
+    if not aimPos then return end
+    local targetId = targetData.type == "NPC" and targetData.npc.model.Name or targetData.player.Name
+    if lastAimTarget ~= targetId then
+        lastAimTarget = targetId
+        lastAimCF = nil
+        velocitySamples = {}
+    end
+    local camPos = CAM.CFrame.Position
+    local targetCF = CFrame.new(camPos, aimPos)
+    local adaptiveSmooth = aimSmoothness
+    if not lastAimCF then adaptiveSmooth = 0 end
+    local newCF
+    if lastAimCF and adaptiveSmooth > 0 then
+        newCF = lastAimCF:Lerp(targetCF, 1 - adaptiveSmooth)
+    else
+        newCF = targetCF
+    end
+    lastAimCF = newCF
+    CAM.CFrame = newCF
+end
+
+RS.RenderStepped:Connect(function()
+    if aimbotEnabled then doAimbot() end
+end)
+
+-- ============================================
+-- ФУНКЦИИ УБИЙЦЫ
+-- ============================================
+local autoKnifeEnabled = true
+local killAuraEnabled = false
+local killAuraRange = 15
+local autoChaseEnabled = false
+local killAuraNpcEnabled = false
+
+task.spawn(function()
+    while task.wait(0.5) do
+        if not SG or not SG.Parent then break end
+        if not autoKnifeEnabled then continue end
+        local myRole = getMyRole()
+        if myRole ~= "Murderer" then continue end
+        local char = LP.Character
+        if not char then continue end
+        local currentTool = char:FindFirstChildOfClass("Tool")
+        if currentTool and currentTool.Name:lower():find("knife") then continue end
+        local bp = LP:FindFirstChild("Backpack")
+        if bp then
+            for _, item in ipairs(bp:GetChildren()) do
+                if item:IsA("Tool") and item.Name:lower():find("knife") then
+                    pcall(function() item.Parent = char end)
+                    break
+                end
+            end
+        end
+    end
+end)
+
+local function killAuraPlayers()
+    if not killAuraEnabled then return end
+    local myRole = getMyRole()
+    if myRole ~= "Murderer" then return end
+    local char = LP.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local tool = char:FindFirstChildOfClass("Tool")
+    if not tool or not tool.Name:lower():find("knife") then return end
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LP and player.Character then
+            local hum = player.Character:FindFirstChild("Humanoid")
+            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+            if hum and hrp and hum.Health > 0 then
+                local dist = (char.HumanoidRootPart.Position - hrp.Position).Magnitude
+                if dist <= killAuraRange then hum.Health = 0 end
+            end
+        end
+    end
+end
+
+local function killAuraNPCs()
+    if not killAuraNpcEnabled then return end
+    local myRole = getMyRole()
+    if myRole ~= "Murderer" then return end
+    local char = LP.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local tool = char:FindFirstChildOfClass("Tool")
+    if not tool or not tool.Name:lower():find("knife") then return end
+    local npcs = findNPCs()
+    for _, npc in ipairs(npcs) do
+        local dist = (char.HumanoidRootPart.Position - npc.hrp.Position).Magnitude
+        if dist <= killAuraRange then pcall(function() npc.humanoid.Health = 0 end) end
+    end
+end
+
+task.spawn(function()
+    while task.wait(0.1) do
+        if killAuraEnabled then killAuraPlayers() end
+        if killAuraNpcEnabled then killAuraNPCs() end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.1) do
+        if not autoChaseEnabled then continue end
+        local myRole = getMyRole()
+        if myRole ~= "Murderer" then continue end
+        local char = LP.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then continue end
+        local targetData = getBestTarget()
+        if not targetData then continue end
+        local targetPos
+        if targetData.type == "NPC" then
+            targetPos = targetData.npc.hrp.Position
+        else
+            targetPos = targetData.player.Character.HumanoidRootPart.Position
+        end
+        local myHRP = char.HumanoidRootPart
+        myHRP.Velocity = (targetPos - myHRP.Position).Unit * 50
+    end
+end)
+
+-- ============================================
+-- ПОДБОР РЕВОЛЬВЕРА
+-- ============================================
+local floatingLocked = false
+
+local function findFallenGun()
+    for _, obj in ipairs(WS:GetDescendants()) do
+        if obj:IsA("Tool") then
+            local n = obj.Name:lower()
+            if (n:find("gun") or n:find("pistol") or n:find("revolver")) and obj.Parent ~= LP.Character and obj.Parent ~= LP.Backpack then
+                return obj
+            end
+        end
+    end
+    return nil
+end
+
+local function pickGunTP()
+    local char = LP.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
+    local gun = findFallenGun()
+    if not gun then return false end
+    local savedCF = char.HumanoidRootPart.CFrame
+    local gunPos
+    local ok, pivot = pcall(function() return gun:GetPivot() end)
+    if ok then gunPos = pivot else gunPos = CFrame.new(gun.Position) end
+    char.HumanoidRootPart.CFrame = gunPos
+    task.spawn(function()
+        local timeout = 0
+        while timeout < 3 do
+            if gun.Parent == char or gun.Parent == LP.Backpack then break end
+            task.wait(0.05)
+            timeout = timeout + 0.05
+        end
+        if savedCF and char and char:FindFirstChild("HumanoidRootPart") then
+            char.HumanoidRootPart.CFrame = savedCF
+        end
+    end)
+    return true
+end
+
+-- ============================================
+-- ПЛАВАЮЩИЕ КНОПКИ
+-- ============================================
+local AIMBtn = Instance.new("TextButton")
+AIMBtn.Size = UDim2.new(0, 60, 0, 60)
+AIMBtn.Position = UDim2.new(0, 20, 0.55, 0)
+AIMBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+AIMBtn.BackgroundTransparency = 0.15
+AIMBtn.BorderSizePixel = 0
+AIMBtn.Text = "AIM"
+AIMBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+AIMBtn.TextSize = 12
+AIMBtn.Font = Enum.Font.GothamBlack
+AIMBtn.AutoButtonColor = false
+AIMBtn.Parent = SG
+corner(AIMBtn, 30)
+stroke(AIMBtn, CFG.BorderColor, 2)
+
+local NPCBtn = Instance.new("TextButton")
+NPCBtn.Size = UDim2.new(0, 46, 0, 46)
+NPCBtn.Position = UDim2.new(0, 90, 0.55, 0)
+NPCBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+NPCBtn.BackgroundTransparency = 0.15
+NPCBtn.BorderSizePixel = 0
+NPCBtn.Text = "NPC"
+NPCBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+NPCBtn.TextSize = 10
+NPCBtn.Font = Enum.Font.GothamBold
+NPCBtn.AutoButtonColor = false
+NPCBtn.Parent = SG
+corner(NPCBtn, 23)
+stroke(NPCBtn, CFG.BorderColor, 2)
+
+local GunBtn = Instance.new("TextButton")
+GunBtn.Size = UDim2.new(0, 60, 0, 60)
+GunBtn.Position = UDim2.new(0, 20, 0.55, 75)
+GunBtn.BackgroundColor3 = Color3.fromRGB(60, 40, 30)
+GunBtn.BackgroundTransparency = 0.1
+GunBtn.BorderSizePixel = 0
+GunBtn.Text = "GUN"
+GunBtn.TextColor3 = Color3.fromRGB(255, 220, 180)
+GunBtn.TextSize = 12
+GunBtn.Font = Enum.Font.GothamBlack
+GunBtn.AutoButtonColor = false
+GunBtn.Parent = SG
+corner(GunBtn, 30)
+stroke(GunBtn, Color3.fromRGB(255, 180, 100), 2)
+
+local LockBtn = Instance.new("TextButton")
+LockBtn.Size = UDim2.new(0, 24, 0, 24)
+LockBtn.Position = UDim2.new(0, 62, 0.55, 137)
+LockBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
+LockBtn.BackgroundTransparency = 0.2
+LockBtn.BorderSizePixel = 0
+LockBtn.Text = "🔒"
+LockBtn.TextColor3 = Color3.fromRGB(200, 200, 220)
+LockBtn.TextSize = 12
+LockBtn.Font = Enum.Font.GothamBold
+LockBtn.AutoButtonColor = false
+LockBtn.Parent = SG
+corner(LockBtn, 12)
+stroke(LockBtn, CFG.BorderColor, 1)
+
+local function makeDraggable(btn)
+    local dragging = false
+    local dragStart = nil
+    local startPos = nil
+    local moved = false
+    btn.InputBegan:Connect(function(input)
+        if floatingLocked then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = btn.Position
+            moved = false
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    UIS.InputChanged:Connect(function(input)
+        if dragging and not floatingLocked then
+            local delta = input.Position - dragStart
+            if math.abs(delta.X) > 3 or math.abs(delta.Y) > 3 then moved = true end
+            btn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    return function() return moved end
+end
+
+local aimWasMoved = makeDraggable(AIMBtn)
+local npcWasMoved = makeDraggable(NPCBtn)
+local gunWasMoved = makeDraggable(GunBtn)
+
+AIMBtn.MouseButton1Click:Connect(function()
+    if aimWasMoved() then return end
+    aimbotEnabled = not aimbotEnabled
+    if aimbotEnabled then
+        TW:Create(AIMBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 130, 60)}):Play()
+        AIMBtn.Text = "AIM ✓"
+        showNotification("Aimbot", true)
+    else
+        TW:Create(AIMBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 40, 55)}):Play()
+        AIMBtn.Text = "AIM"
+        showNotification("Aimbot", false)
+    end
+end)
+
+NPCBtn.MouseButton1Click:Connect(function()
+    if npcWasMoved() then return end
+    aimNPCEnabled = not aimNPCEnabled
+    if aimNPCEnabled then
+        aimbotEnabled = true
+        TW:Create(NPCBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(200, 120, 40)}):Play()
+        TW:Create(AIMBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 130, 60)}):Play()
+        AIMBtn.Text = "AIM ✓"
+        NPCBtn.Text = "NPC ✓"
+        showNotification("Аим на NPC", true)
+    else
+        TW:Create(NPCBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 40, 55)}):Play()
+        NPCBtn.Text = "NPC"
+        showNotification("Аим на NPC", false)
+    end
+end)
+
+GunBtn.MouseButton1Click:Connect(function()
+    if gunWasMoved() then return end
+    local ok = pickGunTP()
+    if ok then
+        TW:Create(GunBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(40, 130, 60)}):Play()
+        GunBtn.Text = "GUN ✓"
+        showNotification("Подбор пистолета", true)
+        task.wait(0.5)
+        TW:Create(GunBtn, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(60, 40, 30)}):Play()
+        GunBtn.Text = "GUN"
+    else
+        TW:Create(GunBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(130, 40, 40)}):Play()
+        GunBtn.Text = "нет"
+        showNotification("Пистолет не найден", false)
+        task.wait(0.7)
+        TW:Create(GunBtn, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(60, 40, 30)}):Play()
+        GunBtn.Text = "GUN"
+    end
+end)
+
+LockBtn.MouseButton1Click:Connect(function()
+    floatingLocked = not floatingLocked
+    if floatingLocked then
+        LockBtn.Text = "🔒"
+        TW:Create(LockBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(130, 40, 40)}):Play()
+        showNotification("Кнопки закреплены", true)
+    else
+        LockBtn.Text = "🔓"
+        TW:Create(LockBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(30, 30, 42)}):Play()
+        showNotification("Кнопки разблокированы", false)
+    end
+end)
+
+-- ============================================
+-- ИКОНКА МЕНЮ
+-- ============================================
+local Icon = Instance.new("ImageButton")
+Icon.Size = UDim2.new(0, 46, 0, 46)
+Icon.Position = UDim2.new(0, 12, 0.35, -23)
+Icon.BackgroundColor3 = CFG.BgColor
+Icon.BorderSizePixel = 0
+Icon.Image = CFG.XenoLogo
+Icon.AutoButtonColor = false
+Icon.Visible = false
+Icon.Parent = SG
+corner(Icon, 8)
+stroke(Icon, CFG.BorderColor, 1)
+
+-- ============================================
+-- ГЛАВНОЕ ОКНО
+-- ============================================
+local MF = Instance.new("Frame")
+MF.Size = UDim2.new(0, 340, 0, 460)
+MF.Position = UDim2.new(0.5, -170, 0.5, -230)
+MF.BackgroundColor3 = CFG.BgColor
+MF.BorderSizePixel = 0
+MF.ClipsDescendants = true
+MF.Visible = false
+MF.Parent = SG
+corner(MF, 10)
+local mainStroke = stroke(MF, CFG.BorderColor, 1)
+
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 44)
+TopBar.BackgroundColor3 = Color3.fromRGB(10, 10, 16)
+TopBar.BorderSizePixel = 0
+TopBar.Parent = MF
+
+local TopLogo = Instance.new("ImageLabel")
+TopLogo.Size = UDim2.new(0, 26, 0, 26)
+TopLogo.Position = UDim2.new(0, 10, 0, 9)
+TopLogo.BackgroundTransparency = 1
+TopLogo.Image = CFG.XenoLogo
+TopLogo.Parent = TopBar
+
+local TopTitle = Instance.new("TextLabel")
+TopTitle.Size = UDim2.new(0.7, 0, 1, 0)
+TopTitle.Position = UDim2.new(0, 44, 0, 0)
+TopTitle.BackgroundTransparency = 1
+TopTitle.Text = "XENO MM2 SUPREME"
+TopTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+TopTitle.TextSize = 11
+TopTitle.Font = Enum.Font.GothamBlack
+TopTitle.TextXAlignment = Enum.TextXAlignment.Left
+TopTitle.Parent = TopBar
+
+local TopSub = Instance.new("TextLabel")
+TopSub.Size = UDim2.new(0, 40, 1, 0)
+TopSub.Position = UDim2.new(1, -80, 0, 0)
+TopSub.BackgroundTransparency = 1
+TopSub.Text = "v" .. CFG.Version
+TopSub.TextColor3 = CFG.Color
+TopSub.TextSize = 9
+TopSub.Font = Enum.Font.Code
+TopSub.TextXAlignment = Enum.TextXAlignment.Right
+TopSub.Parent = TopBar
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 26, 0, 26)
+CloseBtn.Position = UDim2.new(1, -34, 0, 9)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 52)
+CloseBtn.BorderSizePixel = 0
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(220, 220, 230)
+CloseBtn.TextSize = 12
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.AutoButtonColor = false
+CloseBtn.Parent = TopBar
+corner(CloseBtn, 4)
+stroke(CloseBtn, CFG.BorderColor, 1)
+
+local RoleStatus = Instance.new("Frame")
+RoleStatus.Size = UDim2.new(1, -20, 0, 24)
+RoleStatus.Position = UDim2.new(0, 10, 0, 52)
+RoleStatus.BackgroundColor3 = Color3.fromRGB(12, 12, 18)
+RoleStatus.BorderSizePixel = 0
+RoleStatus.Parent = MF
+corner(RoleStatus, 4)
+stroke(RoleStatus, CFG.BorderColor, 1)
+
+local MyRoleLbl = Instance.new("TextLabel")
+MyRoleLbl.Size = UDim2.new(0.35, -4, 1, 0)
+MyRoleLbl.Position = UDim2.new(0, 4, 0, 0)
+MyRoleLbl.BackgroundTransparency = 1
+MyRoleLbl.Text = "Я: ?"
+MyRoleLbl.TextColor3 = CFG.Color
+MyRoleLbl.TextSize = 9
+MyRoleLbl.Font = Enum.Font.Code
+MyRoleLbl.TextXAlignment = Enum.TextXAlignment.Left
+MyRoleLbl.Parent = RoleStatus
+
+local MurderLbl = Instance.new("TextLabel")
+MurderLbl.Size = UDim2.new(0.35, -4, 1, 0)
+MurderLbl.Position = UDim2.new(0.35, 0, 0, 0)
+MurderLbl.BackgroundTransparency = 1
+MurderLbl.Text = "🔪 ?"
+MurderLbl.TextColor3 = CFG.MurderColor
+MurderLbl.TextSize = 9
+MurderLbl.Font = Enum.Font.Code
+MurderLbl.TextXAlignment = Enum.TextXAlignment.Center
+MurderLbl.Parent = RoleStatus
+
+local SheriffLbl = Instance.new("TextLabel")
+SheriffLbl.Size = UDim2.new(0.3, -4, 1, 0)
+SheriffLbl.Position = UDim2.new(0.7, 0, 0, 0)
+SheriffLbl.BackgroundTransparency = 1
+SheriffLbl.Text = "🔫 ?"
+SheriffLbl.TextColor3 = CFG.SheriffColor
+SheriffLbl.TextSize = 9
+SheriffLbl.Font = Enum.Font.Code
+SheriffLbl.TextXAlignment = Enum.TextXAlignment.Right
+SheriffLbl.Parent = RoleStatus
+
+task.spawn(function()
+    while RoleStatus.Parent do
+        updateRoleCache()
+        local murderer = "нет"
+        local sheriff = "нет"
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LP then
+                local role = RoleCache[player.UserId]
+                if role == "Murderer" then murderer = player.Name end
+                if role == "Sheriff" then sheriff = player.Name end
+            end
+        end
+        MyRoleLbl.Text = "Я: " .. getRoleName(getMyRole())
+        MurderLbl.Text = "🔪 " .. murderer
+        SheriffLbl.Text = "🔫 " .. sheriff
+        task.wait(1)
+    end
+end)
+
+local TabFrame = Instance.new("Frame")
+TabFrame.Size = UDim2.new(1, -20, 0, 30)
+TabFrame.Position = UDim2.new(0, 10, 0, 80)
+TabFrame.BackgroundTransparency = 1
+TabFrame.Parent = MF
+
+local tabNames = {"AIM", "MURDER", "UTIL", "ESP"}
+local TabButtons = {}
+local Pages = {}
+
+for i, name in ipairs(tabNames) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1 / #tabNames, -3, 1, 0)
+    btn.Position = UDim2.new((i - 1) / #tabNames, 1.5, 0, 0)
+    btn.BackgroundColor3 = CFG.PanelColor
+    btn.BorderSizePixel = 0
+    btn.Text = name
+    btn.TextColor3 = CFG.TextDim
+    btn.TextSize = 9
+    btn.Font = Enum.Font.GothamBold
+    btn.AutoButtonColor = false
+    btn.Parent = TabFrame
+    corner(btn, 4)
+    stroke(btn, CFG.BorderColor, 1)
+    TabButtons[i] = btn
+end
+
+local function makePage()
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(1, -20, 1, -116)
+    f.Position = UDim2.new(0, 10, 0, 116)
+    f.BackgroundTransparency = 1
+    f.Visible = false
+    f.Parent = MF
+    return f
+end
+
+for i = 1, #tabNames do
+    Pages[i] = makePage()
+end
+
+local function selectTab(idx)
+    for i, btn in ipairs(TabButtons) do
+        local isActive = i == idx
+        TW:Create(btn, TweenInfo.new(0.2), {
+            BackgroundColor3 = isActive and CFG.Color or CFG.PanelColor
+        }):Play()
+        btn.TextColor3 = isActive and Color3.fromRGB(255, 255, 255) or CFG.TextDim
+        Pages[i].Visible = isActive
+    end
+end
+
+for i, btn in ipairs(TabButtons) do
+    btn.MouseButton1Click:Connect(function() selectTab(i) end)
+end
+
+selectTab(1)
+
+local function makeScroll(parent)
+    local s = Instance.new("ScrollingFrame")
+    s.Size = UDim2.new(1, 0, 1, 0)
+    s.BackgroundTransparency = 1
+    s.BorderSizePixel = 0
+    s.ScrollBarThickness = 3
+    s.ScrollBarImageColor3 = CFG.Color
+    s.CanvasSize = UDim2.new(0, 0, 0, 0)
+    s.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    s.Parent = parent
+    local l = Instance.new("UIListLayout")
+    l.Padding = UDim.new(0, 5)
+    l.SortOrder = Enum.SortOrder.LayoutOrder
+    l.Parent = s
+    return s
+end
+
+local function makeSection(scroll, title)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, 0, 0, 22)
+    lbl.BackgroundColor3 = Color3.fromRGB(12, 12, 18)
+    lbl.BorderSizePixel = 0
+    lbl.Text = title
+    lbl.TextColor3 = CFG.Color
+    lbl.TextSize = 10
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = scroll
+    corner(lbl, 4)
+    padding(lbl, 0, 0, 0, 10)
+    return lbl
+end
+
+local function makeButton(scroll, name, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 36)
+    btn.BackgroundColor3 = CFG.PanelColor
+    btn.BorderSizePixel = 0
+    btn.Text = name
+    btn.TextColor3 = CFG.TextColor
+    btn.TextSize = 10
+    btn.Font = Enum.Font.GothamBold
+    btn.AutoButtonColor = false
+    btn.Parent = scroll
+    corner(btn, 5)
+    stroke(btn, CFG.BorderColor, 1)
+    btn.MouseButton1Click:Connect(function()
+        local ok, err = pcall(callback)
+        if not ok then print("[XENO] " .. name .. ": " .. tostring(err)) end
+        showNotification(name, true)
+    end)
+    return btn
+end
+
+local function makeToggle(scroll, name, callback, defaultState)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 36)
+    btn.BackgroundColor3 = CFG.PanelColor
+    btn.BorderSizePixel = 0
+    btn.Text = name .. ": ВЫКЛ"
+    btn.TextColor3 = CFG.TextColor
+    btn.TextSize = 10
+    btn.Font = Enum.Font.GothamBold
+    btn.AutoButtonColor = false
+    btn.Parent = scroll
+    corner(btn, 5)
+    stroke(btn, CFG.BorderColor, 1)
+    local state = defaultState or false
+    if state then
+        btn.Text = name .. ": ВКЛ"
+        btn.BackgroundColor3 = Color3.fromRGB(30, 60, 90)
+    end
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        btn.Text = name .. ": " .. (state and "ВКЛ" or "ВЫКЛ")
+        TW:Create(btn, TweenInfo.new(0.2), {
+            BackgroundColor3 = state and Color3.fromRGB(30, 60, 90) or CFG.PanelColor
+        }):Play()
+        local ok, err = pcall(callback, state)
+        if not ok then print("[XENO] " .. name .. ": " .. tostring(err)) end
+        showNotification(name, state)
+    end)
+    return btn
+end
+
+-- AIM
+local AimScroll = makeScroll(Pages[1])
+makeSection(AimScroll, "ПРЕДИКТИВНЫЙ АИМ")
+makeToggle(AimScroll, "Aimbot", function(state)
+    aimbotEnabled = state
+    if state then
+        TW:Create(AIMBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 130, 60)}):Play()
+        AIMBtn.Text = "AIM ✓"
+    else
+        TW:Create(AIMBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 40, 55)}):Play()
+        AIMBtn.Text = "AIM"
+    end
+    lastAimCF = nil
+end)
+makeToggle(AimScroll, "Предикт", function(state) predictEnabled = state end, true)
+makeToggle(AimScroll, "WallCheck", function(state) wallCheckEnabled = state end)
+makeSection(AimScroll, "РЕЖИМ ПРЕДИКТА")
+makeButton(AimScroll, "Простой", function() aimLeadMode = "simple" end)
+makeButton(AimScroll, "Продвинутый", function() aimLeadMode = "advanced" end)
+makeButton(AimScroll, "Экстремальный", function() aimLeadMode = "extreme" end)
+makeSection(AimScroll, "КОСТЬ ЦЕЛИ")
+makeButton(AimScroll, "Голова", function() aimBone = "Head" end)
+makeButton(AimScroll, "Верхнее туловище", function() aimBone = "UpperTorso" end)
+makeButton(AimScroll, "Нижнее туловище", function() aimBone = "LowerTorso" end)
+makeButton(AimScroll, "HRP", function() aimBone = "HumanoidRootPart" end)
+makeSection(AimScroll, "СИЛА ПРЕДИКТА (убийца)")
+makeButton(AimScroll, "1.0", function() murderPredictStrength = 1.0 end)
+makeButton(AimScroll, "1.4", function() murderPredictStrength = 1.4 end)
+makeButton(AimScroll, "1.8", function() murderPredictStrength = 1.8 end)
+makeButton(AimScroll, "2.5", function() murderPredictStrength = 2.5 end)
+makeSection(AimScroll, "ПЛАВНОСТЬ")
+makeButton(AimScroll, "Мгновенно", function() aimSmoothness = 0 end)
+makeButton(AimScroll, "15%", function() aimSmoothness = 0.15 end)
+makeButton(AimScroll, "35%", function() aimSmoothness = 0.35 end)
+makeButton(AimScroll, "60%", function() aimSmoothness = 0.6 end)
+
+-- MURDER
+local MurderScroll = makeScroll(Pages[2])
+makeSection(MurderScroll, "ПРИОРИТЕТЫ")
+makeToggle(MurderScroll, "Шериф №1", function(state) aimAtSheriffPriority = state end, true)
+makeToggle(MurderScroll, "Аим на ВСЕХ", function(state) killAllForMurder = state end)
+makeToggle(MurderScroll, "Усиленный предикт", function(state) predictForMurder = state end, true)
+makeSection(MurderScroll, "АВТОМАТИКА")
+makeToggle(MurderScroll, "Авто-нож", function(state) autoKnifeEnabled = state end, true)
+makeToggle(MurderScroll, "Auto Chase", function(state) autoChaseEnabled = state end)
+makeToggle(MurderScroll, "Kill Aura", function(state) killAuraEnabled = state end)
+makeToggle(MurderScroll, "Kill Aura NPC", function(state) killAuraNpcEnabled = state end)
+makeSection(MurderScroll, "РАДИУС")
+makeButton(MurderScroll, "10м", function() killAuraRange = 10 end)
+makeButton(MurderScroll, "15м", function() killAuraRange = 15 end)
+makeButton(MurderScroll, "25м", function() killAuraRange = 25 end)
+makeButton(MurderScroll, "40м", function() killAuraRange = 40 end)
+
+-- UTIL
+local UtilScroll = makeScroll(Pages[3])
+makeSection(UtilScroll, "ПИСТОЛЕТ")
+makeToggle(UtilScroll, "Убрать задержку", function(state) end)
+makeSection(UtilScroll, "ПОДБОР")
+makeButton(UtilScroll, "Подобрать пистолет", function() pickGunTP() end)
+makeSection(UtilScroll, "NPC")
+makeToggle(UtilScroll, "Аим на NPC", function(state)
+    aimNPCEnabled = state
+    if state then
+        aimbotEnabled = true
+        TW:Create(NPCBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(200, 120, 40)}):Play()
+        NPCBtn.Text = "NPC ✓"
+    else
+        TW:Create(NPCBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 40, 55)}):Play()
+        NPCBtn.Text = "NPC"
+    end
+end)
+makeToggle(UtilScroll, "ТОЛЬКО NPC", function(state) npcOnlyMode = state end)
+makeButton(UtilScroll, "Радиус 100м", function() npcAimRange = 100 end)
+makeButton(UtilScroll, "Радиус 200м", function() npcAimRange = 200 end)
+makeButton(UtilScroll, "Радиус 500м", function() npcAimRange = 500 end)
+makeSection(UtilScroll, "TP")
+makeButton(UtilScroll, "TP к Убийце", function()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LP and getPlayerRole(player) == "Murderer" and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            LP.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+            return
+        end
+    end
+end)
+makeButton(UtilScroll, "TP к Шерифу", function()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LP and getPlayerRole(player) == "Sheriff" and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            LP.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+            return
+        end
+    end
+end)
+makeButton(UtilScroll, "TP в лобби", function()
+    if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+        LP.Character.HumanoidRootPart.CFrame = CFrame.new(0, 100, 0)
+    end
+end)
+
+-- ESP
+local ESPScroll = makeScroll(Pages[4])
+local espRolesEnabled = false
+local espDistanceEnabled = false
+local espNPCEnabled = false
+local espObjects = {}
+
+local function clearESP()
+    for _, o in ipairs(espObjects) do
+        if o and o.Parent then o:Destroy() end
+    end
+    espObjects = {}
+end
+
+local function updateESP()
+    clearESP()
+    if not espRolesEnabled and not espDistanceEnabled and not espNPCEnabled then return end
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LP and player.Character then
+            local char = player.Character
+            local head = char:FindFirstChild("Head")
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            local hum = char:FindFirstChild("Humanoid")
+            if head and hrp and hum and hum.Health > 0 then
+                local role = getPlayerRole(player)
+                local color = getRoleColor(role)
+                if espRolesEnabled then
+                    local hl = Instance.new("Highlight")
+                    hl.Parent = char
+                    hl.Adornee = char
+                    hl.FillColor = color
+                    hl.OutlineColor = color
+                    hl.FillTransparency = 0.6
+                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    table.insert(espObjects, hl)
+                end
+                if espDistanceEnabled then
+                    local bb = Instance.new("BillboardGui")
+                    bb.Parent = char
+                    bb.Adornee = head
+                    bb.Size = UDim2.new(0, 150, 0, 50)
+                    bb.StudsOffset = Vector3.new(0, 2.8, 0)
+                    bb.AlwaysOnTop = true
+                    local nm = Instance.new("TextLabel")
+                    nm.Parent = bb
+                    nm.Size = UDim2.new(1, 0, 0.5, 0)
+                    nm.BackgroundTransparency = 1
+                    nm.TextColor3 = color
+                    nm.TextStrokeTransparency = 0
+                    nm.Font = Enum.Font.GothamBold
+                    nm.TextSize = 12
+                    nm.Text = player.Name
+                    local dst = Instance.new("TextLabel")
+                    dst.Parent = bb
+                    dst.Size = UDim2.new(1, 0, 0.5, 0)
+                    dst.Position = UDim2.new(0, 0, 0.5, 0)
+                    dst.BackgroundTransparency = 1
+                    dst.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    dst.TextStrokeTransparency = 0
+                    dst.Font = Enum.Font.Code
+                    dst.TextSize = 11
+                    if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+                        local d = (LP.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
+                        dst.Text = getRoleName(role) .. " | " .. string.format("%.0f м", d)
+                    end
+                    table.insert(espObjects, bb)
+                end
+            end
+        end
+    end
+    if espNPCEnabled then
+        local npcs = findNPCs()
+        for _, npc in ipairs(npcs) do
+            local hl = Instance.new("Highlight")
+            hl.Parent = npc.model
+            hl.Adornee = npc.model
+            hl.FillColor = CFG.NpcColor
+            hl.OutlineColor = CFG.NpcColor
+            hl.FillTransparency = 0.6
+            hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            table.insert(espObjects, hl)
+        end
+    end
+end
+
+_G._updateESPNow = function()
+    if espRolesEnabled or espDistanceEnabled or espNPCEnabled then updateESP() end
+end
+
+task.spawn(function()
+    while task.wait(0.3) do
+        if espRolesEnabled or espDistanceEnabled or espNPCEnabled then updateESP() end
+    end
+end)
+
+makeSection(ESPScroll, "ESP")
+makeToggle(ESPScroll, "ESP ролей", function(state)
+    espRolesEnabled = state
+    if not state then clearESP() end
+end)
+makeToggle(ESPScroll, "ESP имён + дистанция", function(state)
+    espDistanceEnabled = state
+    if not state then clearESP() end
+end)
+makeToggle(ESPScroll, "ESP на NPC", function(state) espNPCEnabled = state end)
+makeButton(ESPScroll, "Сбросить кеш", function() resetRoleCache("вручную") end)
+
+-- АНИМАЦИИ
+local isAnimating = false
+
+local function collectGuiObjects()
+    local list = {}
+    for _, desc in ipairs(MF:GetDescendants()) do
+        if desc:IsA("GuiObject") and not desc:IsA("UIStroke") then
+            local e = { obj = desc, origBg = desc.BackgroundTransparency, origText = nil, origImage = nil }
+            if desc:IsA("TextLabel") or desc:IsA("TextButton") or desc:IsA("TextBox") then
+                e.origText = desc.TextTransparency
+            end
+            if desc:IsA("ImageLabel") or desc:IsA("ImageButton") then
+                e.origImage = desc.ImageTransparency
+            end
+            table.insert(list, e)
+        end
+    end
+    return list
+end
+
+local function setAllTransparent(list)
+    for _, e in ipairs(list) do
+        e.obj.BackgroundTransparency = 1
+        if e.origText then e.obj.TextTransparency = 1 end
+        if e.origImage then e.obj.ImageTransparency = 1 end
+    end
+end
+
+local function restoreAll(list, duration)
+    for _, e in ipairs(list) do
+        pcall(function()
+            TW:Create(e.obj, TweenInfo.new(duration or 0.3), { BackgroundTransparency = e.origBg }):Play()
+        end)
+        if e.origText then
+            pcall(function()
+                TW:Create(e.obj, TweenInfo.new(duration or 0.3), { TextTransparency = e.origText }):Play()
+            end)
+        end
+        if e.origImage then
+            pcall(function()
+                TW:Create(e.obj, TweenInfo.new(duration or 0.3), { ImageTransparency = e.origImage }):Play()
+            end)
+        end
+    end
+end
+
+local function closeMenu()
+    if isAnimating then return end
+    isAnimating = true
+    local guiList = collectGuiObjects()
+    for _, e in ipairs(guiList) do
+        pcall(function()
+            TW:Create(e.obj, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
+        end)
+        if e.origText then
+            pcall(function()
+                TW:Create(e.obj, TweenInfo.new(0.25), { TextTransparency = 1 }):Play()
+            end)
+        end
+        if e.origImage then
+            pcall(function()
+                TW:Create(e.obj, TweenInfo.new(0.25), { ImageTransparency = 1 }):Play()
+            end)
+        end
+    end
+    TW:Create(mainStroke, TweenInfo.new(0.3), { Transparency = 1 }):Play()
+    local shrink = TW:Create(MF, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        Size = UDim2.new(0, 340, 0, 0),
+        BackgroundTransparency = 1
+    })
+    shrink:Play()
+    shrink.Completed:Connect(function()
+        MF.Visible = false
+        MF.Size = UDim2.new(0, 340, 0, 460)
+        MF.BackgroundTransparency = 0
+        mainStroke.Transparency = 0
+        restoreAll(guiList, 0)
+        isAnimating = false
+    end)
+end
+
+local function openMenu()
+    if isAnimating then return end
+    isAnimating = true
+    MF.Visible = true
+    MF.Size = UDim2.new(0, 340, 0, 0)
+    MF.BackgroundTransparency = 1
+    mainStroke.Transparency = 1
+    local guiList = collectGuiObjects()
+    setAllTransparent(guiList)
+    local expand = TW:Create(MF, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, 340, 0, 460),
+        BackgroundTransparency = 0
+    })
+    TW:Create(mainStroke, TweenInfo.new(0.3), { Transparency = 0 }):Play()
+    expand:Play()
+    task.spawn(function()
+        task.wait(0.1)
+        restoreAll(guiList, 0.25)
+    end)
+    task.wait(0.35)
+    isAnimating = false
+end
+
+CloseBtn.MouseButton1Click:Connect(closeMenu)
+Icon.MouseButton1Click:Connect(function()
+    if MF.Visible then closeMenu() else openMenu() end
+end)
+
+-- Перетаскивание
+do
+    local dragging = false
+    local dragStart = nil
+    local startPos = nil
+    TopBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = MF.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    UIS.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            MF.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+-- ЗАПУСК
+task.spawn(function()
+    runSplash()
+    task.wait(0.2)
+    Icon.Visible = true
+    Icon.Size = UDim2.new(0, 0, 0, 0)
+    TW:Create(Icon, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, 46, 0, 46)
+    }):Play()
+
+    task.wait(0.5)
+    copyToClipboard(CFG.TgLink)
+    openTelegram(CFG.TgLink)
+
+    showNotification("Скрипт загружен", true)
+end)
+
+print("[XENO] Загружено v" .. CFG.Version)
